@@ -1,0 +1,6 @@
+dist/
+src-tauri/target/
+src-tauri/gen/
+tests/kicad-demos/
+*.tmp.png
+__pycache__/

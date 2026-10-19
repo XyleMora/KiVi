@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KiVi — visual diff</title>
+<link rel="stylesheet" href="src/app/style.css">
+<link rel="stylesheet" href="src/desktop/desktop.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 66 58%22%3E%3Cmask id=%22m%22%3E%3Crect width=%2266%22 height=%2258%22 fill=%22#fff%22/%3E%3Ccircle cx=%2242%22 cy=%2213.5%22 r=%222.8%22 fill=%22#000%22/%3E%3Crect x=%2217%22 y=%2221%22 width=%2212%22 height=%2212%22 rx=%221.5%22 fill=%22#000%22/%3E%3Crect x=%2220%22 y=%2224%22 width=%226%22 height=%226%22 fill=%22#fff%22/%3E%3C/mask%3E%3Cpath mask=%22url(#m)%22 fill=%22#F0A63B%22 stroke=%22#F0A63B%22 stroke-width=%222%22 stroke-linejoin=%22round%22 d=%22M38 5.5C44.5 5.5 49 9.5 50 15C58 18.5 63 29 64 46C59 34.5 54.5 27.5 48.5 23.5C47 26 46.5 29 46 32C45 40.5 37.5 46.5 27.5 47C19.5 47.5 12.5 46 8.5 43L3 46L5 39.5C1.5 30 4 17 13.5 10.5C21 5.5 30 4.5 38 5.5Z%22/%3E%3Cpath fill=%22none%22 stroke=%22#F0A63B%22 stroke-width=%223.4%22 stroke-linecap=%22round%22 d=%22M20 46V54M31 46V54M8 55.5H44%22/%3E%3C/svg%3E">
+<script type="module" src="src/app/logo.js"></script>
+<script type="module" src="src/app/diff.js"></script>
+<script type="module" src="src/desktop/desktop.js"></script>
+</head>
+<body class="diff-page">
+<header class="top">
+  <a class="brand" href="./" aria-label="KiVi home">
+    <img class="brand-mark" src="assets/kivi-logo.svg" width="28" height="25" alt="">
+    KiVi
+  </a>
+  <form id="diff-form" class="gh-form" autocomplete="off">
+    <label for="diff-input" class="sr-only">Pull request, commit or compare URL</label>
+    <input id="diff-input" type="text" placeholder="github.com/owner/repo/pull/42 · …/commit/<sha> · …/compare/main...feature" spellcheck="false" style="padding-left:10px">
+    <button type="submit" class="btn primary">Compare</button>
+  </form>
+  <div class="top-actions">
+  </div>
+</header>
+
+<div id="diff-bar" class="projbar diff-bar" hidden>
+  <div class="proj-title">
+    <span id="diff-title" class="proj-name"></span>
+    <span id="diff-refs" class="muted mono"></span>
+  </div>
+  <div class="diff-controls">
+    <div class="seg" role="group" aria-label="Diff mode">
+      <button data-mode="split" aria-pressed="true">Side by side</button>
+      <button data-mode="overlay" aria-pressed="false">Overlay</button>
+    </div>
+    <label class="check pill" id="opacity-wrap" hidden>After <input type="range" id="opacity" min="0" max="100" value="50" aria-label="Opacity of the new version"></label>
+    <div class="seg" role="group" aria-label="Board layers" id="layer-preset" hidden>
+      <button data-layers="top" aria-pressed="true">Top</button>
+      <button data-layers="bottom" aria-pressed="false">Bottom</button>
+      <button data-layers="copper" aria-pressed="false">All copper</button>
+    </div>
+    <label class="check pill"><input type="checkbox" id="show-marks" checked> Highlight changes</label>
+    <button id="comment-mode" class="btn" aria-pressed="false" title="Comment on a part, pad, net or spot (C)" hidden>
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2.5 3.5h11v7h-6l-3 2.5v-2.5h-2z" stroke-linejoin="round"/></svg>
+      Comment
+    </button>
+    <a id="open-viewer" class="btn" target="_blank" rel="noopener" title="Open the project at the new version in the viewer">Open in viewer</a>
+  </div>
+</div>
+
+<main id="diff-main" hidden>
+  <aside class="panel left diff-side">
+    <div class="panel-title">Files</div>
+    <ul id="file-list" class="file-list"></ul>
+    <div class="row between"><div class="panel-title">Changes</div><span id="change-count" class="muted" style="font-size:12px"></span></div>
+    <ul id="change-list" class="change-list"></ul>
+  </aside>
+  <div class="canvas-wrap">
+    <div id="split" class="split">
+      <div class="pane"><div class="pane-label">Before <span id="before-ref" class="mono muted"></span></div><div id="before" class="canvas diffcanvas"></div></div>
+      <div class="pane"><div class="pane-label">After <span id="after-ref" class="mono muted"></span></div><div id="after" class="canvas diffcanvas"></div></div>
+    </div>
+    <div id="overlay-pane" class="pane" hidden><div class="pane-label">Overlay <span class="muted">· orange = before, blue = after</span></div><div id="overlay" class="canvas diffcanvas"></div></div>
+    <div class="zoom-ctl">
+      <button class="btn icon" data-zoom="in" aria-label="Zoom in">+</button>
+      <button class="btn icon" data-zoom="out" aria-label="Zoom out">−</button>
+      <button class="btn icon" data-zoom="fit" aria-label="Fit">⤢</button>
+    </div>
+  </div>
+</main>
+
+<section id="welcome" class="welcome">
+  <div class="welcome-inner">
+    <h1>Visual diff for KiCad</h1>
+    <p class="muted">Paste a GitHub pull request, commit or compare URL to see what changed in its schematics and boards: parts added, removed, moved or re-valued, rewired nets and rerouted tracks.</p>
+    <div class="examples">
+      <span class="muted">Try</span>
+      <button class="link" data-example="https://github.com/greatscottgadgets/hackrf/commit/d7b5a35371194ccb9ecd493bc116b3bc5998daaf">HackRF One: fabrication attributes and DNP</button>
+      <button class="link" data-example="https://github.com/greatscottgadgets/hackrf/commit/1d138898ab61bcf8d43fc124b6df15ca3de4c933">HackRF One: 0402 silkscreen</button>
+    </div>
+  </div>
+</section>
+
+<div id="loading" class="loading" hidden><div class="spinner"></div><span id="loading-text">Loading…</span></div>
+<div id="toast" class="toast" role="status" hidden></div>
+</body>
+</html>

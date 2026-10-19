@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KiVi</title>
+<link rel="stylesheet" href="src/app/style.css">
+<link rel="stylesheet" href="src/desktop/desktop.css">
+<script type="module" src="src/app/logo.js"></script>
+<script type="module" src="src/desktop/inbox.js"></script>
+</head>
+<body class="inbox-page">
+<header class="top">
+  <a class="brand" href="inbox.html" aria-label="KiVi home">
+    <img class="brand-mark" src="assets/kivi-logo.svg" width="28" height="25" alt="">
+    KiVi
+  </a>
+  <form id="gh-form" class="gh-form" autocomplete="off">
+    <label for="gh-input" class="sr-only">GitHub repository (leave empty to open a local folder)</label>
+    <input id="gh-input" type="text" placeholder="owner/repo  ·  owner/repo@branch  ·  empty: open a local folder" spellcheck="false">
+    <button type="submit" class="btn primary" title="Open the repository, or pick a local folder when the box is empty">Open</button>
+  </form>
+  <div class="top-actions">
+    <nav class="home-switch" aria-label="Home">
+      <button type="button" class="btn icon" data-home="projects" aria-label="Projects" title="Projects"></button>
+      <button type="button" class="btn icon" data-home="prs" aria-label="Pull requests" title="Pull requests"></button>
+    </nav>
+    <div id="account" class="account"></div>
+  </div>
+</header>
+
+<main class="inbox">
+  <section class="inbox-main">
+    <div class="inbox-head">
+      <h1 id="home-title">Projects</h1>
+      <div class="row gap">
+        <button id="refresh" class="btn small">Refresh</button>
+        <button id="side-toggle" class="btn small" aria-expanded="false" aria-controls="side" title="Watched repositories and recent folders">
+          <span id="side-icon"></span>Watched <span id="watched-count" class="count"></span>
+        </button>
+      </div>
+    </div>
+
+    <div id="home-projects">
+      <div class="projects-bar">
+        <input id="project-filter" class="input" type="search" placeholder="Filter projects" spellcheck="false" aria-label="Filter projects">
+        <span id="projects-status" class="muted" role="status"></span>
+      </div>
+      <ul id="projects" class="project-grid"></ul>
+    </div>
+
+    <div id="home-prs" hidden>
+      <p id="signed-out" class="inbox-note" hidden>Sign in to see pull requests waiting for your review and your own pull requests. Watched repositories work without signing in for public repositories.</p>
+      <div id="lists"></div>
+    </div>
+  </section>
+
+  <aside id="side" class="inbox-side" aria-label="Watched repositories and recent folders" inert>
+    <div class="side-head">
+      <h2>Watched repositories</h2>
+      <button type="button" id="side-close" class="btn icon small" aria-label="Close" title="Close">×</button>
+    </div>
+    <p class="muted settings-hint">Their projects and open pull requests are listed too.</p>
+    <ul id="watched" class="plain-list"></ul>
+    <form id="watch-form" class="row gap">
+      <input id="watch-input" class="input mono" placeholder="owner/repo" spellcheck="false" aria-label="Repository to watch">
+      <button class="btn small">Watch</button>
+    </form>
+
+    <h2>Recent folders</h2>
+    <p class="muted settings-hint">Local projects reload when KiCad saves them. Drop a folder on the window to open it.</p>
+    <ul id="recent" class="plain-list"></ul>
+  </aside>
+</main>
+
+<div id="toast" class="toast" role="status" hidden></div>
+</body>
+</html>

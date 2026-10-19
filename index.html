@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KiVi — KiCad project viewer</title>
+<link rel="stylesheet" href="src/app/style.css">
+<link rel="stylesheet" href="src/desktop/desktop.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 66 58%22%3E%3Cmask id=%22m%22%3E%3Crect width=%2266%22 height=%2258%22 fill=%22#fff%22/%3E%3Ccircle cx=%2242%22 cy=%2213.5%22 r=%222.8%22 fill=%22#000%22/%3E%3Crect x=%2217%22 y=%2221%22 width=%2212%22 height=%2212%22 rx=%221.5%22 fill=%22#000%22/%3E%3Crect x=%2220%22 y=%2224%22 width=%226%22 height=%226%22 fill=%22#fff%22/%3E%3C/mask%3E%3Cpath mask=%22url(#m)%22 fill=%22#F0A63B%22 stroke=%22#F0A63B%22 stroke-width=%222%22 stroke-linejoin=%22round%22 d=%22M38 5.5C44.5 5.5 49 9.5 50 15C58 18.5 63 29 64 46C59 34.5 54.5 27.5 48.5 23.5C47 26 46.5 29 46 32C45 40.5 37.5 46.5 27.5 47C19.5 47.5 12.5 46 8.5 43L3 46L5 39.5C1.5 30 4 17 13.5 10.5C21 5.5 30 4.5 38 5.5Z%22/%3E%3Cpath fill=%22none%22 stroke=%22#F0A63B%22 stroke-width=%223.4%22 stroke-linecap=%22round%22 d=%22M20 46V54M31 46V54M8 55.5H44%22/%3E%3C/svg%3E">
+<script type="module" src="src/app/logo.js"></script>
+<script type="module" src="src/app/main.js"></script>
+<script type="module" src="src/desktop/desktop.js"></script>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="./" aria-label="KiVi home">
+    <img class="brand-mark" src="assets/kivi-logo.svg" width="28" height="25" alt="">
+    KiVi
+  </a>
+  <form id="gh-form" class="gh-form" autocomplete="off">
+    <label for="gh-input" class="sr-only">GitHub repository (leave empty to open a local folder)</label>
+    <svg class="gh-icon" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+    <input id="gh-input" type="text" placeholder="owner/repo  ·  owner/repo@branch  ·  empty: open a local folder" spellcheck="false">
+    <button type="submit" class="btn primary" title="Open the repository, or pick a local folder when the box is empty">Open</button>
+  </form>
+  <div class="top-actions">
+  </div>
+</header>
+
+<div id="projbar" class="projbar" hidden>
+  <div class="proj-title">
+    <span id="proj-name" class="proj-name"></span>
+    <span id="proj-source" class="muted mono"></span>
+    <select id="project-select" hidden aria-label="Project"></select>
+  </div>
+  <div class="proj-nav">
+    <a id="pr-chip" class="pr-chip" target="_blank" rel="noopener" hidden></a>
+    <nav class="tabs" role="tablist" aria-label="Views">
+      <button role="tab" data-tab="sch" aria-selected="true">Schematic</button>
+      <button role="tab" data-tab="pcb">PCB</button>
+      <button role="tab" data-tab="3d">3D</button>
+      <button role="tab" data-tab="bom">BOM</button>
+    </nav>
+  </div>
+  <div class="proj-actions">
+    <a id="gh-link" class="btn" target="_blank" rel="noopener" hidden>View on GitHub</a>
+    <button id="copy-link" class="btn">Copy link</button>
+  </div>
+</div>
+
+<main id="app" hidden>
+  <section id="tab-sch" class="tab" role="tabpanel">
+    <aside class="panel left">
+      <label class="field-label" for="search">Find part or net</label>
+      <input id="search" class="input" placeholder="U3, R12, +3V3…" spellcheck="false" list="search-list">
+      <datalist id="search-list"></datalist>
+      <section class="collapsible">
+        <button id="sheets-head" class="sheets-head"><span class="panel-title">Sheets</span><span id="sheet-current" class="collapse-meta"></span></button>
+        <ul id="sheet-list" class="sheet-list"></ul>
+      </section>
+    </aside>
+    <div class="canvas-wrap">
+      <div id="sch-crumbs" class="crumbs"></div>
+      <div id="sch-canvas" class="canvas sch"></div>
+      <div class="zoom-ctl">
+        <button class="btn icon" data-zoom="in" aria-label="Zoom in">+</button>
+        <button class="btn icon" data-zoom="out" aria-label="Zoom out">−</button>
+        <button class="btn icon" data-zoom="fit" aria-label="Fit">⤢</button>
+      </div>
+    </div>
+    <aside id="sch-inspector" class="panel right inspector"></aside>
+  </section>
+
+  <section id="tab-pcb" class="tab" role="tabpanel" hidden>
+    <aside class="panel left">
+      <div class="row between">
+        <div class="panel-title">Layers</div>
+        <div class="seg" role="group" aria-label="Board side">
+          <button data-side="front" aria-pressed="true">Top</button>
+          <button data-side="back" aria-pressed="false">Bottom</button>
+        </div>
+      </div>
+      <div class="row gap">
+        <button id="layers-all" class="btn small">All</button>
+        <button id="layers-cu" class="btn small">Copper</button>
+        <button id="layers-default" class="btn small">Default</button>
+      </div>
+      <ul id="layer-list" class="layer-list"></ul>
+      <div class="panel-title">Board</div>
+      <dl id="board-info" class="kv"></dl>
+    </aside>
+    <div class="canvas-wrap">
+      <div id="pcb-canvas" class="canvas pcb"></div>
+      <div id="net-chip" class="net-chip" hidden></div>
+      <div class="zoom-ctl">
+        <button class="btn icon" data-zoom="in" aria-label="Zoom in">+</button>
+        <button class="btn icon" data-zoom="out" aria-label="Zoom out">−</button>
+        <button class="btn icon" data-zoom="fit" aria-label="Fit">⤢</button>
+      </div>
+    </div>
+    <aside id="pcb-inspector" class="panel right inspector"></aside>
+  </section>
+
+  <section id="tab-3d" class="tab" role="tabpanel" hidden>
+    <div class="canvas-wrap">
+      <div id="v3d" class="canvas v3d"></div>
+      <div class="toolbar3d">
+        <div class="seg" role="group" aria-label="Camera">
+          <button data-view="iso" aria-pressed="true">Iso</button>
+          <button data-view="top" aria-pressed="false">Top</button>
+          <button data-view="bottom" aria-pressed="false">Bottom</button>
+          <button data-view="front" aria-pressed="false">Front</button>
+        </div>
+        <label class="check pill"><input type="checkbox" id="show-components" checked> Components</label>
+      </div>
+      <div id="status3d" class="status3d"></div>
+    </div>
+    <aside id="info3d" class="panel right inspector"></aside>
+  </section>
+
+  <section id="tab-bom" class="tab" role="tabpanel" hidden>
+    <div class="bom-wrap">
+      <div class="row between">
+        <div class="row gap">
+          <label class="field-label" for="bom-filter">Filter</label>
+          <input id="bom-filter" class="input" placeholder="value, reference, footprint…">
+          <label class="check"><input type="checkbox" id="bom-group" checked> Group identical parts</label>
+        </div>
+        <button id="bom-csv" class="btn">Download CSV</button>
+      </div>
+      <div class="table-scroll"><table id="bom-table" class="bom"></table></div>
+    </div>
+  </section>
+</main>
+
+<section id="welcome" class="welcome">
+  <div class="welcome-inner">
+    <h1>Open a KiCad project</h1>
+    <p class="muted">Schematics, boards and 3D from a GitHub repository or a folder on this computer. Local folders reload when KiCad saves.</p>
+    <div id="drop" class="drop">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 16v4h16v-4"/></svg>
+      <div><strong>Drop a project folder</strong> or a <code>.kicad_pro</code> / <code>.kicad_sch</code> / <code>.kicad_pcb</code> file here</div>
+    </div>
+    <div class="examples">
+      <span class="muted">Or paste a repository above, e.g.</span>
+      <button class="link" data-example="https://github.com/KiCad/kicad-source-mirror/tree/master/demos/pic_programmer">KiCad demo: pic_programmer</button>
+    </div>
+  </div>
+</section>
+
+<div id="loading" class="loading" hidden><div class="spinner"></div><span id="loading-text">Loading…</span></div>
+<div id="toast" class="toast" role="status" hidden></div>
+</body>
+</html>

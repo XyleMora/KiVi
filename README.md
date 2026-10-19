@@ -1,0 +1,342 @@
+<img src="assets/kivi-logo.svg" width="120" alt="KiVi logo: a kiwi with a circuit board inside">
+
+# KiVi — KiCad viewer and hardware review for GitHub
+
+A desktop app ([Tauri 2](https://tauri.app)) for browsing, viewing and
+reviewing KiCad projects. GitHub stays the place for source control, diffs and
+review comments; KiVi renders what's in it. Everything is parsed and rendered
+on your computer.
+
+![Home screen: a gallery of KiCad projects with rendered board thumbnails](docs/screenshots/home-projects.png)
+
+## A quick tour
+
+**Projects.** The home screen finds every `.kicad_pro` in the
+repositories you can reach and shows each as a card. The
+filter narrows the grid by project, repository or folder name as you type;
+a card's `⋯` menu opens the schematic, PCB, 3D view, BOM or GitHub directly.
+
+
+**Schematic.** Click a symbol to inspect it: its fields, datasheet and every
+pin with its net. **Show on PCB** and **Show in 3D** jump to the same part (cross-probe).
+
+![Schematic with the USB-C connector J101 selected and its pins listed](docs/screenshots/viewer-schematic.png)
+
+
+**PCB.** Layers can be switched one by one (or *Copper*, *Default*, *All*),
+the board flipped to the bottom, and footprints, pads and tracks inspected.
+
+![PCB view with the HDMI connector J501 selected](docs/screenshots/viewer-pcb.png)
+
+
+**3D.** The board in 3D with the stackup from the KiCad file (soldermask,
+finish and silkscreen colours, layer thicknesses) and component models from
+KiCad's library, the project and any extra model sources. 
+
+![3D view of the CM5 MINIMA board with component models](docs/screenshots/viewer-3d.png)
+
+
+**Pull requests.** The second icon in the header lists open pull requests in
+watched repositories and, once you sign in, those waiting for your review and
+your own. Each says how many KiCad files it changes; **Visual diff** and
+**Hardware** open it in KiVi.
+
+![Pull requests: the watched test repository's open PR, which changes 9 KiCad files](docs/screenshots/pull-requests.png)
+
+
+**Visual diff.** A pull request, commit or branch comparison, side by side or
+overlaid, with a list of what changed in KiCad terms rather than text. During pull request review users can leave comments pinned where they belong (to actual components or traces):
+
+![Visual diff of a schematic sheet with a review comment open on R404](docs/screenshots/visual-diff.png)
+
+
+
+## Building (Linux)
+
+```sh
+# once: system libraries and Rust
+sudo apt install libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev build-essential
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+cargo install tauri-cli --version "^2" --locked
+
+cargo tauri dev        # run from source
+cargo tauri build      # release binary + AppImage in src-tauri/target/release/bundle/appimage/
+```
+
+Windows builds the same way (`cargo tauri build` with Rust and Python
+installed; it makes an NSIS installer in `src-tauri/target/release/bundle/nsis/`,
+using `src-tauri/tauri.windows.conf.json`, which Tauri merges on Windows). macOS
+would too, but isn't set up or tested. Tauri doesn't cross-compile installers. The pages are plain ES modules with no build
+step; `tools/build_web.py` (run by Tauri) copies them to `dist/web`.
+
+## GitHub sign-in
+
+Sign-in uses a GitHub App (free, no server). Unlike an OAuth App, it asks for
+fine-grained permissions instead of the `repo` scope (full access to every
+private repository), and users choose which repositories it can read.
+
+
+Signing in from the account menu shows a one-time code (like `WDJB-MJHT`) and
+a **Copy code and open GitHub** button; you paste the code on
+github.com/login/device and approve KiVi, and the dialog finishes by itself. If
+the App isn't installed on any of your accounts yet, it then offers **Install on
+GitHub** to choose the repositories.
+
+How it behaves:
+
+- The device-flow endpoints don't send CORS headers, so those requests run in
+  Rust (`src-tauri/src/lib.rs`).
+- The token only reaches repositories where the App is **installed** (and the
+  user has access); public repositories are readable regardless. After signing
+  in, if the App isn't installed anywhere yet, the dialog links to its install
+  page; the account menu has **Repository access** for changing it later.
+  "Waiting for your review" only lists PRs in repositories the App can see.
+- User tokens expire after 8 hours. The refresh token (valid 6 months, single
+  use) is stored next to the token and the app swaps it for a new pair before
+  expiry: when a page opens, on a timer, and when the window regains focus.
+  Device-flow tokens refresh without the client secret, so none is shipped.
+- An organisation that restricts third-party access may need an owner to
+  approve the installation.
+
+## Project gallery
+
+- Repositories come from `GET /user/installations` and
+  `/user/installations/{id}/repositories`, plus the watched repositories.
+- Each repository's default branch is listed with one recursive tree request;
+  each `.kicad_pro` is a project (without one, only a loose `.kicad_pcb` counts).
+  The result is cached per repository and reused until the repository's last
+  push or default branch changes, so **Refresh** with no new commits only costs
+  the repository listing.
+- Thumbnails are the realistic front face (soldermask, copper, silkscreen),
+  clipped to the board outline. They're rendered when a card scrolls into
+  view, two at a time, and cached by the board file's git blob SHA, so each
+  board version is downloaded and rendered once. Boards over 30 MB aren't
+  previewed.
+- The grid renders 48 cards at a time and adds more as you scroll.
+- The scan stops at a rate-limit error and keeps what it found.
+
+## Links into the viewer
+
+```
+index.html#gh=owner/repo@main:hardware&tab=pcb&sel=U3     project in a repository
+index.html#gh=owner/repo&pr=owner/repo%2312               … at a pull request's head, with its review comments
+index.html#folder=/path/to/project                        local folder
+diff.html#gh=owner/repo&pr=42                             visual diff of a pull request
+diff.html#gh=owner/repo&commit=<sha>                      … of a commit
+diff.html#gh=owner/repo&base=main&head=feature&file=hw/board.kicad_pcb
+inbox.html#projects, inbox.html#prs                       home screen views
+```
+
+The repository box in the header takes `owner/repo`,
+`owner/repo@branch:path/to/project` or any
+`https://github.com/owner/repo/tree/<ref>/<path>` URL.
+
+## Review comments on pull requests
+
+In the visual diff of a pull request, and in the viewer opened at a pull
+request (marked *PR #N* in the project bar), press **C** (or **Comment**) and
+click a footprint, pad, trace/net, symbol, wire or an empty spot to comment on
+it. Comments are pinned on the canvas and listed in the side panel (Open /
+Resolved / All); click a pin to read the thread, reply or resolve it. The same
+threads show up in both places, numbered the same way; in the schematic the
+list covers every sheet and jumps to the one a comment is on.
+
+They are ordinary GitHub review comments on the `.kicad_sch` / `.kicad_pcb`
+file, so they appear in the pull request conversation and *Files changed*,
+notify reviewers, and share GitHub's resolve state both ways. What a comment
+points at is kept in a hidden `<!-- kivi:{…} -->` marker (stable UUID /
+reference / pad / net name plus the clicked point), so pins follow parts and
+nets across later pushes; when the element is gone the pin stays where it was,
+marked as not found. A comment on the HDMI connector is stored on GitHub as:
+
+```markdown
+Can the HDMI connector move 1 mm towards the edge? The shield tabs touch the keep-out.
+
+<sub>📍 KiVi · footprint **J501**</sub>
+<!-- kivi:{"v":1,"type":"footprint","ref":"J501","x":99.09,"y":72.07,"side":"head"} -->
+```
+
+On github.com it reads as the text with a small "📍 KiVi · footprint **J501**"
+line under it; in KiVi it's a pin on J501.
+
+Reading comments on public repositories works without signing in (resolve
+state needs it). Posting, replying and resolving need the GitHub App's *Pull
+requests: Read and write* permission.
+
+## Layout
+
+```
+index.html              viewer
+diff.html               visual diff
+inbox.html              home screen (projects, pull requests)
+src/sexpr.js            S-expression parser (+ tree helpers)
+src/geom.js             matrices, arcs, bounding boxes
+src/text.js             text layout (KiCad metrics, markup, escapes)
+src/drawing-sheet.js    .kicad_wks parser/renderer, built-in default sheet
+src/project.js          project discovery, hierarchy walk, page numbering
+src/sources.js          GitHub (API, PR/commit comparison), 3D model path resolution
+src/diff/               semantic schematic and board diffs, comment anchors
+src/review.js           review comments on GitHub (threads, replies, resolve)
+src/sch/                schematic model, renderer, themes
+src/pcb/                board model, renderer, shapes, hit testing,
+                        outline extraction, face textures, three.js scene
+src/app/                UI: tabs, pan/zoom viewport, inspectors, BOM, diff page
+src/desktop/
+  tauri.js              TauriSource (folder on disk), drag and drop, link routing,
+                        sign-in, token refresh
+  desktop.js            additions to the viewer and diff pages
+  account.js            header on every page: home icons, account menu, Settings dialog
+  inbox.js, desktop.css home screen: view switch, pull requests
+  projects.js           project gallery: repository scan, caches, cards
+  thumb-worker.js       board thumbnails (parse + render off the main thread)
+  icons.js              header and menu icons (repository / pull request follow Octicons)
+src-tauri/              Rust app
+  src/lib.rs            commands: open_folder, list_folder, read_file, startup_folder,
+                        github_client_id, github_app_slug, github_device_start/poll/refresh
+  tauri.conf.json       window, CSP, bundle targets
+  capabilities/         which plugin APIs the page may call
+  icons/                app icons (tools/make_icons.py)
+vendor/                 three.js 0.169, occt-import-js (MIT), see vendor/README.md
+tests/                  headless checks (gjs), Tauri API mock
+tools/                  build, CLI rendering, visual comparison, icons, headless browser
+assets/                 logo (SVG)
+docs/screenshots/       README images
+```
+
+The parsers and SVG renderers have no DOM dependency, so they run in a page, a
+worker, or headless.
+
+## Logo and icons
+
+`assets/kivi-logo.svg` is the logo. The page headers show it in the header's
+colours (`src/app/logo.js` inlines it: the orange parts follow the brand colour, the
+white ones the header background). The app icons in `src-tauri/icons/` are
+generated from it:
+
+```sh
+python3 tools/make_icons.py
+```
+
+## Tests and visual checks
+
+The tooling runs on `gjs` (GNOME's JavaScript runtime), so Node is not needed.
+The tests use KiCad's demo projects without a KiCad installation:
+`tests/kicad-demos.txt` lists the design files they read (170 files, 74 MB, at a
+pinned KiCad release, with git hashes), and `tools/fetch_demos.py` downloads
+those from KiCad's GitHub mirror into the git-ignored `tests/kicad-demos/`,
+checking each hash and skipping files already there.
+
+```sh
+python3 tools/fetch_demos.py                     # get / verify the listed files
+python3 tools/fetch_demos.py --refresh 10.0.7    # move the list to another KiCad release
+
+# Parse and render every KiCad demo project, check invariants
+# (envelope, NaN, unresolved references, pin-to-wire connectivity, footprints)
+gjs -m tests/run.js               # or: gjs -m tests/run.js path/to/projects …
+gjs -m tests/diff.js
+gjs -m tests/nets.js
+gjs -m tests/review.js
+gjs -m tests/models.js
+
+# Render a file to SVG
+gjs -m tools/render.js board.kicad_pcb out.svg --layers F.Cu,F.SilkS,Edge.Cuts
+gjs -m tools/render.js board.kicad_pcb face.svg --face front     # 3D texture artwork
+
+# Optional, manual, needs KiCad installed: compare against KiCad's own export
+kicad-cli sch export svg -o ref/ project.kicad_sch
+python3 tools/compare.py ref/project.svg out.svg cmp.png  x0 y0 x1 y1  [px_per_mm]
+
+# Smoke test: every page loads without script errors, the viewer opens
+# pic_programmer (headless WebKit, Tauri API mocked, no network)
+tests/smoke.sh
+
+# Drive the pages yourself (served over HTTP, Tauri API mocked)
+python3 -m http.server 8000 &
+LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a gjs -m tools/browser-check.js \
+  "http://127.0.0.1:8000/inbox.html#projects" shot.png \
+  --prelude "$(cat tests/tauri-mock.js)" --wait "document.querySelector('.project-card')"
+```
+
+What a passing run prints:
+
+```console
+$ python3 tools/fetch_demos.py          # here 5 files were missing or damaged
+downloading 5 of 170 KiCad 10.0.6 demo files from KiCad/kicad-source-mirror …
+  1.3 MB in 3 s
+tests/kicad-demos: 170 KiCad 10.0.6 demo files ready
+$ gjs -m tests/diff.js | tail -1
+all diff checks passed
+$ tests/smoke.sh
+ok    home
+ok    pull-requests
+ok    viewer
+ok    diff
+```
+
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on every pull request and push to `main` (or `master`):
+
+1. **Tests**: installs gjs, WebKitGTK and xvfb, restores the KiCad demo files
+   from the Actions cache (keyed on `tests/kicad-demos.txt`, so they're
+   downloaded only when the list changes or the cache expired after 7 unused
+   days), then runs the unit tests, the full demo sweep and `tests/smoke.sh`.
+2. **Build (Linux)**: `cargo tauri build`, with the Rust build and the Tauri CLI
+   cached; checks `THIRD-PARTY-NOTICES.md` is up to date and lists the
+   AppImage's bundled system libraries in `appimage-libraries.md`. The AppImage
+   and that list are attached to the run as the `kivi-linux` artifact.
+
+3. **Build (Windows)**, only for tags and manual runs (*Run workflow* on the
+   Actions tab): `cargo tauri build` on a Windows runner; the installer
+   `KiVi_<version>_x64-setup.exe` is the `kivi-windows` artifact.
+
+Pushing a tag `v<version>` (matching `version` in `src-tauri/tauri.conf.json`,
+checked) runs all three and publishes a GitHub Release with the AppImage, the
+Windows installer and `appimage-libraries.md`. The installer isn't code-signed,
+so Windows SmartScreen warns on first run (*More info* → *Run anyway*).
+
+Set the repository variables `KIVI_GITHUB_CLIENT_ID` and `KIVI_GITHUB_APP_SLUG`
+(Settings → Secrets and variables → Actions → Variables) to build the GitHub
+App in; without them the sign-in dialog asks for it.
+
+## Known limitations
+
+- Text uses a regular sans font scaled to KiCad's metrics instead of KiCad's
+  stroke font (the newstroke font data is GPL-2.0, so it is not bundled).
+  Layout and anchoring match, but glyph shapes differ.
+- The default 3D model library is the KiCad 6-era GitHub mirror of
+  `kicad-packages3D`; models added in later KiCad versions are not shown unless
+  you add another mirror to the model sources in Settings. A GitHub repository
+  source is listed once through the API, so it counts against the rate limit.
+  STEP models load through the bundled `occt-import-js` (7.7 MB of
+  WebAssembly, loaded on first use).
+- Git LFS files are not fetched.
+- Schematic nets are traced per sheet (wires, junctions, labels, pins) and
+  mapped to board nets through component pins; the name shown is the board's
+  when there is one. Buses are not traced.
+
+## Not done yet
+
+- The token and refresh token are kept in the webview's localStorage; a release
+  should keep them in the OS keychain (e.g. the `keyring` crate), at least the
+  long-lived refresh token.
+- Comparing the local working copy with the PR head (needs a source for the
+  diff page that reads from disk; `TauriSource` is that source).
+- Auto-update, code signing, notarisation (macOS), file associations in the
+  bundle config.
+
+## Licence
+
+KiVi is free software: you can redistribute it and/or modify it under the terms
+of the [GNU General Public License](LICENSE), version 3 or (at your option) any
+later version. It comes with no warranty.
+
+It includes third-party software under its own licences: three.js (MIT),
+Chevrotain (Apache-2.0), occt-import-js with Open CASCADE Technology (LGPL-2.1)
+and the Rust crates behind Tauri (mostly MIT and Apache-2.0).
+[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) has their licence texts and is
+installed with the app. Regenerate it with `python3 tools/notices.py` after
+changing `Cargo.lock` or `vendor/` (CI fails if it's out of date). The AppImage
+also bundles system libraries (GTK, WebKitGTK, GStreamer…) from the build
+machine; each release lists them with their licences and sources in
+`appimage-libraries.md`.

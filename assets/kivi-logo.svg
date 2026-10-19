@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 66 58">
+  <title>KiVi</title>
+  <!-- small-size mark: solid kiwi with the logo's chip, traces and pads knocked out
+       (thicker strokes than kivi-logo.svg so they survive 16-32 px) -->
+  <path fill="#f0a63b" stroke="#f0a63b" stroke-width="2" stroke-linejoin="round" d="M38 5.5C44.5 5.5 49 9.5 50 15C58 18.5 63 29 64 46C59 34.5 54.5 27.5 48.5 23.5C47 26 46.5 29 46 32C45 40.5 37.5 46.5 27.5 47C19.5 47.5 12.5 46 8.5 43L3 46L5 39.5C1.5 30 4 17 13.5 10.5C21 5.5 30 4.5 38 5.5Z"/>
+  <!-- chip with pins -->
+  <rect x="17" y="21" width="11" height="11" rx="1.2" fill="#fff"/>
+  <path fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" d="M20 18.5V21M25 18.5V21M20 32V34.5M25 32V34.5M14.5 24H17M14.5 29H17M28 24H30.5M28 29H30.5"/>
+  <!-- traces to pads; the top one ends at the eye -->
+  <path fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M30 24H32L40.3 15.7M30 29H35L37 31M15 29H11M25 34V38.5"/>
+  <g fill="#fff">
+    <circle cx="38.5" cy="32.5" r="2.4"/>
+    <circle cx="9" cy="29" r="2.4"/>
+    <circle cx="25" cy="40.5" r="2.4"/>
+  </g>
+  <g fill="#f0a63b">
+    <circle cx="38.5" cy="32.5" r="0.9"/>
+    <circle cx="9" cy="29" r="0.9"/>
+    <circle cx="25" cy="40.5" r="0.9"/>
+  </g>
+  <!-- eye: the top trace's pad, a larger ring with a pupil looking forward and a highlight -->
+  <circle cx="42.5" cy="13.5" r="3.3" fill="#fff"/>
+  <circle cx="42.9" cy="13.5" r="1.6" fill="#f0a63b"/>
+  <circle cx="42.3" cy="12.9" r="0.55" fill="#fff"/>
+  <!-- legs and ground -->
+  <path fill="none" stroke="#f0a63b" stroke-width="3.4" stroke-linecap="round" d="M20 46V54M31 46V54M8 55.5H44"/>
+</svg>

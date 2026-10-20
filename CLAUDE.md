@@ -137,8 +137,12 @@ cargo tauri build               # release + AppImage: src-tauri/target/release/b
 - A first build takes about 5 min. Rebuilds take about 2 min, mostly LTO
   (`profile.release`: lto, opt-level "s", strip).
 - Windows: `src-tauri/tauri.windows.conf.json` (merged by Tauri on Windows)
-  switches to an NSIS installer and `python` (Windows has no `python3`). It's
-  built only in CI, on tags and manual runs, and has never been run by hand:
+  switches to `python` (Windows has no `python3`) and an NSIS target. CI
+  doesn't use the installer (the user wants no install, like the AppImage): it
+  runs `cargo tauri build --no-bundle` and zips `kivi-desktop.exe` as `KiVi.exe`
+  with `LICENSE` and `THIRD-PARTY-NOTICES.md` (the pages are in the .exe; the
+  Rust side reads no bundled resources). It's built only in CI, on tags and
+  manual runs, and has never been run by hand:
   nothing Windows-specific was tested locally. `src-tauri/icons/icon.ico` (from
   `tools/make_icons.py`) is required for the Windows build.
 - The user runs the **AppImage**: rebuild after every change and tell them to

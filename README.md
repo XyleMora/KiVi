@@ -69,10 +69,12 @@ cargo tauri dev        # run from source
 cargo tauri build      # release binary + AppImage in src-tauri/target/release/bundle/appimage/
 ```
 
-Windows builds the same way (`cargo tauri build` with Rust and Python
-installed; it makes an NSIS installer in `src-tauri/target/release/bundle/nsis/`,
-using `src-tauri/tauri.windows.conf.json`, which Tauri merges on Windows). macOS
-would too, but isn't set up or tested. Tauri doesn't cross-compile installers. The pages are plain ES modules with no build
+Windows builds the same way, with Rust and Python installed:
+`cargo tauri build --no-bundle` makes `src-tauri/target/release/kivi-desktop.exe`,
+which runs as it is, with the pages built in (plain `cargo tauri build` also
+makes an NSIS installer, set in `src-tauri/tauri.windows.conf.json`, which Tauri
+merges on Windows). macOS would too, but isn't set up or tested. Tauri doesn't
+cross-compile. The pages are plain ES modules with no build
 step; `tools/build_web.py` (run by Tauri) copies them to `dist/web`.
 
 ## GitHub sign-in
@@ -298,13 +300,21 @@ ok    diff
    and that list are attached to the run as the `kivi-linux` artifact.
 
 4. **Build (Windows)**, only for tags and manual runs (*Run workflow* on the
-   Actions tab): `cargo tauri build` on a Windows runner; the installer
-   `KiVi_<version>_x64-setup.exe` is the `kivi-windows` artifact.
+   Actions tab): `cargo tauri build --no-bundle` on a Windows runner, packed as
+   `KiVi_<version>_x64_portable.zip` (`KiVi.exe`, `LICENSE`,
+   `THIRD-PARTY-NOTICES.md`), the `kivi-windows` artifact.
 
 Pushing a tag `v<version>` (matching `version` in `src-tauri/tauri.conf.json`,
 checked) runs all four and publishes a GitHub Release with the AppImage, the
-Windows installer and `appimage-libraries.md`. The installer isn't code-signed,
-so Windows SmartScreen warns on first run (*More info* → *Run anyway*).
+portable Windows zip and `appimage-libraries.md`.
+
+Neither needs installing: on Linux make the AppImage executable and run it; on
+Windows unpack the zip and run `KiVi.exe`. It needs the WebView2 runtime, which
+is part of Windows 11 and comes with Edge updates on Windows 10 (otherwise get
+the *Evergreen* runtime from Microsoft). `KiVi.exe` isn't code-signed, so
+Windows SmartScreen warns on first run (*More info* → *Run anyway*). Settings
+and sign-in are kept per user (`%LOCALAPPDATA%\app.kivi.desktop` on Windows,
+`~/.local/share/app.kivi.desktop` on Linux), not next to the program.
 
 Set the repository variables `KIVI_GITHUB_CLIENT_ID` and `KIVI_GITHUB_APP_SLUG`
 (Settings → Secrets and variables → Actions → Variables) to build the GitHub

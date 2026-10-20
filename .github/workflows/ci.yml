@@ -1,4 +1,5 @@
-# Tests and Linux build on every pull request and push to main; a Windows
+# Tests on every pull request; tests and the Linux build on every push to
+# main; a Windows
 # build and a GitHub Release with the AppImage and the Windows installer for
 # every tag v<version> (matching "version" in src-tauri/tauri.conf.json).
 # Running the workflow by hand (workflow_dispatch) also builds for Windows.
@@ -61,9 +62,11 @@ jobs:
       - name: Smoke test the pages (headless WebKit)
         run: tests/smoke.sh
 
+  # Not for pull requests: they only run the tests.
   build:
     name: Build (Linux)
     needs: test
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:

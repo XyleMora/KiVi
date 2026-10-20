@@ -281,7 +281,8 @@ ok    diff
    from the Actions cache (keyed on `tests/kicad-demos.txt`, so they're
    downloaded only when the list changes or the cache expired after 7 unused
    days), then runs the unit tests, the full demo sweep and `tests/smoke.sh`.
-2. **Build (Linux)**: `cargo tauri build`, with the Rust build and the Tauri CLI
+2. **Build (Linux)**, not for pull requests (they only run the tests):
+   `cargo tauri build`, with the Rust build and the Tauri CLI
    cached; checks `THIRD-PARTY-NOTICES.md` is up to date and lists the
    AppImage's bundled system libraries in `appimage-libraries.md`. The AppImage
    and that list are attached to the run as the `kivi-linux` artifact.

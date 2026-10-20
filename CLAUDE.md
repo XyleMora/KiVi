@@ -177,7 +177,7 @@ tests/smoke.sh                               # pages load cleanly, viewer opens 
   and verifies each. `tests/gjs-fs.js` `kicadDemos()` finds them and exits
   with a hint if they're missing. This machine's connection is slow
   (~0.2 MB/s): a full fetch takes ~6 min here.
-- CI is `.github/workflows/ci.yml` (see README): tests → Linux build (artifact)
+- CI is `.github/workflows/ci.yml` (see README): tests (also on PRs) → Linux build (artifact; pushes to main, tags, manual runs)
   → GitHub Release on `v*` tags. Keep its commands in sync with this list;
   it was written without a way to run it locally (no act/actionlint here), so
   the first run on GitHub is its real test.

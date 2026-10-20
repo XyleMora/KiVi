@@ -1,8 +1,8 @@
-# Tests on every pull request; tests and the Linux build on every push to
-# main; a Windows build and a GitHub Release with the AppImage and the
-# Windows .exe for every tag v<version> (matching "version" in
-# src-tauri/tauri.conf.json).
-# Running the workflow by hand (workflow_dispatch) also builds for Windows.
+# Tests on every pull request and push to main; the Linux and Windows builds
+# and a GitHub Release with the AppImage and the Windows .exe for every tag
+# v<version> (matching "version" in src-tauri/tauri.conf.json). Running the
+# workflow by hand (workflow_dispatch) builds both without releasing: do that
+# before tagging, since merges no longer build.
 #
 # Optional repository variables (Settings → Secrets and variables → Actions →
 # Variables), baked into the build so the sign-in dialog doesn't ask for them:
@@ -90,11 +90,17 @@ jobs:
       - name: cargo test
         run: cargo test --locked --lib --manifest-path src-tauri/Cargo.toml
 
-  # Not for pull requests: they only run the tests.
+      # The bundled notices must match Cargo.lock and vendor/ (needs only
+      # cargo metadata, so it runs here, before merging, not in the build).
+      - name: Check THIRD-PARTY-NOTICES.md is up to date
+        run: python3 tools/notices.py --check
+
+  # Only for releases and manual runs, like the Windows build: the tests above
+  # cover the code on every change, and a release build takes 10-20 minutes.
   build:
     name: Build (Linux)
     needs: [test, rust-test]
-    if: github.event_name != 'pull_request'
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -131,10 +137,6 @@ jobs:
           APPIMAGE_EXTRACT_AND_RUN: "1" # the AppImage tooling runs without FUSE
         run: cargo tauri build
 
-      # The bundled notices must match Cargo.lock and vendor/.
-      - name: Check THIRD-PARTY-NOTICES.md is up to date
-        run: python3 tools/notices.py --check
-
       # The AppImage carries this runner's GTK/WebKitGTK libraries; their
       # licences and sources are published next to it.
       - name: List the AppImage's system libraries
@@ -148,8 +150,8 @@ jobs:
             src-tauri/target/release/bundle/appimage/appimage-libraries.md
           if-no-files-found: error
 
-  # Only for releases: a Windows runner is slower and the tests above already
-  # cover the shared code. Tauri merges src-tauri/tauri.windows.conf.json
+  # Only for releases and manual runs: a Windows runner is slower and the
+  # tests above already cover the shared code. Tauri merges src-tauri/tauri.windows.conf.json
   # (`python` instead of `python3`). No installer and no zip: like the
   # AppImage, the release is one file to download and run. The pages are built
   # into the .exe; it needs the WebView2 runtime (part of Windows 11, and of

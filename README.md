@@ -284,23 +284,24 @@ ok    diff
 
 ## Continuous integration
 
-`.github/workflows/ci.yml` runs on every pull request and push to `main` (or `master`):
+`.github/workflows/ci.yml` runs the tests on every pull request and push to
+`main` (or `master`), and builds only for releases and manual runs:
 
 1. **Tests**: installs gjs, WebKitGTK and xvfb, restores the KiCad demo files
    from the Actions cache (keyed on `tests/kicad-demos.txt`, so they're
    downloaded only when the list changes or the cache expired after 7 unused
    days), then runs the unit tests, the full demo sweep and `tests/smoke.sh`.
 2. **Rust tests**, alongside: `cargo test` on the Rust side
-   (`src-tauri/src/lib.rs`), with the Rust build cached. Both builds below wait
-   for both test jobs.
-3. **Build (Linux)**, not for pull requests (they only run the tests):
-   `cargo tauri build`, with the Rust build and the Tauri CLI
-   cached; checks `THIRD-PARTY-NOTICES.md` is up to date and lists the
-   AppImage's bundled system libraries in `appimage-libraries.md`. The AppImage
-   and that list are attached to the run as the `kivi-linux` artifact.
+   (`src-tauri/src/lib.rs`), with the Rust build cached, and a check that
+   `THIRD-PARTY-NOTICES.md` is up to date. Both builds below wait for both test
+   jobs.
+3. **Build (Linux)**, only for tags and manual runs (*Run workflow* on the
+   Actions tab): `cargo tauri build`, with the Rust build and the Tauri CLI
+   cached; lists the AppImage's bundled system libraries in
+   `appimage-libraries.md`. The AppImage and that list are the `kivi-linux`
+   artifact.
 
-4. **Build (Windows)**, only for tags and manual runs (*Run workflow* on the
-   Actions tab): `cargo tauri build --no-bundle` on a Windows runner; the
+4. **Build (Windows)**, likewise: `cargo tauri build --no-bundle` on a Windows runner; the
    `kivi-windows` artifact holds `KiVi_<version>_x64.exe` with `LICENSE` and
    `THIRD-PARTY-NOTICES.md` next to it (GitHub zips every run artifact for
    download; release files aren't).
@@ -308,6 +309,8 @@ ok    diff
 Pushing a tag `v<version>` (matching `version` in `src-tauri/tauri.conf.json`,
 checked) runs all four and publishes a GitHub Release with the AppImage, the
 Windows `.exe`, `LICENSE`, `THIRD-PARTY-NOTICES.md` and `appimage-libraries.md`.
+Merges don't build, so run the workflow by hand on `main` before tagging and
+check both builds pass.
 
 Neither needs installing: on Linux make the AppImage executable and run it; on
 Windows download the `.exe` and run it. It needs the WebView2 runtime, which

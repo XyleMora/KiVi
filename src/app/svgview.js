@@ -3,6 +3,10 @@
 // Zoom works on the root viewBox, so vector content stays crisp at any scale.
 // Emits "hover"/"pick" callbacks with document (mm) coordinates.
 
+// Windows' default double-click time; the distance allows a little hand movement.
+const DOUBLE_CLICK_MS = 500;
+const DOUBLE_CLICK_PX = 6;
+
 export class SvgView {
   constructor(container, { onPick, onHover, onDblPick, onViewChange, flipX = null } = {}) {
     this.el = container;
@@ -23,11 +27,11 @@ export class SvgView {
     this.el.addEventListener("pointermove", (e) => this.move(e));
     this.el.addEventListener("pointerup", (e) => this.up(e));
     this.el.addEventListener("pointercancel", () => (this.drag = null));
-    this.el.addEventListener("dblclick", (e) => this.onDblPick?.(this.toDoc(e)));
     this.el.addEventListener("keydown", (e) => this.key(e));
     this.ro = new ResizeObserver(() => this.apply());
     this.ro.observe(this.el);
     this.touches = new Map();
+    this.lastTap = null; // last click without a drag, for double-click detection
   }
 
   /** Replace content. `home` is the box to fit ({x0,y0,x1,y1}). */
@@ -171,7 +175,27 @@ export class SvgView {
     const d = this.drag;
     this.drag = null;
     this.el.classList.remove("panning");
-    if (d && !d.moved && d.button === 0) this.onPick?.(this.toDoc(e), e);
+    if (d && !d.moved && d.button === 0) {
+      const p = this.toDoc(e);
+      this.onPick?.(p, e);
+      this.tap(e, p);
+    }
+  }
+
+  /**
+   * Double-click detection from our own pointer events. The native dblclick
+   * isn't reliable here: each click redraws the overlay under the cursor and
+   * pointer capture retargets the events, and Chromium (WebView2 on Windows)
+   * then drops dblclick while WebKitGTK still fires it.
+   */
+  tap(e, p) {
+    const last = this.lastTap;
+    if (last && e.timeStamp - last.t < DOUBLE_CLICK_MS && Math.hypot(e.clientX - last.x, e.clientY - last.y) < DOUBLE_CLICK_PX) {
+      this.lastTap = null; // a third click starts a new pair
+      this.onDblPick?.(p);
+    } else {
+      this.lastTap = { t: e.timeStamp, x: e.clientX, y: e.clientY };
+    }
   }
 
   key(e) {

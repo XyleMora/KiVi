@@ -1,6 +1,6 @@
 // 3D board view (browser only): extruded board with face textures and
-// component models (VRML from the KiCad library or the project). Parts whose
-// model cannot be loaded are left out.
+// component models (VRML, or STEP through step.js; from the project, model
+// folders or the web). Parts whose model cannot be loaded are left out.
 
 import * as THREE from "../../vendor/three/three.module.js";
 import { TrackballControls } from "../../vendor/three/addons/controls/TrackballControls.js";
@@ -616,73 +616,10 @@ async function runLimited(jobs, n) {
 
 // ---- STEP (optional, lazy) --------------------------------------------------
 
-// Bundled (not from a CDN): the app works offline and the CSP allows no remote scripts.
-const OCCT_URL = new URL("../../vendor/occt-import-js/", import.meta.url).href;
-let occtPromise = null;
-
-/** STEP import via occt-import-js (WASM, loaded on first use only). */
+/** STEP: converted in workers and cached by step.js, loaded on first use only. */
 async function loadStep(url) {
-  occtPromise ??= (async () => {
-    await new Promise((res, rej) => {
-      const s = document.createElement("script");
-      s.src = OCCT_URL + "occt-import-js.js";
-      s.onload = res;
-      s.onerror = () => rej(new Error("occt-import-js failed to load"));
-      document.head.appendChild(s);
-    });
-    // eslint-disable-next-line no-undef
-    return occtimportjs({ locateFile: (name) => OCCT_URL + name });
-  })();
-  const occt = await occtPromise;
-  const buf = new Uint8Array(await (await fetchOk(url)).arrayBuffer());
-  const res = occt.ReadStepFile(buf, null);
-  if (!res.success) return null;
-  const group = new THREE.Group();
-  const materials = new Map(); // "r,g,b" → material, shared by the model's meshes
-  const material = (rgb) => {
-    const key = rgb.join(",");
-    if (!materials.has(key)) {
-      // STEP colours are sRGB, as VRML's are (VRMLLoader converts the same way).
-      const color = new THREE.Color().setRGB(rgb[0], rgb[1], rgb[2], THREE.SRGBColorSpace);
-      materials.set(key, new THREE.MeshStandardMaterial({ color, roughness: 0.5, metalness: 0.1, side: THREE.DoubleSide }));
-    }
-    return materials.get(key);
-  };
-  for (const m of res.meshes) {
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute("position", new THREE.Float32BufferAttribute(m.attributes.position.array, 3));
-    if (m.attributes.normal) geo.setAttribute("normal", new THREE.Float32BufferAttribute(m.attributes.normal.array, 3));
-    geo.setIndex(m.index.array);
-    if (!m.attributes.normal) geo.computeVertexNormals();
-    const base = m.color ?? STEP_GREY;
-    // KiCad's library (and most vendor models) colour each face, not the whole
-    // shape: the body black, terminals tin. brep_faces are triangle ranges.
-    const faces = (m.brep_faces ?? []).filter((f) => f.color);
-    if (!faces.length) {
-      group.add(new THREE.Mesh(geo, material(base)));
-      continue;
-    }
-    const mats = [];
-    const slot = (rgb) => {
-      const mat = material(rgb);
-      let i = mats.indexOf(mat);
-      if (i < 0) i = mats.push(mat) - 1;
-      return i;
-    };
-    let next = 0; // triangles not covered by a coloured face keep the shape's colour
-    for (const f of [...faces].sort((a, b) => a.first - b.first)) {
-      if (f.first > next) geo.addGroup(next * 3, (f.first - next) * 3, slot(base));
-      geo.addGroup(f.first * 3, (f.last - f.first + 1) * 3, slot(f.color));
-      next = f.last + 1;
-    }
-    const triangles = m.index.array.length / 3;
-    if (next < triangles) geo.addGroup(next * 3, (triangles - next) * 3, slot(base));
-    group.add(new THREE.Mesh(geo, mats));
-  }
-  group.userData.unit = 1;
-  return group;
+  const buf = await (await fetchOk(url)).arrayBuffer();
+  const { loadStepModel } = await import("./step.js");
+  return loadStepModel(buf);
 }
-
-/** Shapes without a colour in the STEP file. */
-const STEP_GREY = [0.53, 0.53, 0.53];
 

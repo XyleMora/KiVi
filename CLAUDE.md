@@ -120,6 +120,17 @@ holds for `${KICADn_3DMODEL_DIR}` paths too, and handles `/Users/…`, `C:\…`,
 `${KICAD_3RD_PARTY}` paths. The 3D view uses three.js
 `TrackballControls` (free rotation; preset views reset `camera.up`).
 
+STEP models go through `src/pcb/step.js`: converted by occt-import-js in one
+worker (`step-worker.js`, a classic worker because occt-import-js is a plain
+script loaded with `importScripts`), falling back to the main thread if the
+worker can't run, and cached in the IndexedDB database `kivi-models` by the
+file's SHA-256 (key prefix `CACHE_VERSION`: bump it when the conversion or the
+payload changes). Measured on CM5_MINIMA_3 with the KiCad folder: reopening
+24 s → 5 s. More workers were slower in WebKitGTK (each compiles the 7.7 MB of
+WebAssembly; three cold workers 25 s vs one 6 s for the same work). Headless
+timings are skewed by the 3D view's 60 fps render loop in software GL, which
+competes with the worker for the CPU; clear `kivi-models` after 3D tests.
+
 ## Build and run
 
 Rust is installed via rustup in `~/.cargo` **without** a PATH change in the

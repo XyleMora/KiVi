@@ -74,6 +74,7 @@ export class PcbTab {
     if (!this.cache.has(side)) this.cache.set(side, renderPcb(this.pcb, { side }));
     const r = this.cache.get(side);
     this.result = r;
+    this.hovered = null; // hovered on the other side: its box would stay until the mouse moves
     this.side = side;
     const cx = r.center;
     this.view.flipX = side === "back" ? (x) => 2 * cx - x : null;

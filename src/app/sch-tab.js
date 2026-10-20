@@ -85,6 +85,9 @@ export class SchematicTab {
     this.pageIndex = i;
     const r = this.render(i);
     this.items = r.items;
+    // The hovered item belongs to the old items (after a double-click, the sheet
+    // just entered): drop it, or its box stays on the new page until the mouse moves.
+    this.hovered = null;
     const page = this.project.pages[i];
     this.view.setSvg(r.svg, { x0: 0, y0: 0, x1: page.sch.paper.width, y1: page.sch.paper.height }, keepView && sameSheet);
     this.rendered = true;

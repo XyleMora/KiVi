@@ -1,6 +1,6 @@
 # Tests on every pull request; tests and the Linux build on every push to
 # main; a Windows build and a GitHub Release with the AppImage and the
-# portable Windows zip for every tag v<version> (matching "version" in
+# Windows .exe for every tag v<version> (matching "version" in
 # src-tauri/tauri.conf.json).
 # Running the workflow by hand (workflow_dispatch) also builds for Windows.
 #
@@ -150,8 +150,8 @@ jobs:
 
   # Only for releases: a Windows runner is slower and the tests above already
   # cover the shared code. Tauri merges src-tauri/tauri.windows.conf.json
-  # (`python` instead of `python3`). No installer: like the AppImage, the
-  # release is one program that runs where it's unpacked. The pages are built
+  # (`python` instead of `python3`). No installer and no zip: like the
+  # AppImage, the release is one file to download and run. The pages are built
   # into the .exe; it needs the WebView2 runtime (part of Windows 11, and of
   # Windows 10 through Edge updates).
   build-windows:
@@ -178,21 +178,21 @@ jobs:
           KIVI_GITHUB_APP_SLUG: ${{ vars.KIVI_GITHUB_APP_SLUG }}
         run: cargo tauri build --no-bundle
 
-      # The licences travel with the program, as they do inside the AppImage.
-      - name: Package the portable zip
+      - name: Name the .exe after the version
         shell: pwsh
         run: |
           $version = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
-          $dir = "KiVi_${version}_x64_portable"
-          New-Item -ItemType Directory $dir | Out-Null
-          Copy-Item src-tauri/target/release/kivi-desktop.exe "$dir/KiVi.exe"
-          Copy-Item LICENSE, THIRD-PARTY-NOTICES.md $dir
-          Compress-Archive -Path $dir -DestinationPath "$dir.zip"
+          Copy-Item src-tauri/target/release/kivi-desktop.exe "KiVi_${version}_x64.exe"
 
+      # The licences go next to the .exe (and so into the release): the
+      # AppImage carries them inside, a bare .exe can't.
       - uses: actions/upload-artifact@v4
         with:
           name: kivi-windows
-          path: KiVi_*_x64_portable.zip
+          path: |
+            KiVi_*_x64.exe
+            LICENSE
+            THIRD-PARTY-NOTICES.md
           if-no-files-found: error
 
   release:

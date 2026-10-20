@@ -300,18 +300,19 @@ ok    diff
    and that list are attached to the run as the `kivi-linux` artifact.
 
 4. **Build (Windows)**, only for tags and manual runs (*Run workflow* on the
-   Actions tab): `cargo tauri build --no-bundle` on a Windows runner, packed as
-   `KiVi_<version>_x64_portable.zip` (`KiVi.exe`, `LICENSE`,
-   `THIRD-PARTY-NOTICES.md`), the `kivi-windows` artifact.
+   Actions tab): `cargo tauri build --no-bundle` on a Windows runner; the
+   `kivi-windows` artifact holds `KiVi_<version>_x64.exe` with `LICENSE` and
+   `THIRD-PARTY-NOTICES.md` next to it (GitHub zips every run artifact for
+   download; release files aren't).
 
 Pushing a tag `v<version>` (matching `version` in `src-tauri/tauri.conf.json`,
 checked) runs all four and publishes a GitHub Release with the AppImage, the
-portable Windows zip and `appimage-libraries.md`.
+Windows `.exe`, `LICENSE`, `THIRD-PARTY-NOTICES.md` and `appimage-libraries.md`.
 
 Neither needs installing: on Linux make the AppImage executable and run it; on
-Windows unpack the zip and run `KiVi.exe`. It needs the WebView2 runtime, which
+Windows download the `.exe` and run it. It needs the WebView2 runtime, which
 is part of Windows 11 and comes with Edge updates on Windows 10 (otherwise get
-the *Evergreen* runtime from Microsoft). `KiVi.exe` isn't code-signed, so
+the *Evergreen* runtime from Microsoft). The `.exe` isn't code-signed, so
 Windows SmartScreen warns on first run (*More info* → *Run anyway*). Settings
 and sign-in are kept per user (`%LOCALAPPDATA%\app.kivi.desktop` on Windows,
 `~/.local/share/app.kivi.desktop` on Linux), not next to the program.

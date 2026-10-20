@@ -139,9 +139,10 @@ cargo tauri build               # release + AppImage: src-tauri/target/release/b
 - Windows: `src-tauri/tauri.windows.conf.json` (merged by Tauri on Windows)
   switches to `python` (Windows has no `python3`) and an NSIS target. CI
   doesn't use the installer (the user wants no install, like the AppImage): it
-  runs `cargo tauri build --no-bundle` and zips `kivi-desktop.exe` as `KiVi.exe`
-  with `LICENSE` and `THIRD-PARTY-NOTICES.md` (the pages are in the .exe; the
-  Rust side reads no bundled resources). It's built only in CI, on tags and
+  runs `cargo tauri build --no-bundle` and ships `kivi-desktop.exe` as a bare
+  `KiVi_<version>_x64.exe` (no zip either: download and run), with `LICENSE` and
+  `THIRD-PARTY-NOTICES.md` as separate release files (the pages are in the
+  .exe; the Rust side reads no bundled resources). It's built only in CI, on tags and
   manual runs, and has never been run by hand:
   nothing Windows-specific was tested locally. `src-tauri/icons/icon.ico` (from
   `tools/make_icons.py`) is required for the Windows build.

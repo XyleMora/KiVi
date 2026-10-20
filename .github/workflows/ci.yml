@@ -62,10 +62,38 @@ jobs:
       - name: Smoke test the pages (headless WebKit)
         run: tests/smoke.sh
 
+  # The Rust side's unit tests (src-tauri/src/lib.rs: model folder access).
+  # A debug build, separate from the release build below, so it runs on pull
+  # requests too.
+  rust-test:
+    name: Rust tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev build-essential
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      # tauri::generate_context!() embeds the pages, so dist/web must exist to compile.
+      - name: Copy the pages to dist/web
+        run: python3 tools/build_web.py
+
+      - name: cargo test
+        run: cargo test --locked --lib --manifest-path src-tauri/Cargo.toml
+
   # Not for pull requests: they only run the tests.
   build:
     name: Build (Linux)
-    needs: test
+    needs: [test, rust-test]
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
@@ -125,7 +153,7 @@ jobs:
   # (NSIS installer, `python` instead of `python3`).
   build-windows:
     name: Build (Windows)
-    needs: test
+    needs: [test, rust-test]
     if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     runs-on: windows-2022
     timeout-minutes: 60

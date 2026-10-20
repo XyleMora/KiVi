@@ -243,7 +243,7 @@ gjs -m tests/diff.js
 gjs -m tests/nets.js
 gjs -m tests/review.js
 gjs -m tests/models.js
-cargo test --manifest-path src-tauri/Cargo.toml --lib   # Rust side: model folder access
+cargo test --manifest-path src-tauri/Cargo.toml --lib   # Rust side: model folder access (needs dist/web: run tools/build_web.py once)
 
 # Render a file to SVG
 gjs -m tools/render.js board.kicad_pcb out.svg --layers F.Cu,F.SilkS,Edge.Cuts
@@ -288,18 +288,21 @@ ok    diff
    from the Actions cache (keyed on `tests/kicad-demos.txt`, so they're
    downloaded only when the list changes or the cache expired after 7 unused
    days), then runs the unit tests, the full demo sweep and `tests/smoke.sh`.
-2. **Build (Linux)**, not for pull requests (they only run the tests):
+2. **Rust tests**, alongside: `cargo test` on the Rust side
+   (`src-tauri/src/lib.rs`), with the Rust build cached. Both builds below wait
+   for both test jobs.
+3. **Build (Linux)**, not for pull requests (they only run the tests):
    `cargo tauri build`, with the Rust build and the Tauri CLI
    cached; checks `THIRD-PARTY-NOTICES.md` is up to date and lists the
    AppImage's bundled system libraries in `appimage-libraries.md`. The AppImage
    and that list are attached to the run as the `kivi-linux` artifact.
 
-3. **Build (Windows)**, only for tags and manual runs (*Run workflow* on the
+4. **Build (Windows)**, only for tags and manual runs (*Run workflow* on the
    Actions tab): `cargo tauri build` on a Windows runner; the installer
    `KiVi_<version>_x64-setup.exe` is the `kivi-windows` artifact.
 
 Pushing a tag `v<version>` (matching `version` in `src-tauri/tauri.conf.json`,
-checked) runs all three and publishes a GitHub Release with the AppImage, the
+checked) runs all four and publishes a GitHub Release with the AppImage, the
 Windows installer and `appimage-libraries.md`. The installer isn't code-signed,
 so Windows SmartScreen warns on first run (*More info* → *Run anyway*).
 

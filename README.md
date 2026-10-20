@@ -204,7 +204,7 @@ src-tauri/              Rust app
   tauri.conf.json       window, CSP, bundle targets
   capabilities/         which plugin APIs the page may call
   icons/                app icons (tools/make_icons.py)
-vendor/                 three.js 0.169, occt-import-js (MIT), see vendor/README.md
+vendor/                 three.js 0.169, occt-import-js (LGPL-2.1), see vendor/README.md
 tests/                  headless checks (gjs), Tauri API mock
 tools/                  build, CLI rendering, visual comparison, icons, headless browser
 assets/                 logo (SVG)

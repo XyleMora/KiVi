@@ -624,16 +624,51 @@ async function loadStep(url) {
   const res = occt.ReadStepFile(buf, null);
   if (!res.success) return null;
   const group = new THREE.Group();
+  const materials = new Map(); // "r,g,b" → material, shared by the model's meshes
+  const material = (rgb) => {
+    const key = rgb.join(",");
+    if (!materials.has(key)) {
+      // STEP colours are sRGB, as VRML's are (VRMLLoader converts the same way).
+      const color = new THREE.Color().setRGB(rgb[0], rgb[1], rgb[2], THREE.SRGBColorSpace);
+      materials.set(key, new THREE.MeshStandardMaterial({ color, roughness: 0.5, metalness: 0.1, side: THREE.DoubleSide }));
+    }
+    return materials.get(key);
+  };
   for (const m of res.meshes) {
     const geo = new THREE.BufferGeometry();
     geo.setAttribute("position", new THREE.Float32BufferAttribute(m.attributes.position.array, 3));
     if (m.attributes.normal) geo.setAttribute("normal", new THREE.Float32BufferAttribute(m.attributes.normal.array, 3));
     geo.setIndex(m.index.array);
     if (!m.attributes.normal) geo.computeVertexNormals();
-    const color = m.color ? new THREE.Color(m.color[0], m.color[1], m.color[2]) : new THREE.Color(0x888888);
-    group.add(new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color, roughness: 0.5, metalness: 0.1, side: THREE.DoubleSide })));
+    const base = m.color ?? STEP_GREY;
+    // KiCad's library (and most vendor models) colour each face, not the whole
+    // shape: the body black, terminals tin. brep_faces are triangle ranges.
+    const faces = (m.brep_faces ?? []).filter((f) => f.color);
+    if (!faces.length) {
+      group.add(new THREE.Mesh(geo, material(base)));
+      continue;
+    }
+    const mats = [];
+    const slot = (rgb) => {
+      const mat = material(rgb);
+      let i = mats.indexOf(mat);
+      if (i < 0) i = mats.push(mat) - 1;
+      return i;
+    };
+    let next = 0; // triangles not covered by a coloured face keep the shape's colour
+    for (const f of [...faces].sort((a, b) => a.first - b.first)) {
+      if (f.first > next) geo.addGroup(next * 3, (f.first - next) * 3, slot(base));
+      geo.addGroup(f.first * 3, (f.last - f.first + 1) * 3, slot(f.color));
+      next = f.last + 1;
+    }
+    const triangles = m.index.array.length / 3;
+    if (next < triangles) geo.addGroup(next * 3, (triangles - next) * 3, slot(base));
+    group.add(new THREE.Mesh(geo, mats));
   }
   group.userData.unit = 1;
   return group;
 }
+
+/** Shapes without a colour in the STEP file. */
+const STEP_GREY = [0.53, 0.53, 0.53];
 

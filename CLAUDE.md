@@ -103,12 +103,21 @@ README doesn't: conventions, environment and pitfalls.
 
 ## 3D models
 
-Settings key `modelSources` (list of URL prefixes and GitHub repos; replaced
-the old single `modelBase`, which is still read). Resolution order is in
-`makeModelResolver` (`src/sources.js`) and covered by `tests/models.js`:
-project-relative paths, then library variables against the sources, then a
-search by file name in the project repo and the source repos (handles
-`/Users/…`, `C:\…`, `${KICAD_3RD_PARTY}` paths). The 3D view uses three.js
+Settings key `modelSources` (list of URL prefixes, GitHub repos and local
+folders; replaced the old single `modelBase`, which is still read). The default
+is the web mirror; a folder (e.g. `/usr/share/kicad/3dmodels`, KiCad 10.0.6 is
+installed here: 7,251 STEP files, no VRML) is only used when the user adds it
+(Settings → **Add folder…**; no auto-detection, on purpose).
+Folder sources are read through `list_model_dir` / `read_model_file` in
+`lib.rs` (model extensions only, inside that folder; tested by `cargo test`),
+via `ModelDirSource` (`tauri.js`), which `desktop.js` hands to the resolver as
+`app.openModelDir`; in a plain browser they're skipped with a toast. Resolution order is in
+`makeModelResolver` (`src/sources.js`) and covered by `tests/models.js`
+(the user chose it): always the project first (its exact relative path, then a
+search by file name), then folder sources, then web sources (URL prefixes,
+GitHub repos), each group in list order, whatever the order in Settings. This
+holds for `${KICADn_3DMODEL_DIR}` paths too, and handles `/Users/…`, `C:\…`,
+`${KICAD_3RD_PARTY}` paths. The 3D view uses three.js
 `TrackballControls` (free rotation; preset views reset `camera.up`).
 
 ## Build and run
@@ -166,6 +175,7 @@ gjs -m tests/diff.js
 gjs -m tests/nets.js
 gjs -m tests/review.js                       # GitHub API layer, mocked
 gjs -m tests/models.js                       # 3D model path resolution order
+cargo test --manifest-path src-tauri/Cargo.toml --lib   # Rust: model folder access (not in CI)
 tests/smoke.sh                               # pages load cleanly, viewer opens pic_programmer (~15 s)
 ```
 

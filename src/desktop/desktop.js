@@ -1,7 +1,7 @@
 // Desktop additions to the viewer (index.html) and diff (diff.html) pages.
 // Loaded after the page's own module; does nothing outside the Tauri app.
 
-import { ensureFreshToken, isDesktop, invoke, listen, onDrop, openFolder, pickFolder, routeExternalLinks, TauriSource } from "./tauri.js";
+import { ensureFreshToken, isDesktop, invoke, listen, ModelDirSource, onDrop, openFolder, pickFolder, routeExternalLinks, TauriSource } from "./tauri.js";
 import { $, toast } from "../app/ui.js";
 import { initHeader } from "./account.js";
 
@@ -23,6 +23,7 @@ if (isDesktop) {
 
 function setUpViewer() {
   const app = window.kivi;
+  app.openModelDir = (path) => new ModelDirSource(path); // folder model sources from Settings
 
   // "Open" with an empty repository box picks a local folder (the viewer's own
   // handler opens a repository when there is one).

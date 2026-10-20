@@ -218,13 +218,18 @@ const modelVariants = (p) => {
 };
 const urlPath = (p) => p.split("/").map(encodeURIComponent).join("/");
 
+/** A folder on this computer: `/…`, `~/…`, `C:\…` or `\\server\…`. */
+const LOCAL_DIR = /^(\/|~([\\/]|$)|[a-z]:[\\/]|\\\\)/i;
+
 /**
  * A 3D model source from Settings: a URL prefix (e.g. a raw mirror of KiCad's
- * library) or a GitHub repository (`owner/repo[@ref][:dir]` or a github.com URL).
+ * library), a GitHub repository (`owner/repo[@ref][:dir]` or a github.com URL),
+ * or a folder on this computer such as KiCad's installed library (desktop app only).
  */
 export function parseModelSource(spec) {
   spec = spec.trim();
   if (!spec || spec.startsWith("#")) return null;
+  if (LOCAL_DIR.test(spec)) return { kind: "dir", spec, path: spec };
   const gh = /^https?:\/\//i.test(spec) && !/^https?:\/\/(www\.)?github\.com\//i.test(spec) ? null : parseGitHubSpec(spec);
   if (gh) return { kind: "repo", spec, gh };
   if (/^https?:\/\//i.test(spec)) return { kind: "url", spec, base: spec.replace(/\/?$/, "/") };
@@ -264,20 +269,28 @@ function findByName(index, path) {
 /**
  * Map a footprint's model path to the places it may be fetched from, tried in order
  * until one loads (an async iterable, so later sources are only listed if needed).
- *   ${KIPRJMOD}/x.step, relative/x.wrl  → the project itself
- *   ${KICADn_3DMODEL_DIR}/...           → each model source in turn, then the project repository
- *   anything else (absolute paths from the designer's machine, other variables)
- *                                       → a file with that name anywhere in the project repository,
- *                                         then in the model sources
+ * Each candidate is `{url, format, alt}`; `alt` marks the same model in another
+ * format (a .step for a .wrl path), which KiCad itself wouldn't load.
+ * Always the project first, then folders on this computer, then web sources
+ * (URL prefixes, GitHub repositories), each group in the order of the list:
+ *   ${KIPRJMOD}/x.step, relative/x.wrl  → that path in the project, then by name as below
+ *   ${KICADn_3DMODEL_DIR}/..., absolute paths from the designer's machine, other variables
+ *                                       → a file with that name anywhere in the project,
+ *                                         then the library-relative path and the file name
+ *                                         in each model source
  * @param {object} source project source
  * @param {string} projectDir
- * @param {string[]} modelSources URL prefixes and GitHub repositories, in priority order
- * @param {{token?: string|null, onSourceError?: (spec: string, err: Error) => void}} [opts]
+ * @param {string[]} modelSources URL prefixes, GitHub repositories and folders (folders go first)
+ * @param {{token?: string|null, onSourceError?: (spec: string, err: Error) => void,
+ *   openDir?: (path: string) => object}} [opts] `openDir` makes a source (list/readBinary) for a
+ *   folder model source; without it (in a browser) folder sources are skipped with an error.
  */
-export function makeModelResolver(source, projectDir, modelSources = [], { token = null, onSourceError = null } = {}) {
+export function makeModelResolver(source, projectDir, modelSources = [], { token = null, onSourceError = null, openDir = null } = {}) {
   const blobCache = new Map();
-  const sources = modelSources.map(parseModelSource).filter(Boolean);
-  const repos = new Map(); // spec → Promise<{source, dir, index}|null>
+  // A local folder is faster and works offline, so it goes before any web source.
+  const parsed = modelSources.map(parseModelSource).filter(Boolean);
+  const sources = [...parsed.filter((m) => m.kind === "dir"), ...parsed.filter((m) => m.kind !== "dir")];
+  const opened = new Map(); // spec → Promise<{source, dir, index}|null> for repositories and folders
   let projectIndex = null;
 
   /** null when the file can't be read, so the next candidate is tried. */
@@ -291,11 +304,17 @@ export function makeModelResolver(source, projectDir, modelSources = [], { token
     }
     return url ? { url, format } : null;
   };
-  const openRepo = (m) => {
-    if (!repos.has(m.spec)) {
-      repos.set(
+  /** A source that can be listed (repository or folder), opened once and indexed by file name. */
+  const openListed = (m) => {
+    if (!opened.has(m.spec)) {
+      opened.set(
         m.spec,
         (async () => {
+          if (m.kind === "dir") {
+            if (!openDir) throw new Error("folders work only in the desktop app");
+            const src = openDir(m.path);
+            return { source: src, dir: "", index: await modelIndex(src) };
+          }
           const src = await GitHubSource.open(m.gh, token);
           return { source: src, dir: src.dir, index: await modelIndex(src, src.dir) };
         })().catch((e) => {
@@ -305,7 +324,7 @@ export function makeModelResolver(source, projectDir, modelSources = [], { token
         }),
       );
     }
-    return repos.get(m.spec);
+    return opened.get(m.spec);
   };
 
   async function* inProject(path) {
@@ -323,7 +342,7 @@ export function makeModelResolver(source, projectDir, modelSources = [], { token
         }
         continue;
       }
-      const repo = await openRepo(m);
+      const repo = await openListed(m);
       if (!repo) continue;
       const tried = new Set();
       if (rel) {
@@ -339,12 +358,17 @@ export function makeModelResolver(source, projectDir, modelSources = [], { token
   }
 
   return async function* resolve(rawPath) {
+    const want = modelFormat(rawPath);
+    for await (const c of candidates(rawPath)) if (c) yield { ...c, alt: !!want && c.format !== want };
+  };
+
+  async function* candidates(rawPath) {
     const path = rawPath.replace(/\\/g, "/");
     const libVar = LIB_VAR.exec(path);
     if (libVar) {
       const rel = path.slice(libVar[0].length);
+      yield* inProject(path); // a copy shipped with the project beats any library
       yield* inSources(rel, path);
-      yield* inProject(path);
       return;
     }
     const local = path.replace(/^\$\{KIPRJMOD\}\/?/, "");
@@ -357,5 +381,5 @@ export function makeModelResolver(source, projectDir, modelSources = [], { token
     const custom = /^\$\{[^}]+\}\/?(.*)$/.exec(local);
     yield* inProject(path);
     yield* inSources(custom ? custom[1] : null, path);
-  };
+  }
 }

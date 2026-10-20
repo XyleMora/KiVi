@@ -39,6 +39,31 @@ export class TauriSource {
   }
 }
 
+/**
+ * A 3D model folder from Settings (e.g. KiCad's installed library), read
+ * through the Rust side, which only hands out model files inside it.
+ */
+export class ModelDirSource {
+  constructor(path) {
+    this.kind = "model-dir";
+    this.path = path;
+    this.label = path;
+    this.files = null;
+  }
+  list() {
+    // Listed once: KiCad's library is thousands of files, and both the index
+    // and the library-path lookup need the list.
+    this.files ??= invoke("list_model_dir", { dir: this.path });
+    return this.files;
+  }
+  async readBinary(path) {
+    return new Uint8Array(await invoke("read_model_file", { dir: this.path, path }));
+  }
+  url() {
+    return null; // handed over as blobs
+  }
+}
+
 /** List `path` and start watching it; returns the source to open. */
 export async function openFolder(path) {
   const files = await invoke("open_folder", { path });
@@ -65,8 +90,8 @@ export function onDrop({ enter, leave, drop }) {
   });
 }
 
-export async function pickFolder() {
-  return T.dialog.open({ directory: true, title: "Open KiCad project folder" });
+export async function pickFolder(title = "Open KiCad project folder") {
+  return T.dialog.open({ directory: true, title });
 }
 
 const RECENT_KEY = "kivi.recentFolders";

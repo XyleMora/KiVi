@@ -392,30 +392,44 @@ export class Board3D {
       const missing = this.missingModels.length;
       this.status(`3D models: ${loaded} loaded${missing ? `, ${missing} not found` : ""}`);
     };
+    /** The first candidate that loads, in priority order: {obj, alt} (obj null if none). */
+    const loadOne = async (m) => {
+      if (!resolve) return { obj: null, alt: false };
+      try {
+        const r = resolve(m.path);
+        const candidates = r?.[Symbol.asyncIterator] ? r : [await r].filter(Boolean);
+        for await (const c of candidates) {
+          const obj = c && (await this.loadModel(c));
+          if (obj) return { obj, alt: !!c.alt };
+        }
+      } catch {
+        // unreadable source: counts as not found
+      }
+      return { obj: null, alt: false };
+    };
     for (const fp of pcb.footprints) {
       if (fp.attrs.includes("board_only")) continue;
-      for (const m of fp.models.filter((m) => !m.hide && m.path)) {
-        jobs.push(async () => {
-          let obj = null;
-          if (resolve) {
-            try {
-              // Candidates in priority order; the first that loads wins.
-              const r = resolve(m.path);
-              const candidates = r?.[Symbol.asyncIterator] ? r : [await r].filter(Boolean);
-              for await (const c of candidates) if (c && (obj = await this.loadModel(c))) break;
-            } catch {
-              obj = null;
-            }
-          }
+      const models = fp.models.filter((m) => !m.hide && m.path);
+      if (!models.length) continue;
+      jobs.push(async () => {
+        const results = await Promise.all(models.map(loadOne));
+        // A stand-in in another format (a library .step for a missing .wrl) only
+        // counts when nothing else of the footprint loaded as named. Footprints
+        // often list a library model and a vendor one for the same part; KiCad
+        // shows just the one it finds, and showing both stacks two parts.
+        const exact = results.some((r) => r.obj && !r.alt);
+        models.forEach((m, i) => {
+          const { obj, alt } = results[i];
+          if (obj && alt && exact) return;
           if (obj) {
             this.placeModel(fp, m, obj, obj.userData.unit ?? 1);
             loaded++;
           } else {
             this.missingModels.push({ reference: fp.reference, path: m.path });
           }
-          report();
         });
-      }
+        report();
+      });
     }
     await runLimited(jobs, 6);
     if (jobs.length) report();

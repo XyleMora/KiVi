@@ -10,15 +10,18 @@
 import { $, escapeHtml, settings, saveSettings, toast } from "../app/ui.js";
 import { GitHubSource, parseModelSource } from "../sources.js";
 import { ICONS } from "./icons.js";
-import { appInstallUrl, signInWithGitHub, withoutGitHubToken } from "./tauri.js";
+import { appInstallUrl, pickFolder, signInWithGitHub, withoutGitHubToken } from "./tauri.js";
 
 const SETTINGS_HTML = `
 <form method="dialog" class="settings">
   <h2>Settings</h2>
   <label class="check"><input type="checkbox" id="set-sch-dark"> Dark schematic</label>
-  <label class="field-label" for="set-model-sources">3D model sources <span class="muted">(one per line, tried in order)</span></label>
+  <label class="field-label" for="set-model-sources">3D model sources <span class="muted">(one per line; after the project, folders first, then the rest in order)</span></label>
   <textarea id="set-model-sources" class="input mono" rows="4" spellcheck="false"></textarea>
-  <p class="muted settings-hint">A URL prefix for KiCad library models, or a GitHub repository (<code>owner/repo</code>, <code>owner/repo@branch:folder</code>) searched for models by file name.</p>
+  <div class="row between gap">
+    <p class="muted settings-hint">A URL prefix for KiCad library models, a GitHub repository (<code>owner/repo</code>, <code>owner/repo@branch:folder</code>) searched for models by file name, or a folder on this computer, such as KiCad's own library (<code>/usr/share/kicad/3dmodels</code>, <code>C:\\Program Files\\KiCad\\9.0\\share\\kicad\\3dmodels</code>).</p>
+    <button type="button" class="btn small" id="set-add-model-dir">Add folder…</button>
+  </div>
   <label class="check"><input type="checkbox" id="set-load-models"> Load 3D component models</label>
   <div class="row end gap">
     <button value="cancel" class="btn">Cancel</button>
@@ -71,11 +74,23 @@ export function initHeader({ homeLinks = true, onAccountChange = () => location.
   dlg.id = "settings";
   dlg.innerHTML = SETTINGS_HTML;
   document.body.appendChild(dlg);
+  // Folders are tried before web sources anyway; listing them first shows that.
+  $("#set-add-model-dir").addEventListener("click", async () => {
+    try {
+      const dir = await pickFolder("Choose a 3D model folder");
+      if (!dir) return;
+      const box = $("#set-model-sources");
+      const lines = box.value.split("\n").map((l) => l.trim()).filter((l) => l && l !== dir);
+      box.value = [dir, ...lines].join("\n");
+    } catch (e) {
+      toast(`Couldn't open the folder picker: ${e.message ?? e}`, true);
+    }
+  });
   dlg.addEventListener("close", () => {
     if (dlg.returnValue !== "save") return;
     const sources = $("#set-model-sources").value.split("\n").map((l) => l.trim()).filter(Boolean);
     const bad = sources.filter((l) => !l.startsWith("#") && !parseModelSource(l));
-    if (bad.length) toast(`Not a URL or GitHub repository: ${bad[0]}`, true);
+    if (bad.length) toast(`Not a URL, GitHub repository or folder: ${bad[0]}`, true);
     else toast("Settings saved");
     const { modelBase, ...rest } = settings(); // replaced by modelSources
     saveSettings({ ...rest, schDark: $("#set-sch-dark").checked, modelSources: sources, loadModels: $("#set-load-models").checked });

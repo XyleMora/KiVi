@@ -392,30 +392,44 @@ export class Board3D {
       const missing = this.missingModels.length;
       this.status(`3D models: ${loaded} loaded${missing ? `, ${missing} not found` : ""}`);
     };
+    /** The first candidate that loads, in priority order: {obj, alt} (obj null if none). */
+    const loadOne = async (m) => {
+      if (!resolve) return { obj: null, alt: false };
+      try {
+        const r = resolve(m.path);
+        const candidates = r?.[Symbol.asyncIterator] ? r : [await r].filter(Boolean);
+        for await (const c of candidates) {
+          const obj = c && (await this.loadModel(c));
+          if (obj) return { obj, alt: !!c.alt };
+        }
+      } catch {
+        // unreadable source: counts as not found
+      }
+      return { obj: null, alt: false };
+    };
     for (const fp of pcb.footprints) {
       if (fp.attrs.includes("board_only")) continue;
-      for (const m of fp.models.filter((m) => !m.hide && m.path)) {
-        jobs.push(async () => {
-          let obj = null;
-          if (resolve) {
-            try {
-              // Candidates in priority order; the first that loads wins.
-              const r = resolve(m.path);
-              const candidates = r?.[Symbol.asyncIterator] ? r : [await r].filter(Boolean);
-              for await (const c of candidates) if (c && (obj = await this.loadModel(c))) break;
-            } catch {
-              obj = null;
-            }
-          }
+      const models = fp.models.filter((m) => !m.hide && m.path);
+      if (!models.length) continue;
+      jobs.push(async () => {
+        const results = await Promise.all(models.map(loadOne));
+        // A stand-in in another format (a library .step for a missing .wrl) only
+        // counts when nothing else of the footprint loaded as named. Footprints
+        // often list a library model and a vendor one for the same part; KiCad
+        // shows just the one it finds, and showing both stacks two parts.
+        const exact = results.some((r) => r.obj && !r.alt);
+        models.forEach((m, i) => {
+          const { obj, alt } = results[i];
+          if (obj && alt && exact) return;
           if (obj) {
             this.placeModel(fp, m, obj, obj.userData.unit ?? 1);
             loaded++;
           } else {
             this.missingModels.push({ reference: fp.reference, path: m.path });
           }
-          report();
         });
-      }
+        report();
+      });
     }
     await runLimited(jobs, 6);
     if (jobs.length) report();
@@ -624,16 +638,51 @@ async function loadStep(url) {
   const res = occt.ReadStepFile(buf, null);
   if (!res.success) return null;
   const group = new THREE.Group();
+  const materials = new Map(); // "r,g,b" → material, shared by the model's meshes
+  const material = (rgb) => {
+    const key = rgb.join(",");
+    if (!materials.has(key)) {
+      // STEP colours are sRGB, as VRML's are (VRMLLoader converts the same way).
+      const color = new THREE.Color().setRGB(rgb[0], rgb[1], rgb[2], THREE.SRGBColorSpace);
+      materials.set(key, new THREE.MeshStandardMaterial({ color, roughness: 0.5, metalness: 0.1, side: THREE.DoubleSide }));
+    }
+    return materials.get(key);
+  };
   for (const m of res.meshes) {
     const geo = new THREE.BufferGeometry();
     geo.setAttribute("position", new THREE.Float32BufferAttribute(m.attributes.position.array, 3));
     if (m.attributes.normal) geo.setAttribute("normal", new THREE.Float32BufferAttribute(m.attributes.normal.array, 3));
     geo.setIndex(m.index.array);
     if (!m.attributes.normal) geo.computeVertexNormals();
-    const color = m.color ? new THREE.Color(m.color[0], m.color[1], m.color[2]) : new THREE.Color(0x888888);
-    group.add(new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color, roughness: 0.5, metalness: 0.1, side: THREE.DoubleSide })));
+    const base = m.color ?? STEP_GREY;
+    // KiCad's library (and most vendor models) colour each face, not the whole
+    // shape: the body black, terminals tin. brep_faces are triangle ranges.
+    const faces = (m.brep_faces ?? []).filter((f) => f.color);
+    if (!faces.length) {
+      group.add(new THREE.Mesh(geo, material(base)));
+      continue;
+    }
+    const mats = [];
+    const slot = (rgb) => {
+      const mat = material(rgb);
+      let i = mats.indexOf(mat);
+      if (i < 0) i = mats.push(mat) - 1;
+      return i;
+    };
+    let next = 0; // triangles not covered by a coloured face keep the shape's colour
+    for (const f of [...faces].sort((a, b) => a.first - b.first)) {
+      if (f.first > next) geo.addGroup(next * 3, (f.first - next) * 3, slot(base));
+      geo.addGroup(f.first * 3, (f.last - f.first + 1) * 3, slot(f.color));
+      next = f.last + 1;
+    }
+    const triangles = m.index.array.length / 3;
+    if (next < triangles) geo.addGroup(next * 3, (triangles - next) * 3, slot(base));
+    group.add(new THREE.Mesh(geo, mats));
   }
   group.userData.unit = 1;
   return group;
 }
+
+/** Shapes without a colour in the STEP file. */
+const STEP_GREY = [0.53, 0.53, 0.53];
 

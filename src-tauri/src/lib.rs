@@ -109,6 +109,51 @@ fn read_file(path: String, ws: State<Workspace>) -> Result<Response, String> {
     std::fs::read(&full).map(Response::new).map_err(|e| format!("{path}: {e}"))
 }
 
+// ---- 3D model folders ------------------------------------------------------------
+// Folders from the model sources in Settings, such as KiCad's own library
+// (/usr/share/kicad/3dmodels). They aren't the open folder, so reads are checked
+// separately: only model files, and only inside the folder asked for.
+
+const MODEL_EXT: &[&str] = &["wrl", "step", "stp"];
+
+fn is_model(path: &Path) -> bool {
+    path.extension().is_some_and(|x| MODEL_EXT.contains(&x.to_string_lossy().to_lowercase().as_str()))
+}
+
+/// The folder a model source names, with a leading `~` for the home folder.
+fn model_dir(dir: &str) -> Result<PathBuf, String> {
+    let home = || std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")).map(PathBuf::from);
+    let path = match dir.strip_prefix("~") {
+        Some(rest) if rest.is_empty() || rest.starts_with(['/', '\\']) => {
+            home().ok_or("no home folder")?.join(rest.trim_start_matches(['/', '\\']))
+        }
+        _ => PathBuf::from(dir),
+    };
+    let root = std::fs::canonicalize(&path).map_err(|e| format!("{dir}: {e}"))?;
+    if !root.is_dir() {
+        return Err(format!("{dir}: not a folder"));
+    }
+    Ok(root)
+}
+
+/// The model files in a model folder, relative with forward slashes.
+#[tauri::command]
+fn list_model_dir(dir: String) -> Result<Vec<String>, String> {
+    let root = model_dir(&dir)?;
+    Ok(list(&root).into_iter().filter(|p| is_model(Path::new(p))).collect())
+}
+
+/// One model file from a model folder (raw bytes).
+#[tauri::command]
+fn read_model_file(dir: String, path: String) -> Result<Response, String> {
+    let root = model_dir(&dir)?;
+    let full = std::fs::canonicalize(root.join(&path)).map_err(|e| format!("{path}: {e}"))?;
+    if !full.starts_with(&root) || !is_model(&full) {
+        return Err(format!("{path}: not a 3D model in {dir}"));
+    }
+    std::fs::read(&full).map(Response::new).map_err(|e| format!("{path}: {e}"))
+}
+
 /// Folder given on the command line (`kivi-desktop ~/hw/board` or a file inside it).
 #[tauri::command]
 fn startup_folder() -> Option<String> {
@@ -183,6 +228,8 @@ pub fn run() {
             open_folder,
             list_folder,
             read_file,
+            list_model_dir,
+            read_model_file,
             startup_folder,
             github_client_id,
             github_app_slug,
@@ -192,4 +239,32 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running KiVi");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A model folder with a model, a non-model file and a model outside it.
+    fn fixture() -> PathBuf {
+        let base = std::env::temp_dir().join(format!("kivi-model-dir-{}", std::process::id()));
+        let lib = base.join("lib").join("Resistor_SMD.3dshapes");
+        std::fs::create_dir_all(&lib).unwrap();
+        std::fs::write(lib.join("R_0402.step"), b"step").unwrap();
+        std::fs::write(lib.join("notes.txt"), b"text").unwrap();
+        std::fs::write(base.join("outside.step"), b"outside").unwrap();
+        base
+    }
+
+    #[test]
+    fn model_folders_hand_out_only_their_model_files() {
+        let base = fixture();
+        let dir = base.join("lib").to_string_lossy().into_owned();
+        assert_eq!(list_model_dir(dir.clone()).unwrap(), vec!["Resistor_SMD.3dshapes/R_0402.step"]);
+        assert!(read_model_file(dir.clone(), "Resistor_SMD.3dshapes/R_0402.step".into()).is_ok());
+        assert!(read_model_file(dir.clone(), "Resistor_SMD.3dshapes/notes.txt".into()).is_err());
+        assert!(read_model_file(dir.clone(), "../outside.step".into()).is_err());
+        assert!(list_model_dir(base.join("missing").to_string_lossy().into_owned()).is_err());
+        std::fs::remove_dir_all(base).unwrap();
+    }
 }

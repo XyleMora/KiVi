@@ -234,6 +234,7 @@ class App {
           ? makeModelResolver(this.source, this.entry.dir, modelSources(s), {
               token: s.token,
               onSourceError: (spec, e) => toast(`3D model source ${spec}: ${e.message}`, true),
+              openDir: this.openModelDir, // set by the desktop app (src/desktop/desktop.js)
             })
           : null;
       this.view3d = new Board3D($("#v3d"), {

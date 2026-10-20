@@ -31,7 +31,13 @@ the board flipped to the bottom, and footprints, pads and tracks inspected.
 
 **3D.** The board in 3D with the stackup from the KiCad file (soldermask,
 finish and silkscreen colours, layer thicknesses) and component models from
-KiCad's library, the project and any extra model sources. 
+KiCad's library, the project and any extra model sources. Models come from
+the web by default; with KiCad installed, add its model folder in Settings
+(**Add folder…**, e.g. `/usr/share/kicad/3dmodels` or
+`C:\Program Files\KiCad\9.0\share\kicad\3dmodels`) to load them from disk:
+faster, offline, and matching your KiCad version. Each model is looked for in
+the project first, then in model folders, then in web sources (URLs and GitHub
+repositories), the first found wins.
 
 ![3D view of the CM5 MINIMA board with component models](docs/screenshots/viewer-3d.png)
 
@@ -237,6 +243,7 @@ gjs -m tests/diff.js
 gjs -m tests/nets.js
 gjs -m tests/review.js
 gjs -m tests/models.js
+cargo test --manifest-path src-tauri/Cargo.toml --lib   # Rust side: model folder access
 
 # Render a file to SVG
 gjs -m tools/render.js board.kicad_pcb out.svg --layers F.Cu,F.SilkS,Edge.Cuts
@@ -307,7 +314,9 @@ App in; without them the sign-in dialog asks for it.
   Layout and anchoring match, but glyph shapes differ.
 - The default 3D model library is the KiCad 6-era GitHub mirror of
   `kicad-packages3D`; models added in later KiCad versions are not shown unless
-  you add another mirror to the model sources in Settings. A GitHub repository
+  you add your KiCad installation's model folder or another mirror to the model
+  sources in Settings. A folder source can only be read by the desktop app,
+  which hands out nothing but `.wrl`/`.step`/`.stp` files inside that folder. A GitHub repository
   source is listed once through the API, so it counts against the rate limit.
   STEP models load through the bundled `occt-import-js` (7.7 MB of
   WebAssembly, loaded on first use).

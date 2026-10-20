@@ -187,7 +187,8 @@ src/diff/               semantic schematic and board diffs, comment anchors
 src/review.js           review comments on GitHub (threads, replies, resolve)
 src/sch/                schematic model, renderer, themes
 src/pcb/                board model, renderer, shapes, hit testing,
-                        outline extraction, face textures, three.js scene
+                        outline extraction, face textures, three.js scene,
+                        STEP conversion (worker) and its cache
 src/app/                UI: tabs, pan/zoom viewport, inspectors, BOM, diff page
 src/desktop/
   tauri.js              TauriSource (folder on disk), drag and drop, link routing,
@@ -336,7 +337,11 @@ App in; without them the sign-in dialog asks for it.
   which hands out nothing but `.wrl`/`.step`/`.stp` files inside that folder. A GitHub repository
   source is listed once through the API, so it counts against the rate limit.
   STEP models load through the bundled `occt-import-js` (7.7 MB of
-  WebAssembly, loaded on first use).
+  WebAssembly, loaded on first use), in a background worker so the window
+  stays responsive. Converting a STEP model takes 0.3–1 s, so the result is
+  cached on disk: the first view of a board with many STEP models (KiCad 10's
+  library is STEP only) takes as long as before, reopening it is several times
+  faster (24 s → 5 s on CM5_MINIMA_3).
 - Git LFS files are not fetched.
 - Schematic nets are traced per sheet (wires, junctions, labels, pins) and
   mapped to board nets through component pins; the name shown is the board's

@@ -207,8 +207,14 @@ export class PcbTab {
     this.selectedRef = item?.reference ?? null;
     this.updateOverlay();
     this.inspect(item, pad);
-    if (item && zoom) this.view.zoomTo(item.bbox, 8);
+    if (item && zoom) this.zoomToBoard(item.bbox, 8);
     this.app.writeHash();
+  }
+
+  /** Zoom to a box in board coordinates. The bottom view is drawn mirrored, so x is mirrored too. */
+  zoomToBoard(box, minSize) {
+    const m = this.view.flipX; // its own inverse: board x ↔ drawn x
+    this.view.zoomTo(m ? { x0: m(box.x1), y0: box.y0, x1: m(box.x0), y1: box.y1 } : box, minSize);
   }
 
   selectReference(ref, zoom) {
@@ -304,7 +310,7 @@ export class PcbTab {
       const pads = this.pcb.footprints.flatMap((f) => f.pads).filter((p) => p.net === name);
       if (pads.length) {
         const xs = pads.map((p) => p.x), ys = pads.map((p) => p.y);
-        this.view.zoomTo({ x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) }, 10);
+        this.zoomToBoard({ x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) }, 10);
       }
       this.inspectNet(name);
     }

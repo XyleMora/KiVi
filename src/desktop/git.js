@@ -177,12 +177,6 @@ export function mountGitMenu(folder) {
     }
     if (window.kivi?.source?.path !== folder) return; // another project was opened meanwhile
     if (!info?.root) return removeOurs();
-    // Like a GitHub project's bar: View on GitHub, here for the branch checked out.
-    const gh = $("#gh-link");
-    if (gh && info.owner) {
-      gh.hidden = false;
-      gh.href = `https://github.com/${info.owner}/${info.repo}${info.branch ? `/tree/${info.branch.split("/").map(encodeURIComponent).join("/")}` : ""}`;
-    }
     const n = info.changes;
     const ahead = info.ahead ? `, ${info.ahead} commit${info.ahead > 1 ? "s" : ""} to push` : "";
     const commitItem = info.owner

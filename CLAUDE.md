@@ -47,7 +47,11 @@ README doesn't: conventions, environment and pitfalls.
     SHA). 48 cards per page; boards over 30 MB get no thumbnail.
   - **Pull requests**: the GitHub search API, with a KiCad-files-changed badge
     per PR (from `/pulls/N/files`) and buttons to the visual diff, the viewer
-    at the PR head, and github.com.
+    at the PR head, and github.com. Only PRs in repositories with KiCad
+    projects (the user's choice), by `repoHasProjects` (projects.js): the
+    gallery's index if it has the repository, else `/repos/x` plus a tree scan,
+    cached in localStorage `kivi.kicadRepos` by `pushed_at` and default branch;
+    a failed check shows the PR. Hidden PRs aren't mentioned (the user's choice).
 - `src/desktop/tauri.js`: `TauriSource` (a project folder read through Rust;
   the only local source), `onDrop` (Tauri takes file drops itself and reports
   paths as `tauri://drag-drop`; the page's HTML drop events get no files), link routing (http(s) links open in the system browser, `target=_blank` app

@@ -88,6 +88,40 @@ async function scanRepo(r) {
   };
 }
 
+// ---- repositories with projects (the pull request list) ---------------------------------
+
+const KICAD_REPOS_KEY = "kivi.kicadRepos"; // {"owner/repo": {pushed, branch, has}}
+
+/**
+ * Whether a repository has KiCad projects (as the gallery counts them), for
+ * showing only its pull requests. The gallery's index answers without a
+ * request; other repositories cost one request (two when pushed to since the
+ * last check) and are remembered. Rejects when GitHub can't tell (not cached).
+ */
+export async function repoHasProjects(nwo) {
+  const known = loadIndex()[nwo];
+  if (known) return known.projects.length > 0 || known.truncated;
+  let cache;
+  try {
+    cache = JSON.parse(localStorage.getItem(KICAD_REPOS_KEY) ?? "{}");
+  } catch {
+    cache = {};
+  }
+  const r = await api(`/repos/${nwo}`);
+  const hit = cache[r.full_name];
+  if (hit && hit.pushed === r.pushed_at && hit.branch === r.default_branch) return hit.has;
+  const scanned = await scanRepo(r);
+  // A truncated tree may hide projects: show its pull requests rather than lose them.
+  const has = scanned.projects.length > 0 || scanned.truncated;
+  try {
+    cache = JSON.parse(localStorage.getItem(KICAD_REPOS_KEY) ?? "{}"); // other checks ran meanwhile
+    localStorage.setItem(KICAD_REPOS_KEY, JSON.stringify({ ...cache, [r.full_name]: { pushed: r.pushed_at, branch: r.default_branch, has } }));
+  } catch {
+    /* storage unavailable: checked again next time */
+  }
+  return has;
+}
+
 // ---- thumbnails -------------------------------------------------------------------------
 
 let dbPromise = null;

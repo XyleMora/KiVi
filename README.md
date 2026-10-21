@@ -44,8 +44,9 @@ repositories), the first found wins.
 
 **Pull requests.** The second icon in the header lists open pull requests in
 watched repositories and, once you sign in, those waiting for your review and
-your own. Each says how many KiCad files it changes; **Visual diff** and
-**Hardware** open it in KiVi.
+your own, in repositories with KiCad projects only.
+Each says how many KiCad files it changes; **Visual diff** and **Hardware**
+open it in KiVi.
 
 ![Pull requests: the watched test repository's open PR, which changes 9 KiCad files](docs/screenshots/pull-requests.png)
 

@@ -1,8 +1,9 @@
 // The desktop app's home page, with two views switched by the header icons (as
 // on github.com): Projects (a grid of every KiCad project in the user's
 // repositories, see projects.js) and Pull requests (open PRs waiting for the
-// user's review, their own, and those of watched repositories, marked with the
-// KiCad files they change, opening in the visual diff or the hardware viewer).
+// user's review, their own, and those of watched repositories, only in
+// repositories with KiCad projects, marked with the KiCad files they change,
+// opening in the visual diff or the hardware viewer).
 // The avatar opens the shared account menu (account.js).
 // Local folders open from here too.
 
@@ -10,7 +11,7 @@ import { $, escapeHtml, settings, saveSettings, toast } from "../app/ui.js";
 import { DIFFABLE } from "../sources.js";
 import { initHeader } from "./account.js";
 import { ICONS } from "./icons.js";
-import { initProjects } from "./projects.js";
+import { initProjects, repoHasProjects } from "./projects.js";
 import { ensureFreshToken, invoke, isDesktop, onDrop, pickFolder, recentFolders, routeExternalLinks } from "./tauri.js";
 
 const token = () => settings().token ?? null;
@@ -93,12 +94,21 @@ async function renderLists() {
   }
   lists.innerHTML = secs.map((s, i) => `<h2>${escapeHtml(s.title)}</h2><ul class="pr-list" id="sec-${i}"><li class="muted">Loading…</li></ul>`).join("");
   const seen = new Set();
+  const hasProjects = new Map(); // "owner/repo" → Promise<boolean>, once per refresh
+  const keep = (it) => {
+    const nwo = it.repository_url.split("/").slice(-2).join("/");
+    if (!hasProjects.has(nwo)) hasProjects.set(nwo, repoHasProjects(nwo).catch(() => true)); // unknown: show it
+    return hasProjects.get(nwo);
+  };
   for (const [i, s] of secs.entries()) {
     const ul = $(`#sec-${i}`);
     try {
       const res = await api(`/search/issues?${new URLSearchParams({ q: s.q, sort: "updated", per_page: "30" })}`);
-      const items = res.items.filter((it) => !seen.has(it.html_url));
-      for (const it of items) seen.add(it.html_url);
+      const found = res.items.filter((it) => !seen.has(it.html_url));
+      for (const it of found) seen.add(it.html_url);
+      // Only pull requests in repositories with KiCad projects.
+      const flags = await Promise.all(found.map(keep));
+      const items = found.filter((_, j) => flags[j]);
       ul.innerHTML = items.length ? items.map(prRow).join("") : `<li class="muted">None</li>`;
       checkKicadFiles([...ul.querySelectorAll(".pr-row")]);
     } catch (e) {

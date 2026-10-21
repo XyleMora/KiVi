@@ -235,6 +235,7 @@ class App {
               token: s.token,
               onSourceError: (spec, e) => toast(`3D model source ${spec}: ${e.message}`, true),
               openDir: this.openModelDir, // set by the desktop app (src/desktop/desktop.js)
+              pathVars: s.kicad?.vars ?? {}, // the KiCad linked in the desktop app's Settings
             })
           : null;
       this.view3d = new Board3D($("#v3d"), {

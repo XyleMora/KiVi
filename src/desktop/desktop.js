@@ -1,7 +1,7 @@
 // Desktop additions to the viewer (index.html) and diff (diff.html) pages.
 // Loaded after the page's own module; does nothing outside the Tauri app.
 
-import { ensureFreshToken, isDesktop, invoke, listen, ModelDirSource, onDrop, openFolder, pickFolder, routeExternalLinks, TauriSource } from "./tauri.js";
+import { ensureFreshToken, isDesktop, invoke, kicadAction, listen, ModelDirSource, onDrop, openFolder, openInKicad, pickFolder, projectPath, routeExternalLinks, TauriSource } from "./tauri.js";
 import { $, toast } from "../app/ui.js";
 import { initHeader } from "./account.js";
 import { localGitApi, mountGitMenu } from "./git.js";
@@ -26,7 +26,7 @@ if (isDesktop) {
 
 function setUpViewer() {
   const app = window.kivi;
-  app.openModelDir = (path) => new ModelDirSource(path); // folder model sources from Settings
+  app.openModelDir = (path) => new ModelDirSource(path); // folder model sources from Settings, and the linked KiCad's
 
   // "Open" with an empty repository box picks a local folder (the viewer's own
   // handler opens a repository when there is one).
@@ -50,8 +50,30 @@ function setUpViewer() {
   app.openSource = async (src, state) => {
     const r = await openSource(src, state);
     if (!(src instanceof TauriSource)) gitMenu = null;
+    updateKicadButton();
     return r;
   };
+
+  // Open in KiCad, next to the branch button: greyed out until KiCad is linked
+  // in Settings, and for projects that aren't on this computer.
+  const kicadButton = $("#open-kicad");
+  kicadButton.hidden = false;
+  // The project's file on disk (kicadAction says so when it isn't a .kicad_pro), or null.
+  const projectFile = () => {
+    const e = app.entry;
+    return app.source instanceof TauriSource && e ? projectPath(app.source.path, e.pro ?? e.pcb ?? e.sch) : null;
+  };
+  function updateKicadButton() {
+    const { ok, title } = kicadAction(projectFile());
+    kicadButton.setAttribute("aria-disabled", String(!ok));
+    kicadButton.title = title;
+  }
+  kicadButton.addEventListener("click", () => {
+    if (kicadButton.getAttribute("aria-disabled") === "true") return toast(kicadButton.title, true);
+    openInKicad(projectFile()).catch((e) => toast(e.message ?? String(e), true));
+  });
+  window.addEventListener("kivi:settings", updateKicadButton);
+  updateKicadButton();
 
   async function show(path, state = null) {
     try {

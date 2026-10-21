@@ -148,13 +148,37 @@ README doesn't: conventions, environment and pitfalls.
   needs a token with *Contents: Read and write* and has only been tested against
   local repositories and mocks. The UI was checked headless with mocked commands.
 
+## Linking KiCad
+
+`src-tauri/src/kicad.rs`: `kicad_inspect` (program or installation folder →
+`{program, version, vars}`; version from `kicad-cli version`, so KiCad 7+; vars =
+the installation's `KICADn_3DMODEL_DIR`, the user's `KICADn_3RD_PARTY`, then
+`environment.vars` from `kicad_common.json`, then the process environment; only
+existing absolute folders) and `kicad_open` (program + `.kicad_pro` only; macOS
+through `open -a`). Settings key `kicad` (account.js, re-inspected each time
+Settings opens). Children are started with the AppImage launcher's environment
+removed (`outside_appimage`: entries pointing into `$APPDIR`, and its forced
+`GTK_THEME=Adwaita:dark|light`), checked by starting the real KiCad 10 from a
+mounted AppImage's environment under xvfb (`--ignored opens_installed_kicad`,
+run with `KIVI_TEST_PROJECT`; isolate `XDG_CONFIG_HOME` or KiCad adds it to the
+user's recent projects). "Open in KiCad" (`#open-kicad` in `index.html`, next to
+the branch menu, and the cards' `⋯` menu) is greyed out with `aria-disabled`
+(the tooltip and a click say why): KiCad not linked, project not on this
+computer, or no `.kicad_pro`. The user chose an explicit link (no
+auto-detection), a path box with Browse…, and greying out instead of hiding.
+Windows and macOS paths come from KiCad's documentation, untested.
+
 ## 3D models
 
 Settings key `modelSources` (list of URL prefixes, GitHub repos and local
 folders; replaced the old single `modelBase`, which is still read). The default
 is the web mirror; a folder (e.g. `/usr/share/kicad/3dmodels`, KiCad 10.0.6 is
 installed here: 7,251 STEP files, no VRML) is only used when the user adds it
-(Settings → **Add folder…**; no auto-detection, on purpose).
+(Settings → **Add folder…**) or links KiCad (no auto-detection, on purpose).
+The linked KiCad's vars reach `makeModelResolver` as `pathVars`: a
+`${VAR}/path` it defines is read exactly from that folder after the project
+(library vars of any version map to the linked library), and its library and
+3rd-party folders join the folder sources after the user's.
 Folder sources are read through `list_model_dir` / `read_model_file` in
 `lib.rs` (model extensions only, inside that folder; tested by `cargo test`),
 via `ModelDirSource` (`tauri.js`), which `desktop.js` hands to the resolver as

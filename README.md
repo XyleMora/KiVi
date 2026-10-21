@@ -32,11 +32,11 @@ the board flipped to the bottom, and footprints, pads and tracks inspected.
 **3D.** The board in 3D with the stackup from the KiCad file (soldermask,
 finish and silkscreen colours, layer thicknesses) and component models from
 KiCad's library, the project and any extra model sources. Models come from
-the web by default; with KiCad installed, add its model folder in Settings
-(**Add folder…**, e.g. `/usr/share/kicad/3dmodels` or
-`C:\Program Files\KiCad\9.0\share\kicad\3dmodels`) to load them from disk:
-faster, offline, and matching your KiCad version. Each model is looked for in
-the project first, then in model folders, then in web sources (URLs and GitHub
+the web by default; with KiCad installed, link it in Settings (see
+[Linking KiCad](#linking-kicad)) to load them from disk like KiCad does:
+faster, offline, and matching your KiCad version. Other folders can be added
+as model sources (**Add folder…**). Each model is looked for in the project
+first, then in model folders, then in web sources (URLs and GitHub
 repositories), the first found wins.
 
 ![3D view of the CM5 MINIMA board with component models](docs/screenshots/viewer-3d.png)
@@ -172,6 +172,32 @@ Rust `git2` crate), with HTTPS going through the same TLS stack as sign-in.
   on your branch that the copy doesn't, the push is refused; push to a new
   branch, or update the clone with git.
 
+## Linking KiCad
+
+Settings → **KiCad** takes KiCad's program or installation folder (typed, or
+**Browse…**): `/usr` or `/usr/bin/kicad` on Linux,
+`C:\Program Files\KiCad\10.0` on Windows, `/Applications/KiCad` on macOS.
+KiVi checks it with `kicad-cli version` (so KiCad 7 or later) and lists what it
+found. Linking is never automatic; an empty box unlinks it.
+
+- **3D models**: KiVi reads KiCad's path variables the way KiCad expands them:
+  the installation's library (`${KICAD10_3DMODEL_DIR}`), the add-on libraries
+  from the Plugin and Content Manager (`${KICAD10_3RD_PARTY}`), and the
+  variables changed or added in KiCad's *Preferences → Configure Paths*
+  (`kicad_common.json`), with environment variables winning as in KiCad. A
+  model path using one of them is loaded from exactly that place, after the
+  project's own copy; `${KICAD9_3DMODEL_DIR}` and other versions' library
+  variables use the linked library. The library and add-on folders are then
+  searched by file name like any model folder; your own variables' folders
+  aren't searched, only used for exact paths. Settings re-reads KiCad's paths
+  each time it opens.
+- **Open in KiCad**: a button next to the branch button when a project is open,
+  and an item in each project card's `⋯` menu. It opens the project's
+  `.kicad_pro` in KiCad's project manager; saving in KiCad reloads the view.
+  It's greyed out (hover it for why) until KiCad is linked, for projects that
+  aren't on this computer (a GitHub project without a local copy: **Download**
+  or **Link** it first), and for projects without a `.kicad_pro`.
+
 ## Links into the viewer
 
 ```
@@ -255,6 +281,7 @@ src-tauri/              Rust app
                         github_device_start/poll/refresh
   src/git.rs            git commands (clone, branch, local changes, commit, push)
   src/git_http.rs       git over HTTPS through reqwest (no OpenSSL)
+  src/kicad.rs          linking KiCad (program, version, path variables), Open in KiCad
   tauri.conf.json       window, CSP, bundle targets
   capabilities/         which plugin APIs the page may call
   icons/                app icons (tools/make_icons.py)
@@ -385,8 +412,7 @@ App in; without them the sign-in dialog asks for it.
   Layout and anchoring match, but glyph shapes differ.
 - The default 3D model library is the KiCad 6-era GitHub mirror of
   `kicad-packages3D`; models added in later KiCad versions are not shown unless
-  you add your KiCad installation's model folder or another mirror to the model
-  sources in Settings. A folder source can only be read by the desktop app,
+  you link KiCad in Settings or add another mirror to the model sources. A folder source can only be read by the desktop app,
   which hands out nothing but `.wrl`/`.step`/`.stp` files inside that folder. A GitHub repository
   source is listed once through the API, so it counts against the rate limit.
   STEP models load through the bundled `occt-import-js` (7.7 MB of

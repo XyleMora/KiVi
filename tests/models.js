@@ -87,6 +87,33 @@ const firstNoDesktop = [];
 for await (const c of noDesktop("${KICAD9_3DMODEL_DIR}/A.3dshapes/B.step")) if (c) firstNoDesktop.push(c.url);
 check("folder without the desktop app → skipped with an error, URL sources still tried", [errors, firstNoDesktop[0]], [["C:\\KiCad\\3dmodels"], "https://lib.example/3d/A.3dshapes/B.wrl"]);
 
+// A linked KiCad (Settings → KiCad): its path variables point at exact folders.
+const kicadFiles = {
+  "/kicad/3dmodels": ["Package_SO.3dshapes/SOIC-8.step"],
+  "/kicad/3rdparty": ["3dmodels/com_github_x/Lib.3dshapes/Part.step"],
+  "/mine": ["sub/Mine.wrl"],
+};
+const kicadOpened = [];
+const kicadDir = (path) => {
+  kicadOpened.push(path);
+  const has = (p) => (kicadFiles[path] ?? []).includes(p);
+  return { label: path, list: async () => kicadFiles[path] ?? [], readBinary: async (p) => Promise.reject(new Error(`no ${p}`)), url: (p) => (has(p) ? `kicad:${path}:${p}` : null) };
+};
+const pathVars = { KICAD10_3DMODEL_DIR: "/kicad/3dmodels", KICAD10_3RD_PARTY: "/kicad/3rdparty", MY_MODELS: "/mine" };
+const linked = makeModelResolver(source, "hw", ["https://lib.example/3d/"], { openDir: kicadDir, pathVars });
+const allLinked = async (path) => {
+  const out = [];
+  for await (const c of linked(path)) if (c) out.push(c.url);
+  return out;
+};
+check("linked KiCad: library variable of another version → KiCad's library, then the web", await allLinked("${KICAD8_3DMODEL_DIR}/Package_SO.3dshapes/SOIC-8.wrl"), [
+  "kicad:/kicad/3dmodels:Package_SO.3dshapes/SOIC-8.step",
+  "https://lib.example/3d/Package_SO.3dshapes/SOIC-8.wrl",
+]);
+check("linked KiCad: add-on library", (await allLinked("${KICAD10_3RD_PARTY}/3dmodels/com_github_x/Lib.3dshapes/Part.step"))[0], "kicad:/kicad/3rdparty:3dmodels/com_github_x/Lib.3dshapes/Part.step");
+check("linked KiCad: the user's own variable, exact path", (await allLinked("${MY_MODELS}/sub/Mine.wrl"))[0], "kicad:/mine:sub/Mine.wrl");
+check("linked KiCad: the user's own folders aren't listed, KiCad's are", [...new Set(kicadOpened)].sort(), ["/kicad/3dmodels", "/kicad/3rdparty", "/mine"]);
+
 check("source: Linux folder", parseModelSource("/usr/share/kicad/3dmodels")?.kind, "dir");
 check("source: home folder", parseModelSource("~/kicad/3dmodels")?.kind, "dir");
 check("source: Windows folder", parseModelSource("C:\\Program Files\\KiCad\\9.0\\share\\kicad\\3dmodels")?.kind, "dir");

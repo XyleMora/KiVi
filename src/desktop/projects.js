@@ -14,6 +14,7 @@ import { escapeHtml, settings, toast } from "../app/ui.js";
 import { GitHubSource } from "../sources.js";
 import { findProjects } from "../project.js";
 import { cloneProject, forgetSync, knownSync, linkProject, localCopy, localViewUrl, syncState, unlinkLocalCopy } from "./git.js";
+import { kicadAction, openInKicad, projectPath } from "./tauri.js";
 
 const INDEX_KEY = "kivi.projectIndex";
 const THUMB_W = 640, THUMB_H = 400;
@@ -224,6 +225,8 @@ function cardHtml(p) {
   const localItems = local
     ? `<button type="button" data-git="unlink" title="${escapeHtml(`Stop using the local copy in ${local} (the folder is kept)`)}">Unlink</button>`
     : `<button type="button" data-git="clone" title="Download the repository to a folder on this computer">Download</button><button type="button" data-git="link" title="Use a clone of this repository that's already on this computer">Link</button>`;
+  // Greyed out until KiCad is linked in Settings, and without a local copy to open.
+  const kicad = kicadAction(local ? projectPath(local, p.pro ?? p.pcb) : null, "Download or Link this repository first: KiCad opens the local copy");
   return `<li class="project-card" data-key="${escapeHtml(p.key)}">
     <a class="project-thumb" href="${escapeHtml(view())}" tabindex="-1" aria-hidden="true">${thumb}</a>
     <div class="project-info">
@@ -235,6 +238,7 @@ function cardHtml(p) {
             ${p.sch ? `<a href="${escapeHtml(view("sch"))}">Schematic</a>` : ""}
             ${p.pcb ? `<a href="${escapeHtml(view("pcb"))}">PCB</a><a href="${escapeHtml(view("3d"))}">3D view</a>` : ""}
             <a href="${escapeHtml(view("bom"))}">Bill of materials</a>
+            <button type="button" data-kicad aria-disabled="${!kicad.ok}" title="${escapeHtml(kicad.title)}">Open in KiCad</button>
             <a href="${escapeHtml(github)}">View on GitHub</a>
             <hr>
             ${localItems}
@@ -353,6 +357,19 @@ export function initProjects({ grid, status, filter }) {
   filter.addEventListener("input", () => {
     limit = PAGE;
     render();
+  });
+
+  // Linking or unlinking KiCad in Settings greys "Open in KiCad" in or out.
+  window.addEventListener("kivi:settings", () => render());
+
+  // Card menu: open in KiCad.
+  grid.addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-kicad]");
+    const p = b && byKey.get(b.closest(".project-card")?.dataset.key);
+    if (!p) return;
+    if (b.getAttribute("aria-disabled") === "true") return toast(b.title, true); // the menu stays open
+    b.closest("details").open = false;
+    openInKicad(projectPath(localCopy(p.nwo), p.pro)).catch((err) => toast(err.message ?? String(err), true));
   });
 
   // Card menu: download, link or unlink a local copy.

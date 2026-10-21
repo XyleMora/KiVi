@@ -58,6 +58,26 @@
 .card-menu-list { position: absolute; right: 0; top: calc(100% + 4px); z-index: 5; min-width: 170px; display: flex; flex-direction: column; padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 8px 24px rgb(0 0 0 / 0.45); font-weight: 400; }
 .card-menu-list a { color: var(--text); padding: 6px 10px; border-radius: 4px; }
 .card-menu-list a:hover { background: var(--bg); text-decoration: none; }
+/* Menu actions that aren't links (local copies, git) look like the links. */
+.card-menu-list button { background: none; border: 0; color: var(--text); font: inherit; text-align: left; padding: 6px 10px; border-radius: 4px; cursor: pointer; }
+.card-menu-list button:hover { background: var(--bg); }
+.card-menu-list hr { border: 0; border-top: 1px solid var(--border); margin: 4px 2px; }
+
+/* Project card: the local copy's sync state, left of the ⋯ menu (git.js syncState). */
+.sync-icon { display: inline-flex; flex: none; cursor: help; }
+.sync-green { color: #3fb950; }
+.sync-yellow { color: #d29922; }
+.sync-grey { color: var(--muted); opacity: 0.55; }
+.sync-pending { color: var(--muted); opacity: 0.3; }
+
+/* The git dialogs (src/desktop/git.js); the branch menu itself is in src/app/style.css. */
+.git-dialog .git-files { list-style: none; margin: 0; padding: 0; max-height: 220px; overflow: auto; border: 1px solid var(--border); border-radius: 6px; }
+.git-dialog .git-files li { padding: 3px 8px; font-size: 12px; }
+.git-dialog .git-files .check { gap: 6px; }
+.git-dialog .git-warn { margin: 0; padding: 8px 10px; border-radius: 6px; background: #241b0d; color: var(--accent); font-size: 13px; }
+.git-dialog .git-result { margin: 0; font-size: 13px; }
+.git-dialog .git-error { color: #ff8a80; }
+.git-dialog progress { width: 100%; }
 
 .account { display: flex; align-items: center; gap: 8px; }
 .home-switch { display: flex; gap: 6px; }

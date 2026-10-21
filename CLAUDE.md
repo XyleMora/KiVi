@@ -101,6 +101,53 @@ README doesn't: conventions, environment and pitfalls.
 - New comments carry no link in their footer (just "📍 KiVi · <what>");
   `encodeBody` still accepts one.
 
+## Local copies and git
+
+- `src-tauri/src/git.rs` (git2 with "vendored-libgit2", no "https"/"ssh"
+  features) and `git_http.rs`: libgit2's HTTPS transport replaced by reqwest
+  (rustls, blocking client), so no OpenSSL (libssl-dev isn't installed here and
+  needs sudo). The token rides in the URL's user part
+  (`https://x-access-token:TOKEN@github.com/…`), which git_http.rs moves into an
+  Authorization header; clones keep the plain URL, errors are scrubbed of it.
+  GitHub is always reached at `https://github.com/<owner>/<repo>.git`, whatever
+  the clone's remote says. Commands: `git_info`, `git_status`, `git_clone`
+  (emits `git-progress`), `git_create_branch`, `git_local_changes` (merge base
+  with origin/HEAD, main or master ↔ working files incl. untracked, renames),
+  `git_read` / `git_list` (rev "" = working files), `git_fetch`, `git_commit`,
+  `git_push`, `git_remote_state`, `git_branches`, `git_switch_branch`; all run
+  on a blocking thread.
+- Branch menu `#branch-menu` (`src/app/branch-menu.js`, shared, the user's
+  design): the same button and branch list for GitHub projects (main.js
+  `mountGitHubBranches`: `/branches` API, switching rewrites the URL's `gh=`
+  ref so `restoreFromHash` reopens the project, same tab) and local copies
+  (git.js `mountGitMenu`: `git_branches` after a best-effort fetch,
+  `git_switch_branch` = safe checkout like `git switch`, plus new branch, diff,
+  commit and push on top). `data-kind` tells which side owns it: main.js
+  removes only a "github" one, desktop.js mounts the "local" one after a folder
+  opens and on live reload/focus. The left of the bar shows the repository
+  (GitHub) or folder (local), no longer the ref.
+- `src/desktop/git.js`: card menu actions (projects.js), the local branch
+  menu, the dialogs,
+  and `localGitApi()` which desktop.js hands to `kiviDiff.attachLocalGit()` for
+  `diff.html#local=<folder>` (diff.js stays free of Tauri).
+- Links: settings `localCopies` {"owner/repo" lower case → folder}. Linking
+  accepts only existing clones of that repository (the user's choice). A linked
+  card always opens the local copy (`index.html#folder=…&project=…&tab=…`, the
+  user's choice; no separate "Open local copy" item).
+- Gallery sync icon (left of a card's ⋯, the user's design): grey = no local
+  copy, green = no uncommitted changes and the branch tip equals GitHub's,
+  yellow = anything else. `git_remote_state` asks GitHub for its branch tips
+  (ls-remote, no download; falls back to the remote-tracking ref offline);
+  `syncState()` in git.js checks once per repository, again after Refresh,
+  link/unlink and window focus.
+- The user chose: built-in git, KiVi makes the commits, link existing clones
+  only, diff against the merge base with main.
+- Tested: `cargo test` (local bare repositories: branch, edit, diff, commit,
+  push, rejected push) and `cargo test -- --ignored clone_over_https` (needs the
+  network; clones octocat/Hello-World through git_http.rs). Pushing over HTTPS
+  needs a token with *Contents: Read and write* and has only been tested against
+  local repositories and mocks. The UI was checked headless with mocked commands.
+
 ## 3D models
 
 Settings key `modelSources` (list of URL prefixes, GitHub repos and local
@@ -191,7 +238,7 @@ gjs -m tests/diff.js
 gjs -m tests/nets.js
 gjs -m tests/review.js                       # GitHub API layer, mocked
 gjs -m tests/models.js                       # 3D model path resolution order
-cargo test --manifest-path src-tauri/Cargo.toml --lib   # Rust: model folder access (needs dist/web)
+cargo test --manifest-path src-tauri/Cargo.toml --lib   # Rust: model folders, git (needs dist/web)
 tests/smoke.sh                               # pages load cleanly, viewer opens pic_programmer (~15 s)
 ```
 
@@ -303,6 +350,5 @@ unchanged for 10 s" condition, not the first "loaded" text.
 ## Not done yet
 
 - Tokens are in localStorage, not the OS keychain.
-- No diff of the local working copy against the PR head (`TauriSource` would be
-  the head source for `diff.html`).
+- No pull or merge into a local copy.
 - No auto-update, code signing or file associations.

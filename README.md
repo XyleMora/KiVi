@@ -105,6 +105,10 @@ How it behaves:
   Device-flow tokens refresh without the client secret, so none is shipped.
 - An organisation that restricts third-party access may need an owner to
   approve the installation.
+- Permissions the App needs (repository permissions): *Metadata: Read-only*,
+  *Pull requests: Read and write* (review comments) and *Contents: Read and
+  write* (reading files, and pushing from a local copy). After raising a
+  permission in the App's settings, each installation has to accept it once.
 
 ## Project gallery
 
@@ -122,6 +126,51 @@ How it behaves:
   previewed.
 - The grid renders 48 cards at a time and adds more as you scroll.
 - The scan stops at a rate-limit error and keeps what it found.
+
+## Local copies, branches and pushing
+
+A project from the gallery can be worked on in a folder on your computer and
+pushed back, without Git installed: KiVi has git built in (libgit2, through the
+Rust `git2` crate), with HTTPS going through the same TLS stack as sign-in.
+
+- **Download** (a project card's `⋯` menu) clones the whole
+  repository into `<chosen folder>/<repository>` and opens the project from it.
+  **Link** instead uses a clone you already have; KiVi checks
+  that it is a clone of that repository and never changes its files or history.
+  Once linked, the card (its name, thumbnail and views) always opens the local
+  copy; **Unlink** goes back to opening it from GitHub.
+- Each card has a sync icon left of its `⋯` menu (hover it for the details):
+  grey when the project isn't on this computer, green when the local copy has
+  nothing uncommitted and its branch is at the same commit as on GitHub, yellow
+  when it differs (uncommitted changes, commits to push, newer commits on
+  GitHub). It asks GitHub for its branch tips (one small request per linked
+  repository, no download), again on **Refresh** and when the window regains
+  focus; offline it compares with what the copy last fetched.
+- The project bar looks the same for a GitHub project and a local copy: the
+  project and its repository or folder on the left, the branch button
+  (`⎇ main`) on the right. Its menu lists the branches (with a filter); picking
+  one switches to it. For a GitHub project that reopens the project on that
+  branch; for a local copy it checks the branch out (GitHub branches the copy
+  doesn't have yet included, marked "on GitHub"): uncommitted edits come
+  along, unless that branch changes the same files, then nothing happens and
+  KiVi says why.
+- With a local copy open, the branch button also counts the changed files and
+  its menu has:
+  - **New branch…** creates a branch at the current commit and switches to it;
+    uncommitted edits come along.
+  - **Visual diff of changes** compares the working files, uncommitted edits
+    included, with the point where the branch left main (after updating main
+    from GitHub), like the pull request would: `diff.html#local=<folder>`.
+  - **Commit and push…** lists the changed files with checkboxes, commits the
+    chosen ones with your message and pushes the branch to the same branch on
+    GitHub, then offers to open a pull request. The commit author is your git
+    identity if the clone has one, else your GitHub account with its private
+    e-mail address. On `main` it warns first, since protected branches refuse it.
+- GitHub is always reached at `https://github.com/<owner>/<repo>.git` with your
+  sign-in token (in a request header, never stored in the clone), so a clone
+  with an SSH remote works too. There's no pull or merge: if GitHub has commits
+  on your branch that the copy doesn't, the push is refused; push to a new
+  branch, or update the clone with git.
 
 ## Links into the viewer
 
@@ -198,10 +247,14 @@ src/desktop/
   inbox.js, desktop.css home screen: view switch, pull requests
   projects.js           project gallery: repository scan, caches, cards
   thumb-worker.js       board thumbnails (parse + render off the main thread)
+  git.js                local copies: download/link, branch menu, commit and push
   icons.js              header and menu icons (repository / pull request follow Octicons)
 src-tauri/              Rust app
   src/lib.rs            commands: open_folder, list_folder, read_file, startup_folder,
-                        github_client_id, github_app_slug, github_device_start/poll/refresh
+                        model folders, github_client_id, github_app_slug,
+                        github_device_start/poll/refresh
+  src/git.rs            git commands (clone, branch, local changes, commit, push)
+  src/git_http.rs       git over HTTPS through reqwest (no OpenSSL)
   tauri.conf.json       window, CSP, bundle targets
   capabilities/         which plugin APIs the page may call
   icons/                app icons (tools/make_icons.py)
@@ -246,7 +299,7 @@ gjs -m tests/diff.js
 gjs -m tests/nets.js
 gjs -m tests/review.js
 gjs -m tests/models.js
-cargo test --manifest-path src-tauri/Cargo.toml --lib   # Rust side: model folder access (needs dist/web: run tools/build_web.py once)
+cargo test --manifest-path src-tauri/Cargo.toml --lib   # Rust side: model folders, git (needs dist/web: run tools/build_web.py once)
 
 # Render a file to SVG
 gjs -m tools/render.js board.kicad_pcb out.svg --layers F.Cu,F.SilkS,Edge.Cuts
@@ -352,8 +405,8 @@ App in; without them the sign-in dialog asks for it.
 - The token and refresh token are kept in the webview's localStorage; a release
   should keep them in the OS keychain (e.g. the `keyring` crate), at least the
   long-lived refresh token.
-- Comparing the local working copy with the PR head (needs a source for the
-  diff page that reads from disk; `TauriSource` is that source).
+- Pulling or merging into a local copy (KiVi clones, branches, commits and
+  pushes, but doesn't bring later GitHub commits into an existing copy).
 - Auto-update, code signing, notarisation (macOS), file associations in the
   bundle config.
 

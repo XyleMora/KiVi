@@ -4,6 +4,7 @@
 import { ensureFreshToken, isDesktop, invoke, listen, ModelDirSource, onDrop, openFolder, pickFolder, routeExternalLinks, TauriSource } from "./tauri.js";
 import { $, toast } from "../app/ui.js";
 import { initHeader } from "./account.js";
+import { localGitApi, mountGitMenu } from "./git.js";
 
 if (isDesktop) {
   document.body.classList.add("desktop");
@@ -18,7 +19,9 @@ if (isDesktop) {
   // the page, which restores the view from the URL with the new access.
   initHeader().renderAccount();
 
-  if (window.kivi) setUpViewer(); // the viewer (index.html); the diff page has no folders
+  if (window.kivi) setUpViewer(); // the viewer (index.html)
+  // The diff page compares a local git copy with main (diff.html#local=…) through these.
+  window.kiviDiff?.attachLocalGit(localGitApi());
 }
 
 function setUpViewer() {
@@ -38,10 +41,23 @@ function setUpViewer() {
     drop: (folder, project) => show(folder, project ? { project } : null),
   });
 
+  // A local folder that is a git copy gets the branch menu (new branch, diff, commit and push).
+  let gitMenu = null;
+  window.addEventListener("focus", () => gitMenu?.refresh()); // it may have been committed elsewhere
+  // Opening a GitHub repository (the viewer's own box) leaves the local folder behind;
+  // main.js then shows that repository's branch menu in place of the local one.
+  const openSource = app.openSource.bind(app);
+  app.openSource = async (src, state) => {
+    const r = await openSource(src, state);
+    if (!(src instanceof TauriSource)) gitMenu = null;
+    return r;
+  };
+
   async function show(path, state = null) {
     try {
       await app.openSource(await openFolder(path), state);
       document.title = `${app.project?.name ?? "KiVi"} — ${path}`;
+      gitMenu = mountGitMenu(path);
     } catch (e) {
       toast(e.message ?? String(e), true);
     }
@@ -63,6 +79,7 @@ function setUpViewer() {
         sel: tab === "pcb" ? app.pcb.selectedRef : tab === "sch" ? app.sch.selectedRef : null,
       };
       await app.openSource(src, state);
+      gitMenu?.refresh(); // the change count moved
       const names = e.payload.map((p) => p.split("/").pop());
       toast(`Reloaded: ${names.slice(0, 3).join(", ")}${names.length > 3 ? ` +${names.length - 3}` : ""} changed`);
     } finally {
@@ -73,5 +90,5 @@ function setUpViewer() {
   // Folder from the home page or the command line (index.html#folder=/path[&project=x.kicad_pro]).
   const hash = new URLSearchParams(location.hash.slice(1));
   const fromHash = hash.get("folder");
-  if (fromHash) show(fromHash, hash.get("project") ? { project: hash.get("project") } : null);
+  if (fromHash) show(fromHash, { project: hash.get("project") ?? undefined, tab: hash.get("tab") ?? undefined });
 }

@@ -1,8 +1,10 @@
 //! KiVi desktop: the web viewer in a native window, plus what a browser can't do —
-//! reading a local project folder, reloading when KiCad saves, and GitHub sign-in.
+//! reading a local project folder, reloading when KiCad saves, opening it in KiCad,
+//! and GitHub sign-in.
 
 mod git;
 mod git_http;
+mod kicad;
 
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -233,6 +235,8 @@ pub fn run() {
             read_file,
             list_model_dir,
             read_model_file,
+            kicad::kicad_inspect,
+            kicad::kicad_open,
             git::git_info,
             git::git_status,
             git::git_clone,

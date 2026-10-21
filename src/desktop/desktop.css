@@ -117,3 +117,11 @@
 @media (max-width: 900px) {
   .pr-actions .btn:not(.primary) { display: none; }
 }
+
+/* Settings → KiCad (account.js) and "Open in KiCad" (desktop.js, projects.js). */
+.kicad-path { flex: 1; min-width: 0; font-size: 12px; }
+.kicad-var { margin-top: 2px; overflow-wrap: anywhere; }
+.error-text { color: var(--danger); }
+.btn[aria-disabled="true"], .card-menu-list button[aria-disabled="true"] { opacity: 0.45; cursor: default; }
+.btn[aria-disabled="true"]:hover { border-color: var(--border); }
+.card-menu-list button[aria-disabled="true"]:hover { background: none; }

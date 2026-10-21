@@ -206,6 +206,8 @@ export async function resolveComparison(spec, token = null) {
 
 const MODEL_EXT = /\.(wrl|step|stp)$/i;
 const LIB_VAR = /^\$\{(KICAD\d*_3DMODEL_DIR|KISYS3DMOD)\}\/?/;
+const LIB_VAR_NAME = /^(KICAD\d*_3DMODEL_DIR|KISYS3DMOD)$/;
+const THIRD_PARTY_VAR = /^KICAD\d*_3RD_PARTY$/;
 const modelFormat = (p) => (/\.wrl$/i.test(p) ? "wrl" : /\.(step|stp)$/i.test(p) ? "step" : null);
 /** The same model under its other extensions, VRML first (lighter, and has KiCad's colours). */
 const modelVariants = (p) => {
@@ -272,20 +274,35 @@ function findByName(index, path) {
  *   ${KIPRJMOD}/x.step, relative/x.wrl  → that path in the project, then by name as below
  *   ${KICADn_3DMODEL_DIR}/..., absolute paths from the designer's machine, other variables
  *                                       → a file with that name anywhere in the project,
- *                                         then the library-relative path and the file name
- *                                         in each model source
+ *                                         then, for a variable the linked KiCad defines,
+ *                                         that path in its folder, then the library-relative
+ *                                         path and the file name in each model source
  * @param {object} source project source
  * @param {string} projectDir
  * @param {string[]} modelSources URL prefixes, GitHub repositories and folders (folders go first)
  * @param {{token?: string|null, onSourceError?: (spec: string, err: Error) => void,
- *   openDir?: (path: string) => object}} [opts] `openDir` makes a source (list/readBinary) for a
- *   folder model source; without it (in a browser) folder sources are skipped with an error.
+ *   openDir?: (path: string) => object, pathVars?: Record<string, string>}} [opts] `openDir` makes
+ *   a source (list/readBinary) for a folder model source; without it (in a browser) folder sources
+ *   are skipped with an error. `pathVars` are the linked KiCad's path variables (name → folder);
+ *   its library and third-party folders are also searched, after the folders in `modelSources`.
  */
-export function makeModelResolver(source, projectDir, modelSources = [], { token = null, onSourceError = null, openDir = null } = {}) {
+export function makeModelResolver(source, projectDir, modelSources = [], { token = null, onSourceError = null, openDir = null, pathVars = {} } = {}) {
   const blobCache = new Map();
   // A local folder is faster and works offline, so it goes before any web source.
   const parsed = modelSources.map(parseModelSource).filter(Boolean);
-  const sources = [...parsed.filter((m) => m.kind === "dir"), ...parsed.filter((m) => m.kind !== "dir")];
+  const dirs = parsed.filter((m) => m.kind === "dir");
+  // Only KiCad's model library and add-ons are searched by name: the user's own
+  // variables may point at large folders, so those are only used for exact paths.
+  for (const [name, path] of Object.entries(pathVars)) {
+    if ((LIB_VAR_NAME.test(name) || THIRD_PARTY_VAR.test(name)) && !dirs.some((m) => m.path === path)) dirs.push({ kind: "dir", spec: path, path });
+  }
+  const sources = [...dirs, ...parsed.filter((m) => m.kind !== "dir")];
+  // ${KICAD9_3DMODEL_DIR} in a board made with another version: KiCad's own library still has it.
+  const varDir = (name) =>
+    pathVars[name] ??
+    (LIB_VAR_NAME.test(name) ? Object.entries(pathVars).find(([k]) => LIB_VAR_NAME.test(k))?.[1] : null) ??
+    (THIRD_PARTY_VAR.test(name) ? Object.entries(pathVars).find(([k]) => THIRD_PARTY_VAR.test(k))?.[1] : null);
+  const dirSources = new Map(); // folder → source, for exact paths
   const opened = new Map(); // spec → Promise<{source, dir, index}|null> for repositories and folders
   let projectIndex = null;
 
@@ -323,6 +340,14 @@ export function makeModelResolver(source, projectDir, modelSources = [], { token
     return opened.get(m.spec);
   };
 
+  /** `${NAME}/rel` where the linked KiCad puts NAME; read directly, so the folder isn't listed. */
+  async function* inVarDir(name, rel) {
+    const dir = varDir(name);
+    if (!dir || !openDir || !rel) return;
+    if (!dirSources.has(dir)) dirSources.set(dir, openDir(dir));
+    for (const v of modelVariants(rel)) yield fetchable(dirSources.get(dir), v);
+  }
+
   async function* inProject(path) {
     projectIndex ??= modelIndex(source).catch(() => new Map());
     for (const hit of findByName(await projectIndex, path)) yield fetchable(source, hit);
@@ -355,7 +380,12 @@ export function makeModelResolver(source, projectDir, modelSources = [], { token
 
   return async function* resolve(rawPath) {
     const want = modelFormat(rawPath);
-    for await (const c of candidates(rawPath)) if (c) yield { ...c, alt: !!want && c.format !== want };
+    const seen = new Set(); // an exact path in KiCad's folder is also found by the search after it
+    for await (const c of candidates(rawPath)) {
+      if (!c || seen.has(c.url)) continue;
+      seen.add(c.url);
+      yield { ...c, alt: !!want && c.format !== want };
+    }
   };
 
   async function* candidates(rawPath) {
@@ -364,6 +394,7 @@ export function makeModelResolver(source, projectDir, modelSources = [], { token
     if (libVar) {
       const rel = path.slice(libVar[0].length);
       yield* inProject(path); // a copy shipped with the project beats any library
+      yield* inVarDir(libVar[1], rel);
       yield* inSources(rel, path);
       return;
     }
@@ -374,8 +405,9 @@ export function makeModelResolver(source, projectDir, modelSources = [], { token
       for (const v of modelVariants(joinPath(projectDir, local))) if (list.has(v)) yield fetchable(source, v);
     }
     // Absolute path or another variable: look for the file by name.
-    const custom = /^\$\{[^}]+\}\/?(.*)$/.exec(local);
+    const custom = /^\$\{([^}]+)\}\/?(.*)$/.exec(local);
     yield* inProject(path);
-    yield* inSources(custom ? custom[1] : null, path);
+    if (custom) yield* inVarDir(custom[1], custom[2]);
+    yield* inSources(custom ? custom[2] : null, path);
   }
 }

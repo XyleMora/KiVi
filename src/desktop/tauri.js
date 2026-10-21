@@ -90,8 +90,39 @@ export function onDrop({ enter, leave, drop }) {
   });
 }
 
-export async function pickFolder(title = "Open KiCad project folder") {
-  return T.dialog.open({ directory: true, title });
+export async function pickFolder(title = "Open KiCad project folder", defaultPath = undefined) {
+  return T.dialog.open({ directory: true, title, defaultPath });
+}
+
+// ---- KiCad -----------------------------------------------------------------------
+
+/** The KiCad linked in Settings: {program, version, vars} (lib.rs/kicad.rs), or null. */
+export const linkedKicad = () => settings().kicad ?? null;
+
+/** Check a KiCad program or installation folder; rejects with why it isn't one. */
+export const inspectKicad = (path) => invoke("kicad_inspect", { path });
+
+/** A project file inside a folder (`project` relative, with forward slashes). */
+export const projectPath = (folder, project) => `${folder.replace(/[\\/]+$/, "")}/${project}`;
+
+/**
+ * Whether "Open in KiCad" can open `project` (a .kicad_pro path on this computer,
+ * or null when the project isn't on it): {ok, title} for the button or menu item.
+ */
+export function kicadAction(project, notLocal = "Only for projects on this computer: open its folder, or Download or Link it from its card") {
+  const k = linkedKicad();
+  if (!k) return { ok: false, title: "Link KiCad in Settings first" };
+  if (!project) return { ok: false, title: notLocal };
+  if (!/\.kicad_pro$/i.test(project)) return { ok: false, title: "This project has no .kicad_pro file to open" };
+  return { ok: true, title: `Open ${project.split(/[\\/]/).pop()} in KiCad ${k.version}` };
+}
+
+/** Open a project file (.kicad_pro) in the linked KiCad. */
+export async function openInKicad(project) {
+  const k = linkedKicad();
+  if (!k) throw new Error("Link KiCad in Settings first");
+  await invoke("kicad_open", { program: k.program, project });
+  toast(`Opening ${project.split(/[\\/]/).pop()} in KiCad…`);
 }
 
 const RECENT_KEY = "kivi.recentFolders";

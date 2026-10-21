@@ -150,10 +150,6 @@ export class GitHubSource {
   url(path) {
     return this.token ? null : this.rawUrl(path);
   }
-
-  webUrl(path = "") {
-    return `https://github.com/${this.owner}/${this.repo}/blob/${this.ref}/${path}`;
-  }
 }
 
 /** Files that the visual diff can show. */

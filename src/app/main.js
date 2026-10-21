@@ -43,7 +43,6 @@ class App {
     }
     for (const b of document.querySelectorAll(".tabs [data-tab]")) b.addEventListener("click", () => this.showTab(b.dataset.tab));
     $("#project-select").addEventListener("change", (e) => this.openProject(this.projects[Number(e.target.value)]));
-    $("#copy-link").addEventListener("click", () => this.copyLink());
 
     window.addEventListener("hashchange", () => {
       if (this._writingHash) return;
@@ -170,9 +169,6 @@ class App {
       srcLabel.title = this.source.label;
       if (this.source.kind === "github") this.mountGitHubBranches(entry);
       else if ($("#branch-menu")?.dataset.kind === "github") $("#branch-menu").remove(); // a local copy's comes from desktop.js
-      const gh = $("#gh-link");
-      gh.hidden = this.source.kind !== "github";
-      if (this.source.kind === "github") gh.href = this.source.webUrl(entry.pro ?? entry.sch ?? entry.pcb ?? "");
       document.title = `${project.name} — KiVi`;
 
       this.sch.load(project);
@@ -390,16 +386,6 @@ class App {
     this._writingHash = true;
     history.replaceState(null, "", `#${p.toString()}`);
     setTimeout(() => (this._writingHash = false), 0);
-  }
-
-  copyLink() {
-    const p = this.stateForHash();
-    if (!p) {
-      toast("Links can only be shared for GitHub repositories", true);
-      return;
-    }
-    const url = `${location.origin}${location.pathname}#${p.toString()}`;
-    navigator.clipboard?.writeText(url).then(() => toast("Link copied"), () => toast(url));
   }
 
   /** The branch menu of a GitHub project: the repository's branches; picking one reopens the project there. */

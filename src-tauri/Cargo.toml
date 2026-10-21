@@ -19,8 +19,13 @@ tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-# Device-flow sign-in; rustls so no OpenSSL development package is needed.
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+# Device-flow sign-in and git over HTTPS (git_http.rs); rustls so no OpenSSL
+# development package is needed. "blocking": git operations run on their own thread.
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "blocking"] }
+# Clone, branch, commit, push: libgit2 built in (no Git installation needed, e.g.
+# for the plain Windows .exe). No "https"/"ssh" features: HTTPS goes through
+# reqwest (git_http.rs) instead of OpenSSL.
+git2 = { version = "0.20", default-features = false, features = ["vendored-libgit2"] }
 notify = "6"
 notify-debouncer-mini = "0.4"
 

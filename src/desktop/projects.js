@@ -10,9 +10,10 @@
 //   - thumbnails (IndexedDB), keyed by the board file's git blob SHA, so a board
 //     is fetched and rendered once per version.
 
-import { escapeHtml, settings } from "../app/ui.js";
+import { escapeHtml, settings, toast } from "../app/ui.js";
 import { GitHubSource } from "../sources.js";
 import { findProjects } from "../project.js";
+import { cloneProject, forgetSync, knownSync, linkProject, localCopy, localViewUrl, syncState, unlinkLocalCopy } from "./git.js";
 
 const INDEX_KEY = "kivi.projectIndex";
 const THUMB_W = 640, THUMB_H = 400;
@@ -191,6 +192,8 @@ function thumbnail(p) {
 // ---- grid ---------------------------------------------------------------------------------
 
 const BOARD_ICON = `<svg class="project-icon" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="11" rx="1.5" fill="none" stroke="currentColor"/><rect x="5" y="5.5" width="6" height="5" rx="0.5" fill="currentColor"/><path d="M1.5 7h2M1.5 9.5h2M12.5 7h2M12.5 9.5h2" stroke="currentColor"/></svg>`;
+/** Two arrows in a circle; coloured by the local copy's sync state (git.js syncState). */
+const SYNC_ICON = `<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13.2 6.4A5.3 5.3 0 0 0 3.6 4.4L2.6 5.6"/><path d="M2.6 2.6v3h3"/><path d="M2.8 9.6a5.3 5.3 0 0 0 9.6 2l1-1.2"/><path d="M13.4 13.4v-3h-3"/></svg>`;
 const LOCK_ICON = `<svg width="12" height="12" viewBox="0 0 16 16" aria-label="Private" role="img"><rect x="3" y="7" width="10" height="7" rx="1.5" fill="currentColor"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>`;
 
 function when(iso) {
@@ -204,7 +207,9 @@ const enc = (path) => path.split("/").map(encodeURIComponent).join("/");
 
 function cardHtml(p) {
   const spec = `${p.nwo}@${p.branch}:${p.pro ?? p.pcb}`;
-  const view = (tab) => `index.html#${new URLSearchParams({ gh: spec, ...(tab && { tab }) })}`;
+  const local = localCopy(p.nwo);
+  // A linked project always opens from its local copy; otherwise from GitHub.
+  const view = (tab) => (local ? localViewUrl(local, p.pro ?? p.pcb, tab) : `index.html#${new URLSearchParams({ gh: spec, ...(tab && { tab }) })}`);
   const github = `https://github.com/${p.nwo}/tree/${enc(p.branch)}${p.dir ? `/${enc(p.dir)}` : ""}`;
   const url = p.pcbSha && thumbUrls.get(p.pcbSha);
   const thumb = !p.pcb
@@ -215,10 +220,15 @@ function cardHtml(p) {
       ? `<img src="${url}" alt="">`
       : `<span class="thumb-note pending">Rendering board…</span>`;
   const where = p.dir ? `${p.nwo}/${p.dir}` : p.nwo;
+  // Linked: the views above open the copy; otherwise download the repository or link a clone.
+  const localItems = local
+    ? `<button type="button" data-git="unlink" title="${escapeHtml(`Stop using the local copy in ${local} (the folder is kept)`)}">Unlink</button>`
+    : `<button type="button" data-git="clone" title="Download the repository to a folder on this computer">Download</button><button type="button" data-git="link" title="Use a clone of this repository that's already on this computer">Link</button>`;
   return `<li class="project-card" data-key="${escapeHtml(p.key)}">
     <a class="project-thumb" href="${escapeHtml(view())}" tabindex="-1" aria-hidden="true">${thumb}</a>
     <div class="project-info">
       <div class="project-title">${BOARD_ICON}<a href="${escapeHtml(view())}" title="${escapeHtml(p.pro ?? p.pcb)}">${escapeHtml(p.name)}</a>
+        ${syncIconHtml(p, local)}
         <details class="menu card-menu">
           <summary class="btn small" aria-label="More actions for ${escapeHtml(p.name)}">⋯</summary>
           <div class="card-menu-list">
@@ -226,6 +236,8 @@ function cardHtml(p) {
             ${p.pcb ? `<a href="${escapeHtml(view("pcb"))}">PCB</a><a href="${escapeHtml(view("3d"))}">3D view</a>` : ""}
             <a href="${escapeHtml(view("bom"))}">Bill of materials</a>
             <a href="${escapeHtml(github)}">View on GitHub</a>
+            <hr>
+            ${localItems}
           </div>
         </details>
       </div>
@@ -233,6 +245,27 @@ function cardHtml(p) {
       <div class="project-meta muted">${escapeHtml(when(p.pushed))}</div>
     </div>
   </li>`;
+}
+
+/** The sync icon: grey without a local copy, else the last known state (checked after rendering). */
+function syncIconHtml(p, local) {
+  const known = local ? knownSync(p.nwo) : { color: "grey", title: "Not on this computer: Download or Link it from the ⋯ menu" };
+  const cls = known ? `sync-${known.color}` : "sync-pending";
+  const title = known?.title ?? `Checking ${local} against GitHub…`;
+  return `<span class="sync-icon ${cls}" data-sync="${escapeHtml(p.nwo)}" role="img" aria-label="${escapeHtml(title)}" title="${escapeHtml(title)}">${SYNC_ICON}</span>`;
+}
+
+/** Check the linked copies shown in the grid and colour their icons (one check per repository). */
+function updateSyncIcons(grid) {
+  for (const el of grid.querySelectorAll(".sync-icon[data-sync]")) {
+    const nwo = el.dataset.sync;
+    if (!localCopy(nwo)) continue;
+    syncState(nwo).then(({ color, title }) => {
+      el.className = `sync-icon sync-${color}`;
+      el.title = title;
+      el.setAttribute("aria-label", title);
+    });
+  }
 }
 
 /**
@@ -308,7 +341,13 @@ export function initProjects({ grid, status, filter }) {
       const p = byKey.get(card.dataset.key);
       if (p.pcbSha && !tooBig(p) && !thumbUrls.has(p.pcbSha)) observer.observe(card);
     }
+    updateSyncIcons(grid);
   }
+  // Back from KiCad or a terminal: the copies may have been committed or pushed.
+  window.addEventListener("focus", () => {
+    forgetSync();
+    updateSyncIcons(grid);
+  });
   const queueRender = () => !renderQueued && (renderQueued = true) && requestAnimationFrame(render);
 
   filter.addEventListener("input", () => {
@@ -316,8 +355,30 @@ export function initProjects({ grid, status, filter }) {
     render();
   });
 
+  // Card menu: download, link or unlink a local copy.
+  grid.addEventListener("click", async (e) => {
+    const b = e.target.closest("button[data-git]");
+    if (!b) return;
+    const p = byKey.get(b.closest(".project-card")?.dataset.key);
+    if (!p) return;
+    b.closest("details").open = false;
+    try {
+      forgetSync(p.nwo);
+      if (b.dataset.git === "unlink") {
+        unlinkLocalCopy(p.nwo);
+        toast(`Unlinked ${p.nwo}; the folder is untouched`);
+        return render();
+      }
+      const folder = b.dataset.git === "clone" ? await cloneProject(p.nwo) : await linkProject(p.nwo);
+      if (folder) location.href = localViewUrl(folder, p.pro ?? p.pcb);
+    } catch (err) {
+      toast(err.message ?? String(err), true);
+    }
+  });
+
   async function refresh() {
     const id = ++scan;
+    forgetSync(); // Refresh checks the local copies again too
     render();
     if (!token() && !(settings().watchRepos ?? []).length) {
       index = {};

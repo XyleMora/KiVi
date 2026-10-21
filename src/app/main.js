@@ -10,6 +10,7 @@ import { SchematicTab } from "./sch-tab.js";
 import { PcbTab } from "./pcb-tab.js";
 import { BomTab } from "./bom-tab.js";
 import { ReviewStore } from "./review-ui.js";
+import { mountBranchMenu } from "./branch-menu.js";
 import { $, toast, settings } from "./ui.js";
 
 class App {
@@ -163,9 +164,12 @@ class App {
       $("#app").hidden = false;
       $("#projbar").hidden = false;
       $("#proj-name").textContent = project.name;
+      // Where it comes from on the left (repository or folder); the branch is the menu on the right.
       const srcLabel = $("#proj-source");
-      srcLabel.textContent = this.refLabel();
+      srcLabel.textContent = this.source.kind === "github" ? this.source.repo : this.source.label;
       srcLabel.title = this.source.label;
+      if (this.source.kind === "github") this.mountGitHubBranches(entry);
+      else if ($("#branch-menu")?.dataset.kind === "github") $("#branch-menu").remove(); // a local copy's comes from desktop.js
       const gh = $("#gh-link");
       gh.hidden = this.source.kind !== "github";
       if (this.source.kind === "github") gh.href = this.source.webUrl(entry.pro ?? entry.sch ?? entry.pcb ?? "");
@@ -396,6 +400,31 @@ class App {
     }
     const url = `${location.origin}${location.pathname}#${p.toString()}`;
     navigator.clipboard?.writeText(url).then(() => toast("Link copied"), () => toast(url));
+  }
+
+  /** The branch menu of a GitHub project: the repository's branches; picking one reopens the project there. */
+  mountGitHubBranches(entry) {
+    const s = this.source;
+    const project = entry.pro ?? entry.sch ?? entry.pcb;
+    const current = this.pr?.headRef ?? s.ref;
+    mountBranchMenu({
+      kind: "github",
+      branch: this.refLabel(),
+      title: `${s.owner}/${s.repo} at ${this.refLabel()}`,
+      listBranches: async () => {
+        const all = [];
+        for (let page = 1; page <= 5; page++) {
+          const batch = await GitHubSource.api(`/repos/${s.owner}/${s.repo}/branches?per_page=100&page=${page}`, settings().token);
+          all.push(...batch);
+          if (batch.length < 100) break;
+        }
+        return all.map((b) => ({ name: b.name, current: b.name === current })).sort((a, b) => b.current - a.current || a.name.localeCompare(b.name));
+      },
+      // Through the URL, like a link: the viewer reopens the same project and tab on that branch.
+      switchTo: async (name) => {
+        location.hash = new URLSearchParams({ gh: `${s.owner}/${s.repo}@${name}${s.dir ? `:${s.dir}` : ""}`, project, tab: this.tab }).toString();
+      },
+    });
   }
 
   restoreFromHash() {

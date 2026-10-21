@@ -1,6 +1,8 @@
-// Visual diff page: compares KiCad files between two commits on GitHub.
+// Visual diff page: compares KiCad files between two commits on GitHub, or
+// (desktop app, diff.html#local=<folder>) a local git copy's working files with
+// the point where its branch left main.
 
-import { GitHubSource, resolveComparison } from "../sources.js";
+import { DIFFABLE, GitHubSource, resolveComparison } from "../sources.js";
 import { parseSchematic } from "../sch/model.js";
 import { renderSchematic } from "../sch/render.js";
 import { parsePcb } from "../pcb/model.js";
@@ -60,7 +62,35 @@ class DiffApp {
     this.bind();
     const spec = this.specFromHash(params);
     const focus = params.get("thread") || params.get("at") ? { thread: params.get("thread"), at: params.get("at") } : null;
-    if (spec) this.open(spec, params.get("file"), focus);
+    // A local copy is read through the desktop app, which attaches itself after this page loads.
+    if (spec?.local) this.pendingLocal = [spec, params.get("file")];
+    else if (spec) this.open(spec, params.get("file"), focus);
+  }
+
+  /**
+   * Called by the desktop app (src/desktop/desktop.js) with what reading a local
+   * git copy needs: changes(root, base) and source(root, rev) ("" = working files).
+   */
+  attachLocalGit(api) {
+    this.localGit = api;
+    if (this.pendingLocal) this.open(...this.pendingLocal);
+    this.pendingLocal = null;
+  }
+
+  /** A local copy against main, in the shape resolveComparison returns. */
+  async localComparison(spec) {
+    if (!this.localGit) throw new Error("Local changes can only be shown in the KiVi desktop app");
+    const lc = await this.localGit.changes(spec.local, spec.base);
+    const files = lc.files.filter((f) => DIFFABLE.test(f.path) || DIFFABLE.test(f.previous)).map((f) => ({ path: f.path, previous: f.previous, status: f.status }));
+    const branch = lc.branch ?? "working copy";
+    return {
+      base: { sha: lc.base_sha, ref: lc.base_ref, src: this.localGit.source(lc.root, lc.base_sha) },
+      head: { sha: null, ref: branch, label: "working copy", src: this.localGit.source(lc.root, "") },
+      files,
+      title: `Local changes on ${branch}`,
+      url: null,
+      root: lc.root,
+    };
   }
 
   bind() {
@@ -104,6 +134,7 @@ class DiffApp {
   }
 
   specFromHash(p) {
+    if (p.get("local")) return { local: p.get("local"), base: p.get("base") };
     const gh = p.get("gh");
     if (!gh) return null;
     const [owner, repo] = gh.split("/");
@@ -116,12 +147,17 @@ class DiffApp {
   writeHash() {
     const s = this.spec;
     const p = new URLSearchParams();
-    p.set("gh", `${s.owner}/${s.repo}`);
-    if (s.pr) p.set("pr", String(s.pr));
-    else if (s.commit) p.set("commit", s.commit);
-    else {
-      p.set("base", s.base);
-      p.set("head", s.head);
+    if (s.local) {
+      p.set("local", s.local);
+      if (s.base) p.set("base", s.base);
+    } else {
+      p.set("gh", `${s.owner}/${s.repo}`);
+      if (s.pr) p.set("pr", String(s.pr));
+      else if (s.commit) p.set("commit", s.commit);
+      else {
+        p.set("base", s.base);
+        p.set("head", s.head);
+      }
     }
     if (this.file) p.set("file", this.file.path);
     if (this.review?.activeThreadId) p.set("thread", String(this.review.activeThreadId));
@@ -137,8 +173,8 @@ class DiffApp {
     this.spec = spec;
     this.cache.clear();
     try {
-      this.busy("Reading changes from GitHub…");
-      const cmp = await resolveComparison(spec, settings().token);
+      this.busy(spec.local ? "Reading local changes…" : "Reading changes from GitHub…");
+      const cmp = spec.local ? await this.localComparison(spec) : await resolveComparison(spec, settings().token);
       this.cmp = cmp;
       $("#welcome").hidden = true;
       $("#diff-bar").hidden = false;
@@ -146,7 +182,7 @@ class DiffApp {
       $("#diff-title").textContent = cmp.title;
       $("#diff-refs").textContent = `${cmp.base.ref ?? cmp.base.sha?.slice(0, 7)} → ${cmp.head.ref ?? cmp.head.sha.slice(0, 7)}`;
       $("#before-ref").textContent = cmp.base.sha ? cmp.base.sha.slice(0, 7) : "";
-      $("#after-ref").textContent = cmp.head.sha.slice(0, 7);
+      $("#after-ref").textContent = cmp.head.label ?? cmp.head.sha.slice(0, 7);
       document.title = `${cmp.title} — KiVi diff`;
       if (!cmp.files.length) {
         $("#file-list").innerHTML = `<li class="muted" style="font-size:13px">No schematic or board files changed.</li>`;
@@ -185,6 +221,7 @@ class DiffApp {
 
   async loadVersion(side, path) {
     const ref = this.cmp[side];
+    if (ref.src) return ref.src.readText(path); // a local copy
     if (!ref.sha) return null;
     const src = new GitHubSource({ owner: ref.owner, repo: ref.repo, ref: ref.sha, sha: ref.sha, token: settings().token });
     return src.readText(path);
@@ -193,7 +230,7 @@ class DiffApp {
   /** Text variables of the project next to `path` (${TITLE}, ${VERSION}, …), best effort. */
   async projectVars(side, path) {
     const ref = this.cmp[side];
-    if (!ref.sha) return {};
+    if (!ref.sha && !ref.src) return {};
     const dir = dirname(path);
     const key = `${side}:${dir}`;
     this.varCache ??= new Map();
@@ -201,7 +238,7 @@ class DiffApp {
       this.varCache.set(
         key,
         (async () => {
-          const src = new GitHubSource({ owner: ref.owner, repo: ref.repo, ref: ref.sha, sha: ref.sha, path: dir, token: settings().token });
+          const src = ref.src ?? new GitHubSource({ owner: ref.owner, repo: ref.repo, ref: ref.sha, sha: ref.sha, path: dir, token: settings().token });
           const pro = (await src.list()).find((p) => p.endsWith(".kicad_pro") && dirname(p) === dir);
           if (!pro) return {};
           return JSON.parse(await src.readText(pro)).text_variables ?? {};
@@ -270,7 +307,10 @@ class DiffApp {
       this.renderChanges();
       this.drawMarks();
       this.review.refresh();
-      const viewerHash = new URLSearchParams({ gh: `${this.cmp.head.owner}/${this.cmp.head.repo}@${this.cmp.head.sha}${dirname(fl.path) ? `:${dirname(fl.path)}` : ""}`, tab: res.kind === "pcb" ? "pcb" : "sch", file: fl.path });
+      // A local copy opens its working files (the folder, with the project of this file).
+      const viewerHash = this.cmp.root
+        ? new URLSearchParams({ folder: this.cmp.root, project: fl.path.replace(/\.kicad_(sch|pcb)$/i, ".kicad_pro") })
+        : new URLSearchParams({ gh: `${this.cmp.head.owner}/${this.cmp.head.repo}@${this.cmp.head.sha}${dirname(fl.path) ? `:${dirname(fl.path)}` : ""}`, tab: res.kind === "pcb" ? "pcb" : "sch", file: fl.path });
       if (this.spec.pr) viewerHash.set("pr", `${this.spec.owner}/${this.spec.repo}#${this.spec.pr}`);
       $("#open-viewer").href = `index.html#${viewerHash}`;
       this.writeHash();

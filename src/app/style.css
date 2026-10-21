@@ -369,3 +369,22 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.5); }
 textarea.input { resize: vertical; font-size: 12px; white-space: pre; overflow-x: auto; }
 .pr-chip { font-size: 12px; border: 1px solid var(--border); border-radius: 10px; padding: 1px 9px; color: var(--text); white-space: nowrap; }
 .pr-chip:hover { border-color: var(--accent); }
+
+/* Project bar: the branch button and menu (src/app/branch-menu.js), GitHub and local projects alike. */
+.branch-menu { position: relative; }
+.branch-menu summary { list-style: none; display: flex; align-items: center; gap: 6px; max-width: 260px; }
+.branch-menu summary::-webkit-details-marker { display: none; }
+.branch-name { font-family: var(--mono); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.branch-count { background: var(--accent-soft); color: var(--accent); border-radius: 9px; padding: 0 6px; font-size: 11px; font-weight: 600; }
+.branch-menu-list { position: absolute; right: 0; top: calc(100% + 4px); z-index: 20; width: 280px; display: flex; flex-direction: column; padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 8px 24px rgb(0 0 0 / 0.45); }
+.branch-menu-list > a, .branch-menu-list > button, .branch-list button { display: flex; align-items: center; gap: 6px; background: none; border: 0; color: var(--text); font: inherit; font-size: 13px; text-align: left; padding: 6px 10px; border-radius: 4px; cursor: pointer; text-decoration: none; }
+.branch-menu-list > a:hover, .branch-menu-list > button:hover, .branch-list button:hover:not(:disabled) { background: var(--bg); }
+.branch-menu-list hr { border: 0; border-top: 1px solid var(--border); margin: 4px 2px; }
+.branch-head { padding: 6px 10px 4px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+.branch-filter { margin: 0 6px 4px; font-size: 12px; }
+.branch-list { max-height: 260px; overflow: auto; display: flex; flex-direction: column; }
+.branch-list button:disabled { cursor: default; color: var(--text); }
+.branch-list .mono { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.branch-check { width: 12px; flex: none; color: var(--accent); }
+.branch-tag { margin-left: auto; font-size: 11px; flex: none; }
+.branch-note { padding: 6px 10px; font-size: 12px; }

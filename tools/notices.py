@@ -49,6 +49,20 @@ VENDORED = [
 
 LICENSE_NAMES = ("LICENSE", "LICENCE", "COPYING", "NOTICE", "COPYRIGHT", "UNLICENSE")
 
+# C libraries that crates compile into the binary, under their own licences
+# (the crates' own licence files only cover the Rust bindings):
+# (crate, licence file inside the crate, library name, what it is).
+EMBEDDED = [
+    ("libgit2-sys", "libgit2/COPYING", "libgit2",
+     "libgit2, the git library behind clone, commit and push. GPL-2.0 with a linking "
+     "exception, which allows linking it into programs under any licence, KiVi's "
+     "GPL-3.0-or-later included. The file also gives the licences of the code libgit2 "
+     "bundles (zlib, PCRE, SHA-1 collision detection, and others). Source: "
+     "https://github.com/libgit2/libgit2"),
+    ("libz-sys", "src/zlib/LICENSE", "zlib",
+     "zlib, compiled in where the system has none (e.g. on Windows). https://zlib.net"),
+]
+
 
 def cargo_packages():
     """Crates compiled into the app on any release target (normal and build dependencies), sorted."""
@@ -139,6 +153,13 @@ def notices():
         cells = [link, p["version"], (p.get("license") or "see licence text").replace("|", "\\|"),
                  ", ".join(f"[T{n}](#t{n})" for n in sorted(set(refs))) or "none published"]
         out.append("| " + " | ".join(cells) + " |")
+    by_name = {p["name"]: p for p in pkgs}
+    embedded = [(by_name[c], f, lib, what) for c, f, lib, what in EMBEDDED if c in by_name]
+    if embedded:
+        out += ["", "## C libraries compiled into crates", ""]
+        for p, f, lib, what in embedded:
+            text = read_text(Path(p["manifest_path"]).parent / f)
+            out += [f"### {lib} (in {p['name']} {p['version']})", "", what, "", fence(text), ""]
     out += ["", "## Crate licence texts", ""]
     for n, t in sorted(texts.values()):
         out += [f"### T{n}", "", fence(t), ""]

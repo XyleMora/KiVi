@@ -1,6 +1,9 @@
 //! KiVi desktop: the web viewer in a native window, plus what a browser can't do —
 //! reading a local project folder, reloading when KiCad saves, and GitHub sign-in.
 
+mod git;
+mod git_http;
+
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::Duration;
@@ -53,7 +56,7 @@ fn walk(root: &Path, dir: &Path, out: &mut Vec<String>, depth: usize) {
     }
 }
 
-fn list(root: &Path) -> Vec<String> {
+pub(crate) fn list(root: &Path) -> Vec<String> {
     let mut files = Vec::new();
     walk(root, root, &mut files, 0);
     files.sort();
@@ -230,6 +233,19 @@ pub fn run() {
             read_file,
             list_model_dir,
             read_model_file,
+            git::git_info,
+            git::git_status,
+            git::git_clone,
+            git::git_create_branch,
+            git::git_local_changes,
+            git::git_read,
+            git::git_list,
+            git::git_fetch,
+            git::git_commit,
+            git::git_push,
+            git::git_remote_state,
+            git::git_branches,
+            git::git_switch_branch,
             startup_folder,
             github_client_id,
             github_app_slug,

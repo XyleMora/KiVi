@@ -361,12 +361,21 @@ pub struct LocalChanges {
 
 /// The main branch to compare with: `base` if given, else the remote's default
 /// (origin/HEAD), else main or master, on the remote or locally.
-fn base_tip(repo: &Repository, base: Option<&str>) -> Result<(String, Oid), String> {
+/// What to compare the working files with: a branch's tip (then from the merge
+/// base, like a pull request: the bool is true), or a commit itself (a SHA or
+/// any revision git understands, compared with directly). Without `base`: main.
+fn base_tip(repo: &Repository, base: Option<&str>) -> Result<(String, Oid, bool), String> {
     let remote = github_remote(repo).map(|g| g.0).unwrap_or_else(|| "origin".into());
     let mut candidates = Vec::new();
     if let Some(b) = base.filter(|b| !b.is_empty()) {
         candidates.push(format!("refs/remotes/{remote}/{b}"));
         candidates.push(format!("refs/heads/{b}"));
+        let branch = candidates.iter().any(|r| repo.refname_to_id(r).is_ok());
+        if !branch {
+            let commit = repo.revparse_single(b).and_then(|o| o.peel_to_commit()).map_err(|_| format!("{b}: no such branch or commit"))?;
+            let id = commit.id();
+            return Ok((id.to_string()[..7].to_string(), id, false));
+        }
     }
     if let Some(t) = repo.find_reference(&format!("refs/remotes/{remote}/HEAD")).ok().and_then(|r| r.symbolic_target().map(str::to_string)) {
         candidates.push(t);
@@ -377,15 +386,15 @@ fn base_tip(repo: &Repository, base: Option<&str>) -> Result<(String, Oid), Stri
     }
     candidates
         .iter()
-        .find_map(|r| repo.refname_to_id(r).ok().map(|id| (r.trim_start_matches("refs/remotes/").trim_start_matches("refs/heads/").to_string(), id)))
+        .find_map(|r| repo.refname_to_id(r).ok().map(|id| (r.trim_start_matches("refs/remotes/").trim_start_matches("refs/heads/").to_string(), id, true)))
         .ok_or_else(|| "no main branch to compare with".to_string())
 }
 
 fn local_changes(repo: &Repository, base: Option<&str>) -> Result<LocalChanges, String> {
     let root = workdir(repo)?;
-    let (base_ref, tip) = base_tip(repo, base)?;
+    let (base_ref, tip, from_merge_base) = base_tip(repo, base)?;
     let head = repo.head().ok().and_then(|h| h.target());
-    let base_sha = head.and_then(|h| repo.merge_base(h, tip).ok()).unwrap_or(tip);
+    let base_sha = if from_merge_base { head.and_then(|h| repo.merge_base(h, tip).ok()).unwrap_or(tip) } else { tip };
     let tree = repo.find_commit(base_sha).and_then(|c| c.tree()).map_err(|e| e.message().to_string())?;
     let mut opts = DiffOptions::new();
     opts.include_untracked(true).recurse_untracked_dirs(true).show_untracked_content(true);
@@ -416,7 +425,8 @@ fn local_changes(repo: &Repository, base: Option<&str>) -> Result<LocalChanges, 
 }
 
 /// The working copy (uncommitted edits and the branch's commits) against the
-/// point where the branch left main: what a pull request would show.
+/// point where the branch left main (or `base`, a branch), what a pull request
+/// would show; or against `base` itself when it's a commit.
 #[tauri::command]
 pub async fn git_local_changes(path: String, base: Option<String>) -> Result<LocalChanges, String> {
     blocking(move || local_changes(&open(&path)?, base.as_deref())).await
@@ -640,6 +650,79 @@ pub async fn git_push(path: String, owner: String, repo: String, token: Option<S
     .await
 }
 
+#[derive(Serialize, Debug)]
+pub struct CommitInfo {
+    sha: String,
+    summary: String,
+    author: String,
+    /// Seconds since 1970.
+    time: i64,
+}
+
+fn log(repo: &Repository, limit: usize) -> Result<Vec<CommitInfo>, String> {
+    let Some(head) = repo.head().ok().and_then(|h| h.target()) else { return Ok(Vec::new()) }; // nothing committed yet
+    let mut walk = repo.revwalk().map_err(|e| e.message().to_string())?;
+    walk.push(head).map_err(|e| e.message().to_string())?;
+    walk.set_sorting(git2::Sort::TIME).map_err(|e| e.message().to_string())?;
+    Ok(walk
+        .flatten()
+        .take(limit)
+        .filter_map(|id| repo.find_commit(id).ok())
+        .map(|c| CommitInfo {
+            sha: c.id().to_string(),
+            summary: c.summary().unwrap_or("").to_string(),
+            author: c.author().name().unwrap_or("").to_string(),
+            time: c.time().seconds(),
+        })
+        .collect())
+}
+
+/// The latest commits on the checked-out branch, newest first (the visual diff's "Compare with").
+#[tauri::command]
+pub async fn git_log(path: String, limit: usize) -> Result<Vec<CommitInfo>, String> {
+    blocking(move || log(&open(&path)?, limit)).await
+}
+
+// ---- linking a local project to GitHub -------------------------------------------
+
+/// The git repository holding `path`, or a new one there (on main) if there is none.
+fn open_or_init(path: &Path) -> Result<Repository, String> {
+    Repository::discover(path).or_else(|_| {
+        let mut opts = git2::RepositoryInitOptions::new();
+        opts.initial_head("main");
+        Repository::init_opts(path, &opts).map_err(|e| e.message().to_string())
+    })
+}
+
+/// Make a local project folder a git repository unless it's already in one; returns git_info.
+#[tauri::command]
+pub async fn git_init(path: String) -> Result<RepoInfo, String> {
+    blocking(move || info(&open_or_init(Path::new(&path))?)).await
+}
+
+/// Point the folder's git repository at github.com/<owner>/<repo>, making the
+/// folder a repository first (on main) if it isn't in one. The remote is
+/// "origin", or "github" when origin already points elsewhere. Nothing is
+/// fetched or pushed: the first push happens from the branch menu.
+fn link_github(path: &Path, owner: &str, name: &str) -> Result<Repository, String> {
+    let repo = open_or_init(path)?;
+    if remote_for(&repo, owner, name).is_some() {
+        return Ok(repo); // already linked there
+    }
+    if let Some((_, o, n)) = github_remote(&repo) {
+        return Err(format!("already linked to {o}/{n} on GitHub"));
+    }
+    let remote = if repo.find_remote("origin").is_ok() { "github" } else { "origin" };
+    repo.remote(remote, &https_url(owner, name)).map_err(|e| e.message().to_string())?;
+    Ok(repo)
+}
+
+/// Link a local project folder to a GitHub repository (see link_github); returns git_info.
+#[tauri::command]
+pub async fn git_link_github(path: String, owner: String, repo: String) -> Result<RepoInfo, String> {
+    blocking(move || info(&link_github(Path::new(&path), &owner, &repo)?)).await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -821,6 +904,68 @@ mod tests {
         commit(&repo, &["board/board.kicad_sch".into()], "ours", ("T", "t@example.com")).unwrap();
         let err = push_to(&repo, &url, "origin").unwrap_err();
         assert!(err.contains("rejected") || err.contains("fast-forward"), "{err}");
+        std::fs::remove_dir_all(base).unwrap();
+    }
+
+    #[test]
+    fn link_a_plain_folder_then_commit_and_push() {
+        let base = std::env::temp_dir().join(format!("kivi-git-link-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let hub = base.join("hub.git");
+        Repository::init_bare(&hub).unwrap(); // an empty repository, as just made on GitHub
+        let folder = base.join("my board");
+        write(&folder, "board.kicad_pro", "{}");
+        write(&folder, "board.kicad_pcb", "(kicad_pcb)");
+
+        let repo = link_github(&folder, "me", "board").unwrap();
+        let i = info(&repo).unwrap();
+        assert_eq!((i.owner.as_deref(), i.repo.as_deref(), i.remote.as_deref()), (Some("me"), Some("board"), Some("origin")));
+        assert_eq!((i.branch, i.changes), (None, 2)); // nothing committed yet
+        assert!(link_github(&folder, "me", "board").is_ok(), "linking again is fine");
+        assert!(link_github(&folder, "me", "other").err().unwrap().contains("already linked to me/board"));
+
+        commit(&repo, &["board.kicad_pro".into(), "board.kicad_pcb".into()], "first", ("T", "t@example.com")).unwrap();
+        assert_eq!(push_to(&repo, hub.to_str().unwrap(), "origin").unwrap(), "main");
+        assert!(Repository::open_bare(&hub).unwrap().find_reference("refs/heads/main").is_ok());
+
+        // A folder inside a repository isn't made one of its own.
+        let inner = folder.join("sub");
+        std::fs::create_dir_all(&inner).unwrap();
+        assert_eq!(workdir(&open_or_init(&inner).unwrap()).unwrap(), workdir(&repo).unwrap());
+        assert!(!inner.join(".git").exists());
+
+        // A repository whose origin isn't GitHub gets a second remote.
+        let other = base.join("other");
+        write(&other, "x.kicad_pro", "{}");
+        Repository::init(&other).unwrap().remote("origin", "https://gitlab.com/me/x.git").unwrap();
+        let i = info(&link_github(&other, "me", "x").unwrap()).unwrap();
+        assert_eq!(i.remote.as_deref(), Some("github"));
+        std::fs::remove_dir_all(base).unwrap();
+    }
+
+    #[test]
+    fn local_changes_against_a_commit_or_a_branch() {
+        let (base, _bare, repo) = fixture("against");
+        let work = workdir(&repo).unwrap();
+        let first = repo.head().unwrap().target().unwrap();
+        write(&work, "board/board.kicad_sch", "(kicad_sch v2)");
+        let second = commit(&repo, &["board/board.kicad_sch".into()], "second", ("T", "t@example.com")).unwrap();
+        write(&work, "board/board.kicad_pcb", "(kicad_pcb v2)"); // uncommitted
+
+        let commits = log(&repo, 10).unwrap();
+        assert_eq!(commits.iter().map(|c| c.summary.as_str()).collect::<Vec<_>>(), vec!["second", "first"]);
+        assert_eq!(commits[0].sha, second);
+
+        // Against main (no base): the branch's commit and the edit.
+        let lc = local_changes(&repo, None).unwrap();
+        assert_eq!((lc.base_ref.as_str(), lc.files.len()), ("origin/main", 2));
+        // Against the latest commit itself: only the uncommitted edit.
+        let lc = local_changes(&repo, Some(&second)).unwrap();
+        assert_eq!((lc.base_sha.as_str(), lc.base_ref.as_str()), (second.as_str(), &second[..7]));
+        assert_eq!(lc.files.iter().map(|f| f.path.as_str()).collect::<Vec<_>>(), vec!["board/board.kicad_pcb"]);
+        // A short SHA works too; a name that is neither is refused.
+        assert_eq!(local_changes(&repo, Some(&first.to_string()[..8])).unwrap().files.len(), 2);
+        assert!(local_changes(&repo, Some("no-such-thing")).err().unwrap().contains("no such branch or commit"));
         std::fs::remove_dir_all(base).unwrap();
     }
 }

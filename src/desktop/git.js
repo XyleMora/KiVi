@@ -20,7 +20,8 @@ export function localCopy(nwo) {
   return settings().localCopies?.[key(nwo)] ?? null;
 }
 
-function setLocalCopy(nwo, path) {
+/** Link (or with null, unlink) the folder holding a repository's clone. */
+export function setLocalCopy(nwo, path) {
   const s = settings();
   const copies = { ...(s.localCopies ?? {}) };
   if (path) copies[key(nwo)] = path;
@@ -81,28 +82,30 @@ export async function linkProject(nwo) {
 
 // ---- sync state (the gallery's sync icon) ----------------------------------------------
 
-const syncChecks = new Map(); // "owner/repo" (lower case) → Promise<{color, title}>
+const syncChecks = new Map(); // "owner/repo" (lower case) + "\n" + folder → Promise<{color, title}>
 const syncKnown = new Map(); // the same, once settled, so a re-rendered card shows it at once
+const syncKey = (nwo, folder) => `${key(nwo)}\n${folder}`;
 
-/** The last sync state found for a repository, or null if not checked yet. */
-export const knownSync = (nwo) => syncKnown.get(key(nwo)) ?? null;
+/** The last sync state found for a repository's copy, or null if not checked yet. */
+export const knownSync = (nwo, folder = localCopy(nwo)) => syncKnown.get(syncKey(nwo, folder)) ?? null;
 
 /** Check the linked copies again on the next syncState() (after Refresh, a commit, linking). */
 export function forgetSync(nwo = null) {
-  if (nwo) syncChecks.delete(key(nwo));
-  else syncChecks.clear();
+  if (!nwo) return syncChecks.clear();
+  for (const k of syncChecks.keys()) if (k.startsWith(`${key(nwo)}\n`)) syncChecks.delete(k);
 }
 
 /**
  * How a repository's local copy compares with GitHub, as the gallery's sync icon:
  * grey (no local copy), green (nothing uncommitted, branch identical on GitHub)
  * or yellow (uncommitted changes, commits to push, or newer commits on GitHub).
+ * `folder` is the copy: the linked one by default, or a local project's.
  * @returns {Promise<{color: "grey"|"green"|"yellow", title: string}>}
  */
-export function syncState(nwo) {
-  const folder = localCopy(nwo);
+export function syncState(nwo, folder = localCopy(nwo)) {
   if (!folder) return Promise.resolve({ color: "grey", title: "Not on this computer: Download or Link it from the ⋯ menu" });
-  if (!syncChecks.has(key(nwo))) {
+  const k = syncKey(nwo, folder);
+  if (!syncChecks.has(k)) {
     const check = (async () => {
       const [owner, repo] = nwo.split("/");
       let st = null;
@@ -126,10 +129,10 @@ export function syncState(nwo) {
       if (why) notes.push(why);
       return { color: "yellow", title: `Local copy differs from GitHub: ${notes.join(", ")}\n${folder}` };
     })();
-    syncChecks.set(key(nwo), check);
-    check.then((r) => syncKnown.set(key(nwo), r));
+    syncChecks.set(k, check);
+    check.then((r) => syncKnown.set(k, r));
   }
-  return syncChecks.get(key(nwo));
+  return syncChecks.get(k);
 }
 
 // ---- the diff page's local mode -----------------------------------------------------
@@ -149,6 +152,9 @@ export function localGitApi() {
       }
       return invoke("git_local_changes", { path: root, base: base || null });
     },
+    /** For "Compare with": the branches (local, then GitHub's) and the latest commits. */
+    branches: (root) => invoke("git_branches", { path: root }),
+    commits: (root) => invoke("git_log", { path: root, limit: 50 }),
     source(root, rev) {
       return {
         readText: async (file) => new TextDecoder().decode(new Uint8Array(await invoke("git_read", { path: root, rev, file }))),
@@ -220,7 +226,8 @@ const diffUrl = (root) => `diff.html#${new URLSearchParams({ local: root })}`;
 
 // ---- dialogs -------------------------------------------------------------------------------
 
-function dialog(html) {
+/** A modal dialog (removed when closed); Escape stays with it. */
+export function dialog(html) {
   const dlg = document.createElement("dialog");
   dlg.className = "git-dialog";
   dlg.innerHTML = html;

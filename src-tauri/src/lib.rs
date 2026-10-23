@@ -159,6 +159,50 @@ fn read_model_file(dir: String, path: String) -> Result<Response, String> {
     std::fs::read(&full).map(Response::new).map_err(|e| format!("{path}: {e}"))
 }
 
+// ---- local projects (the gallery's own folders) -----------------------------------
+// Folders the user added to the project gallery with "+". Like model folders,
+// they aren't the open folder: listing and reads are limited to KiCad files.
+
+const KICAD_EXT: &[&str] = &["kicad_pro", "kicad_sch", "kicad_pcb"];
+
+fn is_kicad(path: &Path) -> bool {
+    path.extension().is_some_and(|x| KICAD_EXT.contains(&x.to_string_lossy().to_lowercase().as_str()))
+}
+
+#[derive(serde::Serialize)]
+struct KicadFile {
+    path: String,
+    size: u64,
+    /// Last change, in seconds since 1970.
+    modified: u64,
+}
+
+/// The KiCad design files in a project folder, with size and change time.
+#[tauri::command]
+fn scan_kicad_folder(dir: String) -> Result<Vec<KicadFile>, String> {
+    let root = model_dir(&dir)?;
+    Ok(list(&root)
+        .into_iter()
+        .filter(|p| is_kicad(Path::new(p)))
+        .filter_map(|p| {
+            let meta = std::fs::metadata(root.join(&p)).ok()?;
+            let modified = meta.modified().ok()?.duration_since(std::time::UNIX_EPOCH).ok()?.as_secs();
+            Some(KicadFile { path: p, size: meta.len(), modified })
+        })
+        .collect())
+}
+
+/// One KiCad design file from a project folder (raw bytes), for its thumbnail.
+#[tauri::command]
+fn read_kicad_file(dir: String, path: String) -> Result<Response, String> {
+    let root = model_dir(&dir)?;
+    let full = std::fs::canonicalize(root.join(&path)).map_err(|e| format!("{path}: {e}"))?;
+    if !full.starts_with(&root) || !is_kicad(&full) {
+        return Err(format!("{path}: not a KiCad file in {dir}"));
+    }
+    std::fs::read(&full).map(Response::new).map_err(|e| format!("{path}: {e}"))
+}
+
 /// Folder given on the command line (`kivi-desktop ~/hw/board` or a file inside it).
 #[tauri::command]
 fn startup_folder() -> Option<String> {
@@ -235,6 +279,8 @@ pub fn run() {
             read_file,
             list_model_dir,
             read_model_file,
+            scan_kicad_folder,
+            read_kicad_file,
             kicad::kicad_inspect,
             kicad::kicad_open,
             git::git_info,
@@ -250,6 +296,9 @@ pub fn run() {
             git::git_remote_state,
             git::git_branches,
             git::git_switch_branch,
+            git::git_link_github,
+            git::git_init,
+            git::git_log,
             startup_folder,
             github_client_id,
             github_app_slug,
@@ -285,6 +334,26 @@ mod tests {
         assert!(read_model_file(dir.clone(), "Resistor_SMD.3dshapes/notes.txt".into()).is_err());
         assert!(read_model_file(dir.clone(), "../outside.step".into()).is_err());
         assert!(list_model_dir(base.join("missing").to_string_lossy().into_owned()).is_err());
+        std::fs::remove_dir_all(base).unwrap();
+    }
+
+    #[test]
+    fn project_folders_hand_out_only_kicad_files() {
+        let base = std::env::temp_dir().join(format!("kivi-project-dir-{}", std::process::id()));
+        let dir = base.join("board");
+        std::fs::create_dir_all(dir.join("board-backups")).unwrap();
+        std::fs::write(dir.join("board.kicad_pro"), "{}").unwrap();
+        std::fs::write(dir.join("board.kicad_pcb"), "(kicad_pcb)").unwrap();
+        std::fs::write(dir.join("notes.txt"), "text").unwrap();
+        std::fs::write(dir.join("board-backups/old.kicad_pcb"), "old").unwrap();
+        std::fs::write(base.join("outside.kicad_pcb"), "outside").unwrap();
+        let d = dir.to_string_lossy().into_owned();
+        let files = scan_kicad_folder(d.clone()).unwrap();
+        assert_eq!(files.iter().map(|f| f.path.as_str()).collect::<Vec<_>>(), vec!["board.kicad_pcb", "board.kicad_pro"]);
+        assert_eq!(files[0].size, 11);
+        assert!(read_kicad_file(d.clone(), "board.kicad_pcb".into()).is_ok());
+        assert!(read_kicad_file(d.clone(), "notes.txt".into()).is_err());
+        assert!(read_kicad_file(d.clone(), "../outside.kicad_pcb".into()).is_err());
         std::fs::remove_dir_all(base).unwrap();
     }
 }

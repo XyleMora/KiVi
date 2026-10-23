@@ -30,17 +30,7 @@ class App {
   }
 
   bind() {
-    $("#gh-form").addEventListener("submit", (e) => {
-      e.preventDefault();
-      const spec = $("#gh-input").value.trim();
-      if (spec) this.openGitHub(spec);
-    });
-    for (const b of document.querySelectorAll("[data-example]")) {
-      b.addEventListener("click", () => {
-        $("#gh-input").value = b.dataset.example;
-        this.openGitHub(b.dataset.example);
-      });
-    }
+    for (const b of document.querySelectorAll("[data-example]")) b.addEventListener("click", () => this.openGitHub(b.dataset.example));
     for (const b of document.querySelectorAll(".tabs [data-tab]")) b.addEventListener("click", () => this.showTab(b.dataset.tab));
     $("#project-select").addEventListener("change", (e) => this.openProject(this.projects[Number(e.target.value)]));
 
@@ -418,7 +408,6 @@ class App {
     const p = new URLSearchParams(location.hash.slice(1));
     const gh = p.get("gh");
     if (!gh) return;
-    $("#gh-input").value = gh;
     this.openGitHub(gh, { project: p.get("project"), tab: p.get("tab"), page: p.get("page"), sel: p.get("sel"), net: p.get("net"), file: p.get("file"), pr: p.get("pr"), thread: p.get("thread") });
   }
 }

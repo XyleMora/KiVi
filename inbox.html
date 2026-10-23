@@ -15,11 +15,6 @@
     <img class="brand-mark" src="assets/kivi-logo.svg" width="28" height="25" alt="">
     KiVi
   </a>
-  <form id="gh-form" class="gh-form" autocomplete="off">
-    <label for="gh-input" class="sr-only">GitHub repository (leave empty to open a local folder)</label>
-    <input id="gh-input" type="text" placeholder="owner/repo  ·  owner/repo@branch  ·  empty: open a local folder" spellcheck="false">
-    <button type="submit" class="btn primary" title="Open the repository, or pick a local folder when the box is empty">Open</button>
-  </form>
   <div class="top-actions">
     <nav class="home-switch" aria-label="Home">
       <button type="button" class="btn icon" data-home="projects" aria-label="Projects" title="Projects"></button>
@@ -47,6 +42,10 @@
         <span id="projects-status" class="muted" role="status"></span>
       </div>
       <ul id="projects" class="project-grid"></ul>
+      <details id="add-project" class="menu add-menu" hidden>
+        <summary class="fab" title="Add a project" aria-label="Add a project" aria-haspopup="menu"><svg width="22" height="22" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v11M2.5 8h11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></summary>
+        <div class="menu-panel add-menu-panel" role="menu"></div>
+      </details>
     </div>
 
     <div id="home-prs" hidden>

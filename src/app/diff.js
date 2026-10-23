@@ -23,6 +23,13 @@ const LAYER_PRESETS = {
   bottom: (l) => ["B.Cu", "B.SilkS", "Edge.Cuts", "Vias", "Holes", "Dwgs.User"].includes(l),
   copper: (l) => l.endsWith(".Cu") || ["Edge.Cuts", "Vias", "Holes"].includes(l),
 };
+/** "3 d ago" for a time in seconds since 1970. */
+function ago(t) {
+  const s = Date.now() / 1000 - t;
+  for (const [n, unit] of [[86400 * 365, "y"], [86400 * 30, "mo"], [86400, "d"], [3600, "h"], [60, "min"]]) if (s >= n) return `${Math.floor(s / n)} ${unit} ago`;
+  return "just now";
+}
+
 const VIEW_SIDE = { before: "base", after: "head", overlay: "head" };
 const TYPE_ORDER = ["symbol", "footprint", "sheet", "label", "routing", "vias", "wire", "bus", "zone", "rule area", "outline", "graphics", "junction", "no-connect", "text", "title block", "board"];
 
@@ -69,7 +76,8 @@ class DiffApp {
 
   /**
    * Called by the desktop app (src/desktop/desktop.js) with what reading a local
-   * git copy needs: changes(root, base) and source(root, rev) ("" = working files).
+   * git copy needs: changes(root, base), source(root, rev) ("" = working files),
+   * and branches(root) / commits(root) for the "Compare with" menu.
    */
   attachLocalGit(api) {
     this.localGit = api;
@@ -94,18 +102,7 @@ class DiffApp {
   }
 
   bind() {
-    $("#diff-form").addEventListener("submit", (e) => {
-      e.preventDefault();
-      const spec = parseDiffSpec($("#diff-input").value);
-      if (!spec) return toast("Paste a pull request, commit or compare URL from github.com", true);
-      this.open(spec);
-    });
-    for (const b of document.querySelectorAll("[data-example]")) {
-      b.addEventListener("click", () => {
-        $("#diff-input").value = b.dataset.example;
-        this.open(parseDiffSpec(b.dataset.example));
-      });
-    }
+    for (const b of document.querySelectorAll("[data-example]")) b.addEventListener("click", () => this.open(parseDiffSpec(b.dataset.example)));
     for (const b of document.querySelectorAll("[data-mode]")) b.addEventListener("click", () => this.setMode(b.dataset.mode));
     for (const b of document.querySelectorAll("[data-layers]")) {
       b.addEventListener("click", () => {
@@ -181,6 +178,8 @@ class DiffApp {
       $("#diff-main").hidden = false;
       $("#diff-title").textContent = cmp.title;
       $("#diff-refs").textContent = `${cmp.base.ref ?? cmp.base.sha?.slice(0, 7)} → ${cmp.head.ref ?? cmp.head.sha.slice(0, 7)}`;
+      if (spec.local) this.mountBaseMenu(spec, cmp);
+      else $("#base-menu")?.remove();
       $("#before-ref").textContent = cmp.base.sha ? cmp.base.sha.slice(0, 7) : "";
       $("#after-ref").textContent = cmp.head.label ?? cmp.head.sha.slice(0, 7);
       document.title = `${cmp.title} — KiVi diff`;
@@ -205,6 +204,80 @@ class DiffApp {
     } finally {
       this.busy(null);
     }
+  }
+
+  /**
+   * "Compare with" for a local copy: another branch (from where this one left
+   * it, like a pull request) or one of the latest commits (that commit itself).
+   * Picking one reloads the diff with `base` in the URL.
+   */
+  mountBaseMenu(spec, cmp) {
+    $("#base-menu")?.remove();
+    const el = document.createElement("details");
+    el.id = "base-menu";
+    el.className = "menu branch-menu base-menu";
+    el.innerHTML = `<summary class="btn small" title="Compare the working copy with another branch or commit">Compare with <span class="branch-name">${escapeHtml(cmp.base.ref ?? "")}</span> ▾</summary>
+      <div class="branch-menu-list">
+        <input class="input branch-filter" type="search" placeholder="Find a branch or commit…" spellcheck="false" aria-label="Find a branch or commit">
+        <div class="branch-list" role="listbox"><span class="muted branch-note">Loading…</span></div>
+      </div>`;
+    $("#diff-refs").after(el);
+    const list = el.querySelector(".branch-list");
+    const filter = el.querySelector(".branch-filter");
+    let items = null; // [{base, html, text}] once loaded
+    // Ticked: the chosen base, or by default main (shown as e.g. origin/main).
+    const current = spec.base || cmp.base.ref;
+    const isCurrent = (base) => base === current || (!spec.base && current.endsWith(`/${base}`) && current.indexOf("/") === current.length - base.length - 1);
+    const show = () => {
+      const q = filter.value.trim().toLowerCase();
+      const shown = items.filter((i) => i.head || i.text.includes(q));
+      list.innerHTML = shown.map((i) => i.html).join("") || `<span class="muted branch-note">Nothing matches</span>`;
+    };
+    el.addEventListener("toggle", async () => {
+      if (!el.open) return;
+      filter.value = "";
+      if (!items) {
+        try {
+          const [branches, commits] = await Promise.all([this.localGit.branches(cmp.root), this.localGit.commits(cmp.root)]);
+          const option = (base, label, note, title) =>
+            `<button type="button" role="option" data-base="${escapeHtml(base)}" title="${escapeHtml(title)}"${isCurrent(base) ? ' aria-selected="true"' : ""}><span class="branch-check">${isCurrent(base) ? "✓" : ""}</span>${label}${note ? `<span class="muted branch-tag">${escapeHtml(note)}</span>` : ""}</button>`;
+          const branch = cmp.head.ref;
+          items = [
+            { head: true, html: `<div class="branch-head">Branches: from where ${escapeHtml(branch)} left them</div>` },
+            ...branches.map((b) => ({
+              text: b.name.toLowerCase(),
+              html: option(b.name, `<span class="mono">${escapeHtml(b.name)}</span>`, b.current ? "this branch" : b.remote ? "on GitHub" : "", `Changes since ${branch} left ${b.name}, as a pull request into it would show`),
+            })),
+            { head: true, html: `<div class="branch-head">Commits on ${escapeHtml(branch)}</div>` },
+            ...commits.map((c) => ({
+              text: `${c.sha} ${c.summary} ${c.author}`.toLowerCase(),
+              html: option(c.sha, `<span class="mono">${c.sha.slice(0, 7)}</span><span class="base-summary">${escapeHtml(c.summary)}</span>`, ago(c.time), `${c.summary}
+${c.author}, ${new Date(c.time * 1000).toLocaleString()}
+Changes since this commit`),
+            })),
+          ];
+        } catch (e) {
+          list.innerHTML = `<span class="muted branch-note">Couldn't list branches and commits: ${escapeHtml(e.message ?? String(e))}</span>`;
+          return;
+        }
+      }
+      show();
+      filter.focus();
+    });
+    filter.addEventListener("input", show);
+    el.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && el.open) {
+        e.preventDefault();
+        el.open = false;
+      }
+    });
+    el.addEventListener("click", async (e) => {
+      const b = e.target.closest("button[data-base]");
+      if (!b) return;
+      el.open = false;
+      await this.open({ ...spec, base: b.dataset.base }, this.file?.path);
+      this.writeHash();
+    });
   }
 
   renderFileList() {

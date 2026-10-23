@@ -193,18 +193,8 @@ table.bom { border-collapse: collapse; width: 100%; font-size: 13px; }
 .bom tr.dnp td { color: var(--faint); }
 .bom a.ref { cursor: pointer; }
 
-/* ---- welcome / overlays ---- */
-.welcome { flex: 1; display: flex; align-items: center; justify-content: center; padding: 32px 16px; overflow: auto; }
-.welcome-inner { max-width: 640px; display: flex; flex-direction: column; gap: 16px; }
-.welcome h1 { margin: 0; font-size: 28px; font-weight: 500; }
-.welcome p { margin: 0; }
-.drop {
-  border: 1.5px dashed #3a414a; border-radius: 12px; padding: 36px 24px; display: flex; flex-direction: column; align-items: center; gap: 10px;
-  text-align: center; color: var(--muted); background: var(--surface);
-}
-.drop strong { color: var(--text); }
-body.dragging .drop, body.dragging .canvas { outline: 2px dashed var(--accent); outline-offset: -6px; }
-.examples { display: flex; gap: 8px; flex-wrap: wrap; font-size: 13px; }
+/* ---- overlays ---- */
+body.dragging .canvas { outline: 2px dashed var(--accent); outline-offset: -6px; }
 .loading { position: fixed; inset: 0; background: rgba(14, 16, 19, 0.7); display: flex; align-items: center; justify-content: center; gap: 12px; z-index: 20; font-size: 14px; }
 .spinner { width: 22px; height: 22px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }

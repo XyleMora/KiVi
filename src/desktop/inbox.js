@@ -5,14 +5,15 @@
 // repositories with KiCad projects, marked with the KiCad files they change,
 // opening in the visual diff or the hardware viewer).
 // The avatar opens the shared account menu (account.js).
-// Local folders open from here too.
+// "+" adds projects to the gallery: a local folder or a GitHub repository.
 
 import { $, escapeHtml, settings, saveSettings, toast } from "../app/ui.js";
 import { DIFFABLE } from "../sources.js";
 import { initHeader } from "./account.js";
 import { ICONS } from "./icons.js";
 import { initProjects, repoHasProjects } from "./projects.js";
-import { ensureFreshToken, invoke, isDesktop, onDrop, pickFolder, recentFolders, routeExternalLinks } from "./tauri.js";
+import { watchRepo } from "./add-project.js";
+import { ensureFreshToken, invoke, isDesktop, onDrop, recentFolders, routeExternalLinks } from "./tauri.js";
 
 const token = () => settings().token ?? null;
 const watched = () => settings().watchRepos ?? [];
@@ -95,8 +96,10 @@ async function renderLists() {
   lists.innerHTML = secs.map((s, i) => `<h2>${escapeHtml(s.title)}</h2><ul class="pr-list" id="sec-${i}"><li class="muted">Loading…</li></ul>`).join("");
   const seen = new Set();
   const hasProjects = new Map(); // "owner/repo" → Promise<boolean>, once per refresh
+  const hidden = new Set((settings().hiddenRepos ?? []).map((h) => h.toLowerCase())); // removed from the gallery
   const keep = (it) => {
     const nwo = it.repository_url.split("/").slice(-2).join("/");
+    if (hidden.has(nwo.toLowerCase())) return false;
     if (!hasProjects.has(nwo)) hasProjects.set(nwo, repoHasProjects(nwo).catch(() => true)); // unknown: show it
     return hasProjects.get(nwo);
   };
@@ -146,7 +149,17 @@ const TAB_KEY = "kivi.homeTab";
 const TITLES = { projects: "Projects", prs: "Pull requests" };
 // Signing in or out reloads the lists here rather than the whole page.
 const header = isDesktop ? initHeader({ homeLinks: false, onAccountChange: () => refresh() }) : null;
-const projects = initProjects({ grid: $("#projects"), status: $("#projects-status"), filter: $("#project-filter") });
+const projects = initProjects({
+  grid: $("#projects"),
+  status: $("#projects-status"),
+  filter: $("#project-filter"),
+  add: isDesktop ? $("#add-project") : null,
+  onWatched: (added) => {
+    renderWatched();
+    if (added) refreshTabs();
+    else loaded.delete("prs"); // the pull request list drops it on its next showing
+  },
+});
 const loaded = new Set(); // tabs fetched since the last refresh
 
 function showHomeTab(name) {
@@ -220,21 +233,11 @@ if (isDesktop) {
   // A folder or KiCad file dropped on the home page opens in the viewer.
   onDrop({ drop: (folder, project) => (location.href = `index.html#${new URLSearchParams({ folder, ...(project && { project }) })}`) });
 }
-// "Open": the repository in the box, or a local folder when the box is empty.
-$("#gh-form").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const spec = $("#gh-input").value.trim();
-  if (spec) location.href = `index.html#${new URLSearchParams({ gh: spec })}`;
-  else if (isDesktop) {
-    const path = await pickFolder();
-    if (path) location.href = `index.html#${new URLSearchParams({ folder: path })}`;
-  }
-});
 $("#watch-form").addEventListener("submit", (e) => {
   e.preventDefault();
   const m = /^(?:https?:\/\/github\.com\/)?([\w.-]+\/[\w.-]+?)(?:\.git)?\/?$/.exec($("#watch-input").value.trim());
   if (!m) return toast("Enter a repository as owner/repo", true);
-  if (!watched().includes(m[1])) saveSettings({ ...settings(), watchRepos: [...watched(), m[1]] });
+  watchRepo(m[1]);
   $("#watch-input").value = "";
   renderWatched();
   refreshTabs();

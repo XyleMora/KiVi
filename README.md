@@ -128,6 +128,49 @@ How it behaves:
 - The grid renders 48 cards at a time and adds more as you scroll.
 - The scan stops at a rate-limit error and keeps what it found.
 
+### Local projects
+
+The **+** button at the bottom right of the Projects view adds a project:
+**Local project…** or **Remote project…**. The pages have no address bar;
+projects open from the gallery, the pull request list, a dropped folder or the
+command line.
+
+**Remote project…** asks for a GitHub repository (`owner/repo` or its
+github.com address), checks that it exists, that your account can see it, that
+it has KiCad projects and that it isn't in the gallery yet, and adds it to the
+watched repositories (listed under **Watched**, where it can be removed), so
+its projects join the gallery and its pull requests the pull request list.
+
+**Remove from projects** in a GitHub card's `⋯` menu takes its whole
+repository (all its cards) off the gallery and the pull request list: a
+watched repository is no longer watched, and one that comes from the app's
+repository access is remembered as hidden (settings `hiddenRepos`). Adding it
+again with **Remote project…** or under **Watched** brings it back.
+
+**Local project…** adds a folder on this computer; each KiCad project in it gets a card (with a folder icon and
+its path), listed with the GitHub projects by date of the last change. The
+folders are kept in settings `localProjects`; thumbnails are rendered from the
+board file on disk and re-rendered when it changes. A folder that isn't in a
+git repository becomes one when it's added (`git init`, on `main`; nothing is
+committed), so its changes can be committed from the viewer's branch menu.
+
+- A local card's `⋯` menu has the views, **Open in KiCad**, **View on GitHub**
+  (greyed out until the folder is linked), **Link to GitHub…** and **Remove
+  from projects** (the folder stays on disk). There's no Download: the project
+  is already here.
+- **Link to GitHub…** asks for a repository (`owner/repo` or its github.com
+  address), checks that it exists and that your account can see it, and adds
+  it as the folder's git remote (`origin`, or `github` if origin points
+  elsewhere). Nothing is uploaded: open the project and use **Commit and push…**
+  from its branch menu. Use an empty repository, since KiVi can't merge a
+  history that GitHub already has.
+- Once linked, the card gets the sync icon and View on GitHub, and the viewer
+  the branch menu with commit and push.
+- A folder that is a clone of a repository already in the gallery isn't added
+  as a card of its own: it becomes that repository's linked copy (as **Link**
+  on its card would), and the same happens when a local project is linked to
+  such a repository.
+
 ## Local copies, branches and pushing
 
 A project from the gallery can be worked on in a folder on your computer and
@@ -162,6 +205,10 @@ Rust `git2` crate), with HTTPS going through the same TLS stack as sign-in.
   - **Visual diff of changes** compares the working files, uncommitted edits
     included, with the point where the branch left main (after updating main
     from GitHub), like the pull request would: `diff.html#local=<folder>`.
+    **Compare with** in its bar picks something else: another branch (again
+    from where this branch left it) or one of the branch's latest 50 commits
+    (that commit itself, e.g. the last one for only the uncommitted edits);
+    the choice goes into the link as `&base=<branch or SHA>`.
   - **Commit and push…** lists the changed files with checkboxes, commits the
     chosen ones with your message and pushes the branch to the same branch on
     GitHub, then offers to open a pull request. The commit author is your git
@@ -211,8 +258,7 @@ diff.html#gh=owner/repo&base=main&head=feature&file=hw/board.kicad_pcb
 inbox.html#projects, inbox.html#prs                       home screen views
 ```
 
-The repository box in the header takes `owner/repo`,
-`owner/repo@branch:path/to/project` or any
+`gh=` takes `owner/repo`, `owner/repo@branch:path/to/project` or any
 `https://github.com/owner/repo/tree/<ref>/<path>` URL.
 
 ## Review comments on pull requests
@@ -275,6 +321,8 @@ src/desktop/
   projects.js           project gallery: repository scan, caches, cards
   thumb-worker.js       board thumbnails (parse + render off the main thread)
   git.js                local copies: download/link, branch menu, commit and push
+  add-project.js        the "+" menu: local project, remote project (a watched repository)
+  local-projects.js     local project folders in the gallery, Link to GitHub…
   icons.js              header and menu icons (repository / pull request follow Octicons)
 src-tauri/              Rust app
   src/lib.rs            commands: open_folder, list_folder, read_file, startup_folder,

@@ -1,7 +1,7 @@
 // Desktop additions to the viewer (index.html) and diff (diff.html) pages.
 // Loaded after the page's own module; does nothing outside the Tauri app.
 
-import { ensureFreshToken, isDesktop, invoke, kicadAction, listen, ModelDirSource, onDrop, openFolder, openInKicad, pickFolder, projectPath, routeExternalLinks, TauriSource } from "./tauri.js";
+import { ensureFreshToken, isDesktop, invoke, kicadAction, listen, ModelDirSource, onDrop, openFolder, openInKicad, projectPath, routeExternalLinks, TauriSource } from "./tauri.js";
 import { $, toast } from "../app/ui.js";
 import { initHeader } from "./account.js";
 import { localGitApi, mountGitMenu } from "./git.js";
@@ -28,13 +28,6 @@ function setUpViewer() {
   const app = window.kivi;
   app.openModelDir = (path) => new ModelDirSource(path); // folder model sources from Settings, and the linked KiCad's
 
-  // "Open" with an empty repository box picks a local folder (the viewer's own
-  // handler opens a repository when there is one).
-  $("#gh-form").addEventListener("submit", async () => {
-    if ($("#gh-input").value.trim()) return;
-    const path = await pickFolder();
-    if (path) await show(path);
-  });
   onDrop({
     enter: () => document.body.classList.add("dragging"),
     leave: () => document.body.classList.remove("dragging"),

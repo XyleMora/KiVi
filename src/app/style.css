@@ -82,10 +82,6 @@ code, .mono { font-family: var(--mono); }
 .brand-mark { flex: none; margin-top: -2px; }
 img.brand-mark { visibility: hidden; }
 img.brand-mark.plain { visibility: visible; }
-.gh-form { flex: 1 1 380px; display: flex; align-items: center; gap: 8px; position: relative; max-width: 720px; }
-.gh-icon { position: absolute; left: 10px; color: var(--muted); }
-.gh-form .input, .gh-form input { padding-left: 32px; }
-.gh-form input { flex: 1; min-height: 34px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius); font: inherit; font-family: var(--mono); font-size: 13px; padding-right: 10px; }
 .top-actions { display: flex; gap: 8px; margin-left: auto; }
 
 .projbar {
@@ -388,3 +384,7 @@ textarea.input { resize: vertical; font-size: 12px; white-space: pre; overflow-x
 .branch-check { width: 12px; flex: none; color: var(--accent); }
 .branch-tag { margin-left: auto; font-size: 11px; flex: none; }
 .branch-note { padding: 6px 10px; font-size: 12px; }
+/* The visual diff's "Compare with" (diff.js mountBaseMenu), on the left of its bar. */
+.base-menu .branch-menu-list { left: 0; right: auto; width: 420px; }
+.base-menu .branch-list { max-height: 420px; }
+.base-summary { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }

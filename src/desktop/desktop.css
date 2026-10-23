@@ -47,7 +47,7 @@
 .thumb-note { font-size: 12px; color: var(--faint); }
 .project-info { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .project-title { display: flex; align-items: center; gap: 8px; font-weight: 600; min-width: 0; }
-.project-title > a { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+.project-title > a, .project-title > .project-name { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
 .project-icon { color: var(--accent); flex: none; }
 .project-meta { font-size: 12px; display: flex; align-items: center; gap: 5px; min-width: 0; }
 .project-meta > span:not(.tag) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -104,7 +104,6 @@
 .menu-head span { font-size: 13px; overflow: hidden; text-overflow: ellipsis; }
 .token-row { flex-wrap: nowrap; }
 .token-row .input { flex: 1; min-width: 0; }
-.inbox-page .gh-form input { padding-left: 10px; }
 .plain-list li { display: flex; align-items: center; gap: 8px; padding: 4px 0; min-width: 0; flex-wrap: wrap; }
 .plain-list li a { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .plain-list li .btn { margin-left: auto; }
@@ -125,3 +124,13 @@
 .btn[aria-disabled="true"], .card-menu-list button[aria-disabled="true"] { opacity: 0.45; cursor: default; }
 .btn[aria-disabled="true"]:hover { border-color: var(--border); }
 .card-menu-list button[aria-disabled="true"]:hover { background: none; }
+
+/* "+" on the Projects view: add a local or remote project (add-project.js). */
+.add-menu { position: fixed; right: 28px; bottom: 28px; z-index: 6; }
+.add-menu[hidden] { display: none; }
+.add-menu-panel { top: auto; bottom: calc(100% + 10px); min-width: 230px; }
+.add-menu-panel [role="menuitem"] > span { display: flex; flex-direction: column; }
+.add-menu-panel [role="menuitem"] .muted { font-size: 12px; }
+.fab { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: var(--accent-ink); border: 0; cursor: pointer; box-shadow: 0 6px 18px rgb(0 0 0 / 0.45); }
+.fab:hover { filter: brightness(1.08); }
+.project-grid { padding-bottom: 72px; } /* the last row stays clear of "+" */

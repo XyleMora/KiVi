@@ -45,6 +45,31 @@ README doesn't: conventions, environment and pitfalls.
     `kivi.projectIndex` in localStorage (per repository, keyed on `pushed_at`
     and the default branch) and the IndexedDB database `kivi-thumbs` (by blob
     SHA). 48 cards per page; boards over 30 MB get no thumbnail.
+  - **"+" menu** (`src/desktop/add-project.js`, `#add-project`, a
+    `<details class="menu">`, desktop only): **Local project…** or **Remote
+    project…** (a GitHub repository, checked to exist, be visible, have
+    projects and not be in the gallery, then added to `watchRepos`). It
+    replaced the address bar, removed from all three pages (the user's choice):
+    pages open only from the gallery, the PR list, drops, the CLI and hashes.
+    GitHub cards have **Remove from projects** (`removeRepo`): the whole
+    repository leaves the gallery and PR list; unwatched, and when signed in
+    also added to settings `hiddenRepos` (listRepos and the PR list skip
+    those); `watchRepo` (Remote project…, the Watched drawer) clears it.
+  - **Local projects** (`src/desktop/local-projects.js`): "Local project…"
+    adds a folder to settings `localProjects`
+    and `git_init`s it (on main) unless it's already in a repository (the
+    user's choice; also for folders added earlier, when next scanned, and only
+    folders with a project);
+    its projects become cards (`p.local`, `localCardHtml` in projects.js) read
+    through `scan_kicad_folder` / `read_kicad_file` (lib.rs, KiCad design files
+    only); thumbnails are cached by path, size and change time. Their menu: no
+    Download, View on GitHub greyed out (`aria-disabled`) until linked, **Link
+    to GitHub…** = `git_link_github` (git.rs: `git init` on main if still needed,
+    then remote origin, or `github` when origin points elsewhere; the repository
+    must exist via the API), **Remove from projects**. A clone of a repository
+    in the gallery is linked to that card (`localCopies`) instead of added, and
+    a local card whose folder is such a linked copy isn't shown (the user's
+    design: "+" button, no Download, greyed View on GitHub, Link = add remote).
   - **Pull requests**: the GitHub search API, with a KiCad-files-changed badge
     per PR (from `/pulls/N/files`) and buttons to the visual diff, the viewer
     at the PR head, and github.com. Only PRs in repositories with KiCad
@@ -66,8 +91,7 @@ README doesn't: conventions, environment and pitfalls.
   (the review panel's "Sign in with GitHub" links), so it needs no Tauri import.
   Signing in or out reloads the viewer/diff page and refreshes the home page.
 - `src/desktop/desktop.js`: loaded after `main.js` / `diff.js`. Mounts the
-  header, makes "Open" with an empty repository box show the native folder
-  picker (also on the home page), adds drag and drop, live reload on
+  header, adds drag and drop, live reload on
   `folder-changed` (keeps tab, sheet and selection) and
   `index.html#folder=<path>[&project=…]`.
 - `src-tauri/src/lib.rs` commands:
@@ -118,7 +142,8 @@ README doesn't: conventions, environment and pitfalls.
   (emits `git-progress`), `git_create_branch`, `git_local_changes` (merge base
   with origin/HEAD, main or master ↔ working files incl. untracked, renames),
   `git_read` / `git_list` (rev "" = working files), `git_fetch`, `git_commit`,
-  `git_push`, `git_remote_state`, `git_branches`, `git_switch_branch`; all run
+  `git_push`, `git_remote_state`, `git_branches`, `git_switch_branch`,
+  `git_link_github`, `git_init`, `git_log`; all run
   on a blocking thread.
 - Branch menu `#branch-menu` (`src/app/branch-menu.js`, shared, the user's
   design): the same button and branch list for GitHub projects (main.js
@@ -130,6 +155,11 @@ README doesn't: conventions, environment and pitfalls.
   removes only a "github" one, desktop.js mounts the "local" one after a folder
   opens and on live reload/focus. The left of the bar shows the repository
   (GitHub) or folder (local), no longer the ref.
+- Visual diff of a local copy: **Compare with** (`#base-menu`, diff.js
+  `mountBaseMenu`, the user's request) lists `git_branches` and `git_log`
+  (through `localGitApi`, so diff.js stays Tauri-free) and reloads with
+  `base=`; `git_local_changes` takes a branch (from the merge base) or any
+  revision (that commit itself, `base_tip` in git.rs).
 - `src/desktop/git.js`: card menu actions (projects.js), the local branch
   menu, the dialogs,
   and `localGitApi()` which desktop.js hands to `kiviDiff.attachLocalGit()` for

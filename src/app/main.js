@@ -30,7 +30,6 @@ class App {
   }
 
   bind() {
-    for (const b of document.querySelectorAll("[data-example]")) b.addEventListener("click", () => this.openGitHub(b.dataset.example));
     for (const b of document.querySelectorAll(".tabs [data-tab]")) b.addEventListener("click", () => this.showTab(b.dataset.tab));
     $("#project-select").addEventListener("change", (e) => this.openProject(this.projects[Number(e.target.value)]));
 
@@ -149,7 +148,6 @@ class App {
       this.view3d?.dispose();
       this.view3d = null;
       this.view3dReady = null;
-      $("#welcome").hidden = true;
       $("#app").hidden = false;
       $("#projbar").hidden = false;
       $("#proj-name").textContent = project.name;

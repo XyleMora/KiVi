@@ -33,20 +33,6 @@ function ago(t) {
 const VIEW_SIDE = { before: "base", after: "head", overlay: "head" };
 const TYPE_ORDER = ["symbol", "footprint", "sheet", "label", "routing", "vias", "wire", "bus", "zone", "rule area", "outline", "graphics", "junction", "no-connect", "text", "title block", "board"];
 
-/** Parse PR / commit / compare URLs (or the hash form) into a comparison spec. */
-export function parseDiffSpec(input) {
-  input = input.trim();
-  let m = /github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/.exec(input);
-  if (m) return { owner: m[1], repo: m[2], pr: Number(m[3]) };
-  m = /github\.com\/([^/]+)\/([^/]+)\/commit\/([0-9a-f]{7,40})/i.exec(input);
-  if (m) return { owner: m[1], repo: m[2], commit: m[3] };
-  m = /github\.com\/([^/]+)\/([^/]+)\/compare\/(.+?)\.{2,3}([^?#]+)/.exec(input);
-  if (m) return { owner: m[1], repo: m[2], base: decodeURIComponent(m[3]), head: decodeURIComponent(m[4]) };
-  m = /^([\w.-]+)\/([\w.-]+)#(\d+)$/.exec(input);
-  if (m) return { owner: m[1], repo: m[2], pr: Number(m[3]) };
-  return null;
-}
-
 class DiffApp {
   constructor() {
     this.mode = "split";
@@ -102,7 +88,6 @@ class DiffApp {
   }
 
   bind() {
-    for (const b of document.querySelectorAll("[data-example]")) b.addEventListener("click", () => this.open(parseDiffSpec(b.dataset.example)));
     for (const b of document.querySelectorAll("[data-mode]")) b.addEventListener("click", () => this.setMode(b.dataset.mode));
     for (const b of document.querySelectorAll("[data-layers]")) {
       b.addEventListener("click", () => {
@@ -173,7 +158,6 @@ class DiffApp {
       this.busy(spec.local ? "Reading local changes…" : "Reading changes from GitHub…");
       const cmp = spec.local ? await this.localComparison(spec) : await resolveComparison(spec, settings().token);
       this.cmp = cmp;
-      $("#welcome").hidden = true;
       $("#diff-bar").hidden = false;
       $("#diff-main").hidden = false;
       $("#diff-title").textContent = cmp.title;

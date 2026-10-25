@@ -15,7 +15,7 @@ import { GitHubSource } from "../sources.js";
 import { findProjects } from "../project.js";
 import { cloneProject, forgetSync, knownSync, linkProject, localCopy, localViewUrl, syncState, unlinkLocalCopy } from "./git.js";
 import { kicadAction, openInKicad, projectPath } from "./tauri.js";
-import { addLocalProject, linkLocalProject, localProjects, readLocalBoard, removeLocalProject } from "./local-projects.js";
+import { addLocalProject, adoptLinkedFolders, linkLocalProject, localProjects, readLocalBoard, removeLocalProject } from "./local-projects.js";
 import { addRemoteProject, mountAddMenu, removeRepo } from "./add-project.js";
 
 const INDEX_KEY = "kivi.projectIndex";
@@ -476,6 +476,7 @@ export function initProjects({ grid, status, filter, add = null, onWatched = nul
       toast(`Local projects: ${e.message ?? e}`, true);
       return locals;
     });
+    adoptLinkedFolders(locals, inGallery);
     queueRender();
   }
   // Back from KiCad or a terminal: the copies may have been committed or pushed,
@@ -626,6 +627,7 @@ export function initProjects({ grid, status, filter, add = null, onWatched = nul
     if (id !== scan) return;
     saveIndex(index);
     scan = 0;
+    adoptLinkedFolders(locals, inGallery); // a repository just listed may be a local folder's remote
     const all = projects().filter((p) => !p.local); // the status counts GitHub's
     const inRepos = new Set(all.map((p) => p.nwo)).size;
     status.textContent = stop

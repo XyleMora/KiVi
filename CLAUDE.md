@@ -36,10 +36,11 @@ README doesn't: conventions, environment and pitfalls.
 - `inbox.html` + `src/desktop/inbox.js`: the home window, with two views
   switched by GitHub-style icon buttons in the header (`data-home`,
   `aria-pressed`, reachable as `inbox.html#projects` / `#prs`; each loads on
-  first show, since both cost API requests). Watched repos (`watchRepos`) and
-  recent local folders are in `#side`, a drawer from the right toggled by
-  `#side-toggle` (`inert` while closed; closes on Escape or an outside click,
-  after open menus/dialogs, which mark Escape handled with `preventDefault`).
+  first show, since both cost API requests). There's no Watched drawer or
+  recent folders list any more (the user's choice): repositories are added
+  with "+" → Remote project… (`watchRepos`). **Reload** (`#reload`) clears
+  `hiddenRepos` and lists every repository again, so removed GitHub
+  repositories come back (the user's choice; local projects stay removed).
   - **Projects** (`src/desktop/projects.js` + `thumb-worker.js`): a card grid of
     every `.kicad_pro` in reachable repositories, with board thumbnails. Caches:
     `kivi.projectIndex` in localStorage (per repository, keyed on `pushed_at`
@@ -52,9 +53,10 @@ README doesn't: conventions, environment and pitfalls.
     replaced the address bar, removed from all three pages (the user's choice):
     pages open only from the gallery, the PR list, drops, the CLI and hashes.
     GitHub cards have **Remove from projects** (`removeRepo`): the whole
-    repository leaves the gallery and PR list; unwatched, and when signed in
-    also added to settings `hiddenRepos` (listRepos and the PR list skip
-    those); `watchRepo` (Remote project…, the Watched drawer) clears it.
+    repository leaves the gallery and PR list: added to settings
+    `hiddenRepos` (listRepos and the PR list skip those) but kept in
+    `watchRepos`, so Reload brings it back; `watchRepo` (Remote project…) also
+    clears it.
   - **Local projects** (`src/desktop/local-projects.js`): "Local project…"
     adds a folder to settings `localProjects`
     and `git_init`s it (on main) unless it's already in a repository (the

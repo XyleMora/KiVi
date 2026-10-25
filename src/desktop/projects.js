@@ -1,6 +1,6 @@
 // Home screen project grid: every KiCad project in the repositories the
-// signed-in user can reach (where the GitHub App is installed), plus watched
-// repositories, each as a
+// signed-in user can reach (where the GitHub App is installed), plus remote
+// projects (watched repositories), each as a
 // card with a rendered board thumbnail.
 //
 // API cost is kept low with two caches:
@@ -50,7 +50,7 @@ async function listRepos() {
     for (const inst of await all("/user/installations", "installations"))
       for (const r of await all(`/user/installations/${inst.id}/repositories`, "repositories")) add(r);
   }
-  for (const nwo of settings().watchRepos ?? []) if (!repos.has(nwo)) add(await api(`/repos/${nwo}`).catch(() => null));
+  for (const nwo of settings().watchRepos ?? []) if (!repos.has(nwo) && !hidden.has(nwo.toLowerCase())) add(await api(`/repos/${nwo}`).catch(() => null));
   return [...repos.values()];
 }
 
@@ -290,7 +290,7 @@ function cardHtml(p) {
             <a href="${escapeHtml(github)}">View on GitHub</a>
             <hr>
             ${localItems}
-            <button type="button" data-repo="remove" title="${escapeHtml(`Stop showing ${p.nwo} in the gallery and the pull request list${p.repoCount > 1 ? ` (all its ${p.repoCount} projects)` : ""}; add it again with + → Remote project…`)}">Remove from projects</button>
+            <button type="button" data-repo="remove" title="${escapeHtml(`Stop showing ${p.nwo} in the gallery and the pull request list${p.repoCount > 1 ? ` (all its ${p.repoCount} projects)` : ""}; Reload brings it back`)}">Remove from projects</button>
           </div>
         </details>
       </div>
@@ -541,7 +541,7 @@ export function initProjects({ grid, status, filter, add = null, onWatched = nul
     delete index[p.nwo];
     saveIndex(index);
     render();
-    toast(`Removed ${p.nwo}${p.repoCount > 1 ? ` (${p.repoCount} projects)` : ""}; add it again with + → Remote project…`);
+    toast(`Removed ${p.nwo}${p.repoCount > 1 ? ` (${p.repoCount} projects)` : ""}; Reload brings it back`);
     onWatched?.(false);
   });
 
@@ -582,12 +582,12 @@ export function initProjects({ grid, status, filter, add = null, onWatched = nul
 
   async function refresh() {
     const id = ++scan;
-    forgetSync(); // Refresh checks the local copies again too
+    forgetSync(); // Reload checks the local copies again too
     loadLocals();
     render();
     if (!token() && !(settings().watchRepos ?? []).length) {
       index = {};
-      status.textContent = "Sign in to list the projects in your repositories, or watch a public repository.";
+      status.textContent = "Sign in to list the projects in your repositories, or add a public repository with + → Remote project….";
       scan = 0;
       return render();
     }

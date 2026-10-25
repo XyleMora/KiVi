@@ -47,18 +47,13 @@ export function watchRepo(nwo) {
 
 /**
  * Remove from projects (a GitHub card's menu): the repository leaves the gallery
- * and the pull request list. A watched one is no longer watched; one that comes
- * from the app's repository access (signed in) is remembered as hidden, since
- * it would otherwise be listed again. Adding it back (Remote project…, Watched)
- * undoes either.
+ * and the pull request list, remembered as hidden. It stays watched, so Reload
+ * (which clears the hidden ones) brings it back, as does adding it again with
+ * Remote project….
  */
 export function removeRepo(nwo) {
   const s = settings();
-  saveSettings({
-    ...s,
-    watchRepos: (s.watchRepos ?? []).filter((w) => !same(w, nwo)),
-    hiddenRepos: s.token ? [...(s.hiddenRepos ?? []).filter((h) => !same(h, nwo)), nwo] : (s.hiddenRepos ?? []),
-  });
+  saveSettings({ ...s, hiddenRepos: [...(s.hiddenRepos ?? []).filter((h) => !same(h, nwo)), nwo] });
 }
 
 /**
@@ -71,7 +66,7 @@ export function addRemoteProject({ inGallery, hasProjects }) {
   return new Promise((resolve) => {
     const dlg = dialog(`<form method="dialog" class="settings">
       <h2>Add a remote project</h2>
-      <p class="muted settings-hint">A GitHub repository with KiCad projects. Its projects join the gallery and its pull requests the pull request list; it's listed under Watched, where it can be removed.${
+      <p class="muted settings-hint">A GitHub repository with KiCad projects. Its projects join the gallery and its pull requests the pull request list. Remove from projects in a card's menu takes it off again, until the next Reload.${
         settings().token ? "" : " Signed out, only public repositories can be added."
       }</p>
       <label class="field-label" for="remote-repo">GitHub repository</label>

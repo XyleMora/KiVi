@@ -185,9 +185,10 @@ export function mountGitMenu(folder) {
     if (!info?.root) return removeOurs();
     const n = info.changes;
     const ahead = info.ahead ? `, ${info.ahead} commit${info.ahead > 1 ? "s" : ""} to push` : "";
+    // Without GitHub, commits stay on this computer.
     const commitItem = info.owner
       ? `<button type="button" data-act="commit">${n || !info.ahead ? "Commit and push…" : `Push ${info.ahead} commit${info.ahead > 1 ? "s" : ""}…`}</button>`
-      : `<span class="muted branch-note">Not linked to GitHub: no push</span>`;
+      : `<button type="button" data-act="commit">Commit…</button><span class="muted branch-note">Not linked to GitHub: no push</span>`;
     mountBranchMenu({
       kind: "local",
       branch: info.branch,
@@ -256,7 +257,11 @@ function newBranchDialog(info) {
   return new Promise((resolve) => {
     const dlg = dialog(`<form method="dialog" class="settings">
       <h2>New branch</h2>
-      <p class="muted settings-hint">From the current commit on <b>${escapeHtml(info.branch ?? "HEAD")}</b>. Uncommitted changes come along.</p>
+      <p class="muted settings-hint">${
+        info.head
+          ? `From the current commit on <b>${escapeHtml(info.branch ?? "HEAD")}</b>. Uncommitted changes come along.`
+          : `Nothing is committed yet: the first commit starts this branch, in place of <b>${escapeHtml(info.branch ?? "main")}</b>.`
+      }</p>
       <label class="field-label" for="git-branch-name">Branch name</label>
       <input id="git-branch-name" class="input mono" required spellcheck="false" autocomplete="off" placeholder="fix/led/footprint">
       <div class="row end gap"><button value="cancel" class="btn" formnovalidate>Cancel</button><button value="ok" class="btn primary">Create and switch</button></div>
@@ -278,6 +283,7 @@ function newBranchDialog(info) {
 
 /** The commit author when the copy has no git identity: the GitHub account, with its private e-mail. */
 async function fallbackAuthor() {
+  if (!settings().token) return { name: "KiVi user", email: "kivi@users.noreply.github.com" };
   try {
     const me = await GitHubSource.api("/user", await ensureFreshToken());
     return { name: me.name || me.login, email: `${me.id}+${me.login}@users.noreply.github.com` };
@@ -287,17 +293,22 @@ async function fallbackAuthor() {
 }
 
 async function commitDialog(info) {
-  if (!settings().token) {
+  const push = !!info.owner; // a folder not linked to GitHub only commits
+  if (push && !settings().token) {
     window.dispatchEvent(new Event("kivi:signin"));
     throw new Error("Sign in with GitHub to push");
   }
   const files = await invoke("git_status", { path: info.root });
-  const onMain = info.branch === "main" || info.branch === "master";
+  const onMain = push && (info.branch === "main" || info.branch === "master");
   const icon = { added: "+", removed: "−", modified: "~", conflicted: "!" };
   return new Promise((resolve) => {
     const dlg = dialog(`<form method="dialog" class="settings git-commit">
-      <h2>${files.length ? "Commit and push" : "Push"}</h2>
-      <p class="muted settings-hint">To <b>${escapeHtml(info.branch ?? "?")}</b> on github.com/${escapeHtml(`${info.owner}/${info.repo}`)}.</p>
+      <h2>${!push ? "Commit" : files.length ? "Commit and push" : "Push"}</h2>
+      <p class="muted settings-hint">${
+        push
+          ? `To <b>${escapeHtml(info.branch ?? "?")}</b> on github.com/${escapeHtml(`${info.owner}/${info.repo}`)}.`
+          : `On <b>${escapeHtml(info.branch ?? "HEAD")}</b>, on this computer only: the folder isn't linked to GitHub.`
+      }</p>
       ${onMain ? `<p class="git-warn">You're on <b>${escapeHtml(info.branch)}</b>: pushing changes it for everyone, and protected branches refuse it. Create a branch first to open a pull request instead.</p>` : ""}
       ${
         files.length
@@ -307,10 +318,13 @@ async function commitDialog(info) {
                .join("")}</ul>
              <label class="field-label" for="git-message">Message</label>
              <textarea id="git-message" class="input" rows="3" required placeholder="What changed, e.g. Swap R12 for a 0603"></textarea>`
-          : `<p>No uncommitted changes. ${info.ahead ? `${info.ahead} commit(s) aren't on GitHub yet.` : "Everything is pushed."}</p>`
+          : `<p>No uncommitted changes. ${!push ? "" : info.ahead ? `${info.ahead} commit(s) aren't on GitHub yet.` : "Everything is pushed."}</p>`
       }
       <p class="git-result muted" hidden></p>
-      <div class="row end gap"><button value="cancel" class="btn" formnovalidate>Close</button>${files.length ? `<button value="commit" class="btn">Commit</button>` : ""}<button value="push" class="btn primary">${files.length ? "Commit and push" : "Push"}</button></div>
+      <div class="row end gap"><button value="cancel" class="btn" formnovalidate>Close</button>${
+        !push ? (files.length ? `<button value="commit" class="btn primary">Commit</button>` : "")
+        : `${files.length ? `<button value="commit" class="btn">Commit</button>` : ""}<button value="push" class="btn primary">${files.length ? "Commit and push" : "Push"}</button>`
+      }</div>
     </form>`);
     const boxes = [...dlg.querySelectorAll("[data-file]")];
     const all = dlg.querySelector("#git-all");
@@ -350,7 +364,7 @@ async function commitDialog(info) {
           result.innerHTML = `Pushed <b>${escapeHtml(branch)}</b> to GitHub. ${onMain ? "" : `<a href="${escapeHtml(compare)}" target="_blank" rel="noopener">Open a pull request</a>`}`;
         } else {
           result.hidden = false;
-          result.textContent = "Committed. Push when you're ready.";
+          result.textContent = push ? "Committed. Push when you're ready." : "Committed.";
         }
         dlg.querySelector("button[value=commit]")?.remove();
         dlg.querySelector("button[value=push]")?.remove();

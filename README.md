@@ -151,8 +151,10 @@ it again with **Remote project…**.
 its path), listed with the GitHub projects by date of the last change. The
 folders are kept in settings `localProjects`; thumbnails are rendered from the
 board file on disk and re-rendered when it changes. A folder that isn't in a
-git repository becomes one when it's added (`git init`, on `main`; nothing is
-committed), so its changes can be committed from the viewer's branch menu.
+git repository becomes one when it's added (`git init`, on `main`, with a
+`.gitignore` leaving out KiCad's working files: local history `.history/`,
+lock files `~*.lck`, backups, autosaves and `fp-info-cache`, but not the
+project's local settings `*.kicad_prl`; nothing is committed), so its changes can be committed from the viewer's branch menu.
 
 - A local card's `⋯` menu has the views, **Open in KiCad**, **View on GitHub**
   (greyed out until the folder is linked), **Link to GitHub…** and **Remove
@@ -164,8 +166,9 @@ committed), so its changes can be committed from the viewer's branch menu.
   elsewhere). Nothing is uploaded: open the project and use **Commit and push…**
   from its branch menu. Use an empty repository, since KiVi can't merge a
   history that GitHub already has.
-- Once linked, the card gets the sync icon and View on GitHub, and the viewer
-  the branch menu with commit and push.
+- Once linked, the card gets the sync icon and View on GitHub, and the
+  branch menu's **Commit…** becomes **Commit and push…**. Before that, new
+  branches and commits stay on this computer.
 - A folder that is a clone of a repository already in the gallery isn't added
   as a card of its own: it becomes that repository's linked copy (as **Link**
   on its card would), and the same happens when a local project is linked to
@@ -201,7 +204,8 @@ Rust `git2` crate), with HTTPS going through the same TLS stack as sign-in.
 - With a local copy open, the branch button also counts the changed files and
   its menu has:
   - **New branch…** creates a branch at the current commit and switches to it;
-    uncommitted edits come along.
+    uncommitted edits come along. Before the first commit it replaces `main`:
+    the first commit starts the new branch.
   - **Visual diff of changes** compares the working files, uncommitted edits
     included, with the point where the branch left main (after updating main
     from GitHub), like the pull request would: `diff.html#local=<folder>`.
@@ -214,6 +218,8 @@ Rust `git2` crate), with HTTPS going through the same TLS stack as sign-in.
     GitHub, then offers to open a pull request. The commit author is your git
     identity if the clone has one, else your GitHub account with its private
     e-mail address. On `main` it warns first, since protected branches refuse it.
+    A local project not linked to GitHub gets **Commit…** instead: the same
+    list and message, committed in the folder's repository, nothing pushed.
 - GitHub is always reached at `https://github.com/<owner>/<repo>.git` with your
   sign-in token (in a request header, never stored in the clone), so a clone
   with an SSH remote works too. There's no pull or merge: if GitHub has commits

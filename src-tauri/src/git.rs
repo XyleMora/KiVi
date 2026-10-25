@@ -95,8 +95,11 @@ fn github_remote(repo: &Repository) -> Option<(String, String, String)> {
 }
 
 fn current_branch(repo: &Repository) -> Option<String> {
-    let head = repo.head().ok()?;
-    head.is_branch().then(|| head.shorthand().map(str::to_string)).flatten()
+    match repo.head() {
+        Ok(head) => head.is_branch().then(|| head.shorthand().map(str::to_string)).flatten(),
+        // Before the first commit HEAD names a branch that doesn't exist yet (main for a new repository).
+        Err(_) => repo.find_reference("HEAD").ok()?.symbolic_target()?.strip_prefix("refs/heads/").map(str::to_string),
+    }
 }
 
 // ---- information --------------------------------------------------------------
@@ -109,7 +112,7 @@ pub struct RepoInfo {
     repo: Option<String>,
     /// The remote pointing at GitHub ("origin" for clones made by KiVi).
     remote: Option<String>,
-    /// Checked-out branch; None when detached or before the first commit.
+    /// Checked-out branch (before the first commit, the one it will start); None when detached.
     branch: Option<String>,
     head: Option<String>,
     /// Changed, added and deleted files, untracked ones included.
@@ -254,7 +257,11 @@ fn create_branch(repo: &Repository, name: &str) -> Result<String, String> {
     if repo.find_branch(name, BranchType::Local).is_ok() {
         return Err(format!("a branch \"{name}\" already exists"));
     }
-    let head = repo.head().and_then(|h| h.peel_to_commit()).map_err(|_| "the repository has no commits to branch from".to_string())?;
+    let Ok(head) = repo.head().and_then(|h| h.peel_to_commit()) else {
+        // Nothing committed yet: the first commit starts the new branch instead.
+        repo.set_head(&format!("refs/heads/{name}")).map_err(|e| e.message().to_string())?;
+        return Ok(name.to_string());
+    };
     repo.branch(name, &head, false).map_err(|e| e.message().to_string())?;
     // Same commit, so the files stay as they are, uncommitted edits included.
     repo.set_head(&format!("refs/heads/{name}")).map_err(|e| e.message().to_string())?;
@@ -282,6 +289,9 @@ fn branches(repo: &Repository) -> Result<Vec<BranchInfo>, String> {
         if let Ok(Some(name)) = b.0.name() {
             out.push(BranchInfo { current: current.as_deref() == Some(name), name: name.to_string(), remote: false });
         }
+    }
+    if let Some(name) = current.as_deref().filter(|n| !out.iter().any(|x| x.name == *n)) {
+        out.push(BranchInfo { name: name.to_string(), current: true, remote: false }); // no commit on it yet
     }
     let remote = github_remote(repo).map(|g| g.0).unwrap_or_else(|| "origin".into());
     let prefix = format!("{remote}/");
@@ -686,12 +696,41 @@ pub async fn git_log(path: String, limit: usize) -> Result<Vec<CommitInfo>, Stri
 // ---- linking a local project to GitHub -------------------------------------------
 
 /// The git repository holding `path`, or a new one there (on main) if there is none.
+/// A new one gets a .gitignore leaving out KiCad's working files (IGNORED).
 fn open_or_init(path: &Path) -> Result<Repository, String> {
     Repository::discover(path).or_else(|_| {
         let mut opts = git2::RepositoryInitOptions::new();
         opts.initial_head("main");
-        Repository::init_opts(path, &opts).map_err(|e| e.message().to_string())
+        let repo = Repository::init_opts(path, &opts).map_err(|e| e.message().to_string())?;
+        ignore_kicad_files(path).map_err(|e| format!(".gitignore: {e}"))?;
+        Ok(repo)
     })
+}
+
+/// What KiCad writes next to a project that doesn't belong in git (as in GitHub's
+/// KiCad template). Not `*.kicad_prl`: per-user view state that some commit on purpose.
+const IGNORED: &[&str] = &[
+    ".history/",              // local history
+    "~*.lck",                 // locks of the files open in KiCad
+    "*-backups/",             // automatic backups
+    "_autosave-*",            // autosaves
+    "\\#auto_saved_files\\#", // the list of autosaves
+    "fp-info-cache",          // footprint library cache
+    "*.bak",                  // older backups
+    "*.kicad_pcb-bak",
+    "*.kicad_sch-bak",
+];
+
+/// Add IGNORED to the folder's .gitignore: made if missing, else only the lines it lacks are added.
+fn ignore_kicad_files(folder: &Path) -> std::io::Result<()> {
+    let file = folder.join(".gitignore");
+    let text = std::fs::read_to_string(&file).unwrap_or_default();
+    let missing: Vec<&str> = IGNORED.iter().copied().filter(|p| !text.lines().any(|l| l.trim() == *p)).collect();
+    if missing.is_empty() {
+        return Ok(());
+    }
+    let sep = if text.is_empty() || text.ends_with('\n') { "" } else { "\n" };
+    std::fs::write(&file, format!("{text}{sep}# KiCad's working files\n{}\n", missing.join("\n")))
 }
 
 /// Make a local project folder a git repository unless it's already in one; returns git_info.
@@ -920,7 +959,7 @@ mod tests {
         let repo = link_github(&folder, "me", "board").unwrap();
         let i = info(&repo).unwrap();
         assert_eq!((i.owner.as_deref(), i.repo.as_deref(), i.remote.as_deref()), (Some("me"), Some("board"), Some("origin")));
-        assert_eq!((i.branch, i.changes), (None, 2)); // nothing committed yet
+        assert_eq!((i.branch.as_deref(), i.changes), (Some("main"), 3)); // nothing committed yet (.gitignore too)
         assert!(link_github(&folder, "me", "board").is_ok(), "linking again is fine");
         assert!(link_github(&folder, "me", "other").err().unwrap().contains("already linked to me/board"));
 
@@ -934,12 +973,53 @@ mod tests {
         assert_eq!(workdir(&open_or_init(&inner).unwrap()).unwrap(), workdir(&repo).unwrap());
         assert!(!inner.join(".git").exists());
 
+        // An existing .gitignore is kept, with only the missing lines added, once.
+        let kept = base.join("kept");
+        write(&kept, ".gitignore", "build/\n*.bak");
+        open_or_init(&kept).unwrap();
+        ignore_kicad_files(&kept).unwrap();
+        let text = std::fs::read_to_string(kept.join(".gitignore")).unwrap();
+        assert!(text.starts_with("build/\n*.bak\n# KiCad's working files\n.history/\n"), "{text}");
+        assert_eq!(text.lines().filter(|l| *l == "*.bak").count(), 1);
+        assert_eq!(text.lines().count(), 2 + 1 + IGNORED.len() - 1);
+
         // A repository whose origin isn't GitHub gets a second remote.
         let other = base.join("other");
         write(&other, "x.kicad_pro", "{}");
         Repository::init(&other).unwrap().remote("origin", "https://gitlab.com/me/x.git").unwrap();
         let i = info(&link_github(&other, "me", "x").unwrap()).unwrap();
         assert_eq!(i.remote.as_deref(), Some("github"));
+        std::fs::remove_dir_all(base).unwrap();
+    }
+
+    #[test]
+    fn branch_and_commit_without_github() {
+        let base = std::env::temp_dir().join(format!("kivi-git-plain-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        write(&base, "board.kicad_pro", "{}");
+        for f in [".history/board.kicad_pro", "~board.kicad_pro.lck", "~board.kicad_pcb.lck", "board-backups/b.zip", "_autosave-board.kicad_pcb", "#auto_saved_files#", "fp-info-cache", "board.kicad_pcb-bak", "board.kicad_prl"] {
+            write(&base, f, "x");
+        }
+        let repo = open_or_init(&base).unwrap();
+        // A new repository leaves KiCad's working files out, but not the project's local settings.
+        let ignore = std::fs::read_to_string(base.join(".gitignore")).unwrap();
+        assert!(ignore.starts_with("# KiCad's working files\n.history/\n~*.lck\n"), "{ignore}");
+        let changed = status(&repo).unwrap().into_iter().map(|f| f.path).collect::<Vec<_>>();
+        assert_eq!(changed, vec![".gitignore", "board.kicad_prl", "board.kicad_pro"]);
+        // Before the first commit: the branch to be is shown, and a new branch replaces it.
+        assert_eq!(info(&repo).unwrap().branch.as_deref(), Some("main"));
+        assert_eq!(create_branch(&repo, "first/try").unwrap(), "first/try");
+        let names = |r: &Repository| branches(r).unwrap().into_iter().map(|b| (b.name, b.current)).collect::<Vec<_>>();
+        assert_eq!(names(&repo), vec![("first/try".to_string(), true)]);
+        commit(&repo, &[".gitignore".into(), "board.kicad_prl".into(), "board.kicad_pro".into()], "first", ("T", "t@example.com")).unwrap();
+        assert!(repo.find_branch("first/try", BranchType::Local).is_ok());
+        // Then branching works as usual, with no remote at all.
+        write(&base, "board.kicad_pro", "{\"a\": 1}");
+        create_branch(&repo, "fix/led").unwrap();
+        commit(&repo, &["board.kicad_pro".into()], "led", ("T", "t@example.com")).unwrap();
+        let i = info(&repo).unwrap();
+        assert_eq!((i.branch.as_deref(), i.owner, i.changes, i.ahead), (Some("fix/led"), None, 0, None));
+        assert_eq!(names(&repo), vec![("fix/led".to_string(), true), ("first/try".to_string(), false)]);
         std::fs::remove_dir_all(base).unwrap();
     }
 

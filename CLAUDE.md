@@ -59,7 +59,9 @@ README doesn't: conventions, environment and pitfalls.
     clears it.
   - **Local projects** (`src/desktop/local-projects.js`): "Local project…"
     adds a folder to settings `localProjects`
-    and `git_init`s it (on main) unless it's already in a repository (the
+    and `git_init`s it (on main, plus a `.gitignore` of KiCad's working files,
+    `IGNORED` in git.rs: `.history/`, `~*.lck`, backups, autosaves,
+    `fp-info-cache`; not `*.kicad_prl`, the user's choice) unless it's already in a repository (the
     user's choice; also for folders added earlier, when next scanned, and only
     folders with a project);
     its projects become cards (`p.local`, `localCardHtml` in projects.js) read
@@ -156,7 +158,9 @@ README doesn't: conventions, environment and pitfalls.
   ref so `restoreFromHash` reopens the project, same tab) and local copies
   (git.js `mountGitMenu`: `git_branches` after a best-effort fetch,
   `git_switch_branch` = safe checkout like `git switch`, plus new branch, diff,
-  commit and push on top). `data-kind` tells which side owns it: main.js
+  commit and push on top; a folder without a GitHub remote gets **Commit…**
+  (no push, no sign-in needed; the user's request), and before its first
+  commit `git_info.branch` is the unborn branch and a new branch replaces it). `data-kind` tells which side owns it: main.js
   removes only a "github" one, desktop.js mounts the "local" one after a folder
   opens and on live reload/focus. The left of the bar shows the repository
   (GitHub) or folder (local), no longer the ref.

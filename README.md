@@ -43,7 +43,7 @@ repositories), the first found wins.
 
 
 **Pull requests.** The second icon in the header lists open pull requests in
-watched repositories and, once you sign in, those waiting for your review and
+remote projects and, once you sign in, those waiting for your review and
 your own, in repositories with KiCad projects only.
 Each says how many KiCad files it changes; **Visual diff** and **Hardware**
 open it in KiVi.
@@ -114,11 +114,11 @@ How it behaves:
 ## Project gallery
 
 - Repositories come from `GET /user/installations` and
-  `/user/installations/{id}/repositories`, plus the watched repositories.
+  `/user/installations/{id}/repositories`, plus the remote projects.
 - Each repository's default branch is listed with one recursive tree request;
   each `.kicad_pro` is a project (without one, only a loose `.kicad_pcb` counts).
   The result is cached per repository and reused until the repository's last
-  push or default branch changes, so **Refresh** with no new commits only costs
+  push or default branch changes, so **Reload** with no new commits only costs
   the repository listing.
 - Thumbnails are the realistic front face (soldermask, copper, silkscreen),
   clipped to the board outline. They're rendered when a card scrolls into
@@ -138,14 +138,14 @@ command line.
 **Remote project…** asks for a GitHub repository (`owner/repo` or its
 github.com address), checks that it exists, that your account can see it, that
 it has KiCad projects and that it isn't in the gallery yet, and adds it to the
-watched repositories (listed under **Watched**, where it can be removed), so
-its projects join the gallery and its pull requests the pull request list.
+remote projects, so its projects join the gallery and its pull requests the
+pull request list.
 
 **Remove from projects** in a GitHub card's `⋯` menu takes its whole
-repository (all its cards) off the gallery and the pull request list: a
-watched repository is no longer watched, and one that comes from the app's
-repository access is remembered as hidden (settings `hiddenRepos`). Adding it
-again with **Remote project…** or under **Watched** brings it back.
+repository (all its cards) off the gallery and the pull request list; it's
+remembered as hidden (settings `hiddenRepos`). **Reload**, next to the page
+title, lists every repository again, including the removed ones, as does adding
+it again with **Remote project…**.
 
 **Local project…** adds a folder on this computer; each KiCad project in it gets a card (with a folder icon and
 its path), listed with the GitHub projects by date of the last change. The
@@ -188,7 +188,7 @@ Rust `git2` crate), with HTTPS going through the same TLS stack as sign-in.
   nothing uncommitted and its branch is at the same commit as on GitHub, yellow
   when it differs (uncommitted changes, commits to push, newer commits on
   GitHub). It asks GitHub for its branch tips (one small request per linked
-  repository, no download), again on **Refresh** and when the window regains
+  repository, no download), again on **Reload** and when the window regains
   focus; offline it compares with what the copy last fetched.
 - The project bar looks the same for a GitHub project and a local copy: the
   project and its repository or folder on the left, the branch button
@@ -321,7 +321,7 @@ src/desktop/
   projects.js           project gallery: repository scan, caches, cards
   thumb-worker.js       board thumbnails (parse + render off the main thread)
   git.js                local copies: download/link, branch menu, commit and push
-  add-project.js        the "+" menu: local project, remote project (a watched repository)
+  add-project.js        the "+" menu: local project, remote project (settings `watchRepos`)
   local-projects.js     local project folders in the gallery, Link to GitHub…
   icons.js              header and menu icons (repository / pull request follow Octicons)
 src-tauri/              Rust app

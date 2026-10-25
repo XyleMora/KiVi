@@ -29,10 +29,7 @@
     <div class="inbox-head">
       <h1 id="home-title">Projects</h1>
       <div class="row gap">
-        <button id="refresh" class="btn small">Refresh</button>
-        <button id="side-toggle" class="btn small" aria-expanded="false" aria-controls="side" title="Watched repositories and recent folders">
-          <span id="side-icon"></span>Watched <span id="watched-count" class="count"></span>
-        </button>
+        <button id="reload" class="btn small" title="Reload every GitHub repository, including those removed from projects">Reload</button>
       </div>
     </div>
 
@@ -49,27 +46,11 @@
     </div>
 
     <div id="home-prs" hidden>
-      <p id="signed-out" class="inbox-note" hidden>Sign in to see pull requests waiting for your review and your own pull requests. Watched repositories work without signing in for public repositories.</p>
+      <p id="signed-out" class="inbox-note" hidden>Sign in to see pull requests waiting for your review and your own pull requests. Remote projects in public repositories work without signing in.</p>
       <div id="lists"></div>
     </div>
   </section>
 
-  <aside id="side" class="inbox-side" aria-label="Watched repositories and recent folders" inert>
-    <div class="side-head">
-      <h2>Watched repositories</h2>
-      <button type="button" id="side-close" class="btn icon small" aria-label="Close" title="Close">×</button>
-    </div>
-    <p class="muted settings-hint">Their projects and open pull requests are listed too.</p>
-    <ul id="watched" class="plain-list"></ul>
-    <form id="watch-form" class="row gap">
-      <input id="watch-input" class="input mono" placeholder="owner/repo" spellcheck="false" aria-label="Repository to watch">
-      <button class="btn small">Watch</button>
-    </form>
-
-    <h2>Recent folders</h2>
-    <p class="muted settings-hint">Local projects reload when KiCad saves them. Drop a folder on the window to open it.</p>
-    <ul id="recent" class="plain-list"></ul>
-  </aside>
 </main>
 
 <div id="toast" class="toast" role="status" hidden></div>

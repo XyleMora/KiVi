@@ -67,7 +67,6 @@ export class ModelDirSource {
 /** List `path` and start watching it; returns the source to open. */
 export async function openFolder(path) {
   const files = await invoke("open_folder", { path });
-  rememberFolder(path);
   return new TauriSource(path, files);
 }
 
@@ -123,22 +122,6 @@ export async function openInKicad(project) {
   if (!k) throw new Error("Link KiCad in Settings first");
   await invoke("kicad_open", { program: k.program, project });
   toast(`Opening ${project.split(/[\\/]/).pop()} in KiCad…`);
-}
-
-const RECENT_KEY = "kivi.recentFolders";
-export function recentFolders() {
-  try {
-    return JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]");
-  } catch {
-    return [];
-  }
-}
-function rememberFolder(path) {
-  try {
-    localStorage.setItem(RECENT_KEY, JSON.stringify([path, ...recentFolders().filter((p) => p !== path)].slice(0, 8)));
-  } catch {
-    /* storage unavailable */
-  }
 }
 
 // ---- links ---------------------------------------------------------------------

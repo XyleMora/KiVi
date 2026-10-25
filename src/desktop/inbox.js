@@ -1,22 +1,24 @@
 // The desktop app's home page, with two views switched by the header icons (as
 // on github.com): Projects (a grid of every KiCad project in the user's
 // repositories, see projects.js) and Pull requests (open PRs waiting for the
-// user's review, their own, and those of watched repositories, only in
+// user's review, their own, and those of remote projects, only in
 // repositories with KiCad projects, marked with the KiCad files they change,
 // opening in the visual diff or the hardware viewer).
 // The avatar opens the shared account menu (account.js).
 // "+" adds projects to the gallery: a local folder or a GitHub repository.
+// Reload lists every repository again, bringing back those removed from projects.
 
-import { $, escapeHtml, settings, saveSettings, toast } from "../app/ui.js";
+import { $, escapeHtml, settings, saveSettings } from "../app/ui.js";
 import { DIFFABLE } from "../sources.js";
 import { initHeader } from "./account.js";
 import { ICONS } from "./icons.js";
 import { initProjects, repoHasProjects } from "./projects.js";
-import { watchRepo } from "./add-project.js";
-import { ensureFreshToken, invoke, isDesktop, onDrop, recentFolders, routeExternalLinks } from "./tauri.js";
+import { ensureFreshToken, invoke, isDesktop, onDrop, routeExternalLinks } from "./tauri.js";
 
 const token = () => settings().token ?? null;
-const watched = () => settings().watchRepos ?? [];
+const hidden = () => new Set((settings().hiddenRepos ?? []).map((h) => h.toLowerCase())); // removed from projects
+// Repositories added with + → Remote project…, unless removed from projects since.
+const watched = () => (settings().watchRepos ?? []).filter((r) => !hidden().has(r.toLowerCase()));
 
 async function api(path) {
   const headers = { Accept: "application/vnd.github+json" };
@@ -37,7 +39,7 @@ function sections() {
     out.push({ title: "Waiting for your review", q: "is:pr is:open archived:false review-requested:@me" });
     out.push({ title: "Your pull requests", q: "is:pr is:open archived:false author:@me" });
   }
-  if (watched().length) out.push({ title: "Watched repositories", q: `is:pr is:open ${watched().map((r) => `repo:${r}`).join(" ")}` });
+  if (watched().length) out.push({ title: "Remote projects", q: `is:pr is:open ${watched().map((r) => `repo:${r}`).join(" ")}` });
   return out;
 }
 
@@ -90,16 +92,16 @@ async function renderLists() {
   const lists = $("#lists");
   const secs = sections();
   if (!secs.length) {
-    lists.innerHTML = `<p class="inbox-note">Nothing to show yet: sign in, or watch a repository on the right.</p>`;
+    lists.innerHTML = `<p class="inbox-note">Nothing to show yet: sign in, or add a remote project with + in Projects.</p>`;
     return;
   }
   lists.innerHTML = secs.map((s, i) => `<h2>${escapeHtml(s.title)}</h2><ul class="pr-list" id="sec-${i}"><li class="muted">Loading…</li></ul>`).join("");
   const seen = new Set();
   const hasProjects = new Map(); // "owner/repo" → Promise<boolean>, once per refresh
-  const hidden = new Set((settings().hiddenRepos ?? []).map((h) => h.toLowerCase())); // removed from the gallery
+  const removed = hidden();
   const keep = (it) => {
     const nwo = it.repository_url.split("/").slice(-2).join("/");
-    if (hidden.has(nwo.toLowerCase())) return false;
+    if (removed.has(nwo.toLowerCase())) return false;
     if (!hasProjects.has(nwo)) hasProjects.set(nwo, repoHasProjects(nwo).catch(() => true)); // unknown: show it
     return hasProjects.get(nwo);
   };
@@ -120,29 +122,6 @@ async function renderLists() {
   }
 }
 
-// ---- side panel ---------------------------------------------------------------------
-
-function renderWatched() {
-  $("#watched-count").textContent = watched().length ? String(watched().length) : "";
-  $("#watched").innerHTML =
-    watched().map((r) => `<li><a href="index.html#${new URLSearchParams({ gh: r })}" class="mono">${escapeHtml(r)}</a><button class="btn small" data-unwatch="${escapeHtml(r)}" aria-label="Stop watching ${escapeHtml(r)}">×</button></li>`).join("") ||
-    `<li class="muted">None</li>`;
-  for (const b of document.querySelectorAll("[data-unwatch]")) {
-    b.addEventListener("click", () => {
-      saveSettings({ ...settings(), watchRepos: watched().filter((r) => r !== b.dataset.unwatch) });
-      renderWatched();
-      refreshTabs();
-    });
-  }
-}
-
-function renderRecent() {
-  const recent = isDesktop ? recentFolders() : [];
-  $("#recent").innerHTML =
-    recent.map((p) => `<li><a href="index.html#${new URLSearchParams({ folder: p })}" class="mono" title="${escapeHtml(p)}">${escapeHtml(p.split(/[\\/]/).pop())}</a><span class="muted path">${escapeHtml(p)}</span></li>`).join("") ||
-    `<li class="muted">None yet</li>`;
-}
-
 // ---- projects / pull requests switch -----------------------------------------------
 
 const TAB_KEY = "kivi.homeTab";
@@ -155,7 +134,6 @@ const projects = initProjects({
   filter: $("#project-filter"),
   add: isDesktop ? $("#add-project") : null,
   onWatched: (added) => {
-    renderWatched();
     if (added) refreshTabs();
     else loaded.delete("prs"); // the pull request list drops it on its next showing
   },
@@ -190,41 +168,20 @@ async function refresh() {
   $("#signed-out").hidden = !!token();
   loaded.clear();
   showHomeTab(currentTab());
-  renderWatched();
-  renderRecent();
 }
 
-/** Watched repositories changed: reload the visible tab, the other one on next show. */
+/** Reload: every GitHub repository again, including those removed from projects. */
+function reload() {
+  const s = settings();
+  if (s.hiddenRepos?.length) saveSettings({ ...s, hiddenRepos: [] });
+  refresh();
+}
+
+/** Remote projects changed: reload the visible tab, the other one on next show. */
 function refreshTabs() {
   loaded.clear();
   showHomeTab(currentTab());
 }
-
-// ---- drawer (watched repositories, recent folders) -------------------------------------
-
-function setDrawer(open) {
-  const side = $("#side");
-  side.classList.toggle("open", open);
-  side.inert = !open; // off-screen: out of the tab order and the accessibility tree
-  $("#side-toggle").setAttribute("aria-expanded", String(open));
-  if (open) setTimeout(() => $("#watch-input").focus(), 0);
-}
-$("#side-toggle").addEventListener("click", () => setDrawer(!$("#side").classList.contains("open")));
-$("#side-close").addEventListener("click", () => {
-  setDrawer(false);
-  $("#side-toggle").focus();
-});
-// Escape or a click outside closes it (an open menu or dialog takes the Escape first).
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && !e.defaultPrevented && $("#side").classList.contains("open") && !document.querySelector("dialog[open]")) {
-    setDrawer(false);
-    $("#side-toggle").focus();
-  }
-});
-document.addEventListener("click", (e) => {
-  // isConnected: the un-watch button re-renders its list, so its click target is already detached.
-  if ($("#side").classList.contains("open") && e.target.isConnected && !e.target.closest("#side, #side-toggle")) setDrawer(false);
-});
 
 // ---- wiring ---------------------------------------------------------------------------
 
@@ -233,16 +190,6 @@ if (isDesktop) {
   // A folder or KiCad file dropped on the home page opens in the viewer.
   onDrop({ drop: (folder, project) => (location.href = `index.html#${new URLSearchParams({ folder, ...(project && { project }) })}`) });
 }
-$("#watch-form").addEventListener("submit", (e) => {
-  e.preventDefault();
-  const m = /^(?:https?:\/\/github\.com\/)?([\w.-]+\/[\w.-]+?)(?:\.git)?\/?$/.exec($("#watch-input").value.trim());
-  if (!m) return toast("Enter a repository as owner/repo", true);
-  watchRepo(m[1]);
-  $("#watch-input").value = "";
-  renderWatched();
-  refreshTabs();
-});
-$("#side-icon").outerHTML = ICONS.eye;
 for (const b of document.querySelectorAll("[data-home]")) {
   b.innerHTML = b.dataset.home === "projects" ? ICONS.repo : ICONS.pullRequest;
   b.addEventListener("click", () => showHomeTab(b.dataset.home));
@@ -260,7 +207,7 @@ for (const b of document.querySelectorAll("[data-home]")) {
   for (const b of document.querySelectorAll("[data-home]")) b.setAttribute("aria-pressed", String(b.dataset.home === (TITLES[start] ? start : "projects")));
 }
 window.addEventListener("hashchange", () => TITLES[location.hash.slice(1)] && showHomeTab(location.hash.slice(1)));
-$("#refresh").addEventListener("click", refresh);
+$("#reload").addEventListener("click", reload);
 refresh();
 
 // `kivi-desktop path/to/project`: go straight to the viewer (once, not on every return to the inbox).

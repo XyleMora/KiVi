@@ -44,7 +44,9 @@ async function listRepos() {
   const repos = new Map();
   // Removed from the gallery by the user (Remove from projects), until added again.
   const hidden = new Set((settings().hiddenRepos ?? []).map((h) => h.toLowerCase()));
-  const add = (r) => r && !r.disabled && r.size > 0 && !hidden.has(r.full_name.toLowerCase()) && repos.set(r.full_name, r); // size 0: empty repository
+  // Not `size`: GitHub computes it later, so a repository just filled by a push can still say 0.
+  // An empty one is found by its scan instead (409, no projects).
+  const add = (r) => r && !r.disabled && !hidden.has(r.full_name.toLowerCase()) && repos.set(r.full_name, r);
   if (token()) {
     // Exactly the repositories the GitHub App is installed on (and the user can see).
     for (const inst of await all("/user/installations", "installations"))

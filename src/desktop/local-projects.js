@@ -12,7 +12,7 @@
 import { escapeHtml, settings, saveSettings, toast } from "../app/ui.js";
 import { GitHubSource, parseGitHubSpec } from "../sources.js";
 import { findProjects } from "../project.js";
-import { dialog, setLocalCopy } from "./git.js";
+import { dialog, localCopy, setLocalCopy } from "./git.js";
 import { ensureFreshToken, invoke, pickFolder } from "./tauri.js";
 
 const folders = () => settings().localProjects ?? [];
@@ -100,6 +100,26 @@ export async function addLocalProject(inGallery) {
   saveFolders([...folders(), folder]);
   toast(projects.length === 1 ? `Added ${projects[0].name}` : `Added ${projects.length} projects from ${folder}`);
   return true;
+}
+
+/**
+ * Local folders linked to a GitHub repository that has cards in the gallery
+ * (linked first, the repository added after, or listed by Reload) become that
+ * repository's local copy, so the project shows once, as the GitHub card.
+ * `locals` are localProjects() entries. Returns true when something changed.
+ */
+export function adoptLinkedFolders(locals, inGallery) {
+  let changed = false;
+  for (const p of locals) {
+    if (!p.git || !inGallery(p.git.nwo) || !folders().some((f) => sameFolder(f, p.folder))) continue;
+    const copy = localCopy(p.git.nwo);
+    if (copy && !sameFolder(copy, p.git.root)) continue; // another clone is that card's copy: keep both
+    saveFolders(folders().filter((f) => !sameFolder(f, p.folder)));
+    if (!copy) setLocalCopy(p.git.nwo, p.git.root);
+    toast(`${p.folder} is linked to ${p.git.nwo}: its card now opens this folder`);
+    changed = true;
+  }
+  return changed;
 }
 
 /** Remove a folder from the gallery; nothing on disk changes. */

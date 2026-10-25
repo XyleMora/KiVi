@@ -70,7 +70,10 @@ README doesn't: conventions, environment and pitfalls.
     then remote origin, or `github` when origin points elsewhere; the repository
     must exist via the API), **Remove from projects**. A clone of a repository
     in the gallery is linked to that card (`localCopies`) instead of added, and
-    a local card whose folder is such a linked copy isn't shown (the user's
+    a local card whose folder is such a linked copy isn't shown; a local
+    folder linked to GitHub first, whose repository joins the gallery later
+    (Remote project…, Reload, app access), is turned into that card's copy
+    the same way (`adoptLinkedFolders`, after each scan) (the user's
     design: "+" button, no Download, greyed View on GitHub, Link = add remote).
   - **Pull requests**: the GitHub search API, with a KiCad-files-changed badge
     per PR (from `/pulls/N/files`) and buttons to the visual diff, the viewer

@@ -8,7 +8,7 @@ import { BBox, f, escapeXml } from "../geom.js";
 import { svgText, readable, FONT_FAMILY } from "../text.js";
 import { onLayer, copperOrder, viaLayers } from "./model.js";
 import { padShape, drillPath, shapePath, polyD, trackPath, circlePath, arcBounds } from "./shapes.js";
-import { PCB_THEMES, layerOpacity } from "./theme.js";
+import { PCB_THEMES, layerOpacity, ZONE_OPACITY } from "./theme.js";
 
 const BACK_TECH = ["B.CrtYd", "B.Fab", "B.Adhes", "B.Paste", "B.SilkS", "B.Mask"];
 const FRONT_TECH = ["F.Mask", "F.Paste", "F.Adhes", "F.SilkS", "F.Fab", "F.CrtYd"];
@@ -85,7 +85,7 @@ export function renderPcb(pcb, opts = {}) {
       for (const l of z.layers) for (const o of z.outline) bucket(l)?.shapes.push({ kind: "poly", pts: o, width: 0.1, dashed: true });
       continue;
     }
-    for (const fp of z.filled) bucket(fp.layer)?.zones.push({ d: polyD(fp.pts) + "Z", net: ni(z.net) });
+    for (const fp of z.filled) bucket(fp.layer)?.zones.push({ d: polyD(fp.pts) + "Z", net: ni(z.net), width: z.fillWidth });
   }
   for (const g of pcb.drawings) {
     if (g.kind === "text" || g.kind === "textbox") bucket(g.layer)?.texts.push({ t: g, fp: null });
@@ -134,10 +134,19 @@ export function renderPcb(pcb, opts = {}) {
     const color = theme.layer(l);
     const isCu = l.endsWith(".Cu");
     let body = "";
-    // Zones: one path per net.
+    // Zones: one path per net and outline width, translucent as a whole. Not stroked
+    // by the layer's colour: the fill is the exact copper (except old fills with a width).
     const zoneByNet = new Map();
-    for (const z of b.zones) zoneByNet.set(z.net, (zoneByNet.get(z.net) ?? "") + z.d);
-    for (const [n, d] of zoneByNet) body += `<path d="${d}" data-net="${n}" fill-rule="evenodd" class="zone"/>`;
+    for (const z of b.zones) {
+      const k = `${z.net} ${f(z.width)}`;
+      zoneByNet.set(k, (zoneByNet.get(k) ?? "") + z.d);
+    }
+    let zones = "";
+    for (const [k, d] of zoneByNet) {
+      const [n, w] = k.split(" ");
+      zones += `<path d="${d}" data-net="${n}" fill-rule="evenodd" class="zone" ${Number(w) ? `stroke-width="${w}"` : 'stroke="none"'}/>`;
+    }
+    if (zones) body += `<g opacity="${ZONE_OPACITY}">${zones}</g>`;
     for (const [n, byWidth] of b.tracks) {
       for (const [w, d] of byWidth) body += `<path d="${d}" data-net="${n}" fill="none" stroke-width="${w}" class="track"/>`;
     }

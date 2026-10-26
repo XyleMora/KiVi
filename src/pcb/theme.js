@@ -48,6 +48,12 @@ export const PCB_THEMES = {
   },
 };
 
+/**
+ * Zone fills within their copper layer, as KiCad's default (Appearance → Objects → Zones 60%):
+ * tracks and pads stand out on a pour of their own layer, and the layers below show through it.
+ */
+export const ZONE_OPACITY = 0.6;
+
 /** Layer opacity: masks are translucent, copper slightly so to show overlap. */
 export function layerOpacity(name) {
   if (name.endsWith(".Mask")) return 0.4;

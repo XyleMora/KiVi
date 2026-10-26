@@ -155,11 +155,29 @@ export class GitHubSource {
 /** Files that the visual diff can show. */
 export const DIFFABLE = /\.kicad_(sch|pcb)$/i;
 
+const FULL_SHA = /^[0-9a-f]{40}$/i;
+
+/** Files that differ between two commits, from their trees (the compare API only measures from the merge base). */
+async function treeDiff(api, owner, repo, a, b) {
+  const blobs = async (sha) => {
+    const t = await api(`/repos/${owner}/${repo}/git/trees/${sha}?recursive=1`);
+    if (t.truncated) throw new Error("Repository too large to compare these two commits directly; pick a branch as the base instead");
+    return new Map(t.tree.filter((e) => e.type === "blob").map((e) => [e.path, e.sha]));
+  };
+  const [before, after] = await Promise.all([blobs(a), blobs(b)]);
+  const files = [];
+  for (const [path, sha] of after) if (before.get(path) !== sha) files.push({ filename: path, status: before.has(path) ? "modified" : "added" });
+  for (const path of before.keys()) if (!after.has(path)) files.push({ filename: path, status: "removed" });
+  return files;
+}
+
 /**
  * Resolve what to compare:
  *   {owner, repo, pr: 42}                   pull request (base = merge base, like GitHub)
  *   {owner, repo, commit: "<sha>"}          commit against its first parent
- *   {owner, repo, base: "main", head: "x"}  any two refs (three-dot compare)
+ *   {owner, repo, base: "main", head: "x"}  any two refs: from where head left a base branch
+ *                                           (three-dot, like a pull request); a base commit
+ *                                           (full SHA) as it is; no base = the default branch
  * @returns {Promise<{base: object, head: object, files: object[], title: string, url: string}>}
  */
 export async function resolveComparison(spec, token = null) {
@@ -189,11 +207,21 @@ export async function resolveComparison(spec, token = null) {
     title = c.commit.message.split("\n")[0];
     url = c.html_url;
   } else {
-    const cmp = await api(`/repos/${owner}/${repo}/compare/${encodeURIComponent(spec.base)}...${encodeURIComponent(spec.head)}`);
-    base = { owner, repo, sha: cmp.merge_base_commit.sha, ref: spec.base };
-    head = { owner, repo, sha: cmp.commits.at(-1)?.sha ?? spec.head, ref: spec.head };
+    const baseRef = spec.base || (await api(`/repos/${owner}/${repo}`)).default_branch;
+    // The same branch on both sides (e.g. the viewer's Visual diff on the default branch): its latest commit.
+    if (baseRef === spec.head) return resolveComparison({ owner, repo, commit: spec.head }, token);
+    const cmp = await api(`/repos/${owner}/${repo}/compare/${encodeURIComponent(baseRef)}...${encodeURIComponent(spec.head)}`);
+    const short = (r) => (FULL_SHA.test(r) ? r.slice(0, 7) : r);
+    const headSha = cmp.commits.at(-1)?.sha ?? (FULL_SHA.test(spec.head) ? spec.head : (await api(`/repos/${owner}/${repo}/commits/${encodeURIComponent(spec.head)}`)).sha);
+    base = { owner, repo, sha: cmp.merge_base_commit.sha, ref: short(baseRef) };
+    head = { owner, repo, sha: headSha, ref: short(spec.head) };
     files = cmp.files ?? [];
-    title = `${spec.base}…${spec.head}`;
+    // A commit that isn't where the head left it (on another branch, or newer): compared as it is.
+    if (FULL_SHA.test(baseRef) && cmp.merge_base_commit.sha !== baseRef) {
+      base.sha = baseRef;
+      files = await treeDiff(api, owner, repo, baseRef, headSha);
+    }
+    title = `${base.ref} → ${head.ref}`;
     url = cmp.html_url;
   }
   files = files

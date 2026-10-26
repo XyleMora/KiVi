@@ -374,9 +374,14 @@ textarea.input { resize: vertical; font-size: 12px; white-space: pre; overflow-x
 .branch-check { width: 12px; flex: none; color: var(--accent); }
 .branch-tag { margin-left: auto; font-size: 11px; flex: none; }
 .branch-note { padding: 6px 10px; font-size: 12px; }
-/* The visual diff's "Compare with" (diff.js mountBaseMenu), on the left of its bar. */
-.base-menu .branch-menu-list { left: 0; right: auto; width: 420px; }
-.base-menu .branch-list { max-height: 420px; }
+/* The visual diff's pickers for each side (src/app/ref-picker.js), in the pane labels. */
+.pane-label:has(.ref-picker) { display: flex; align-items: center; gap: 6px; padding: 3px 4px 3px 9px; }
+.pane-label .ref-picker summary { padding: 1px 8px; min-height: 0; }
+.ref-picker .branch-menu-list { left: 0; right: auto; width: 440px; }
+.ref-picker .branch-list { max-height: 420px; }
+.ref-hint { margin: 4px 10px 8px; font-size: 12px; line-height: 1.4; }
+.ref-commits-head { display: flex; align-items: center; gap: 6px; }
+.ref-branch { min-width: 0; max-width: 260px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 4px; font: inherit; font-size: 12px; text-transform: none; letter-spacing: 0; padding: 2px 4px; }
 /* The project bar's history button (src/app/history-menu.js): orange while an older commit is shown. */
 .history-menu .branch-menu-list { width: 400px; }
 .history-menu .branch-list { max-height: 360px; }

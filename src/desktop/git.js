@@ -10,6 +10,7 @@ import { GitHubSource } from "../sources.js";
 import { ensureFreshToken, invoke, listen, pickFolder } from "./tauri.js";
 import { mountBranchMenu } from "../app/branch-menu.js";
 import { mountHistoryMenu } from "../app/history-menu.js";
+import { setDiffButton } from "../app/diff-button.js";
 
 
 // ---- links between GitHub projects and folders --------------------------------
@@ -139,23 +140,23 @@ export function syncState(nwo, folder = localCopy(nwo)) {
 // ---- the diff page's local mode -----------------------------------------------------
 
 /**
- * What diff.js needs to compare a working copy with main, given to it by
- * desktop.js (shared app code doesn't call Tauri itself).
+ * What diff.js needs to compare a working copy (or a branch or commit) with
+ * main (or another), given to it by desktop.js (shared app code doesn't call Tauri itself).
  */
 export function localGitApi() {
   return {
-    async changes(root, base) {
+    async changes(root, base, head) {
       // Bring main up to date first, best effort: offline, the last fetched main is used.
       const info = await invoke("git_info", { path: root });
       if (info.owner) {
         const token = await ensureFreshToken();
         await invoke("git_fetch", { path: root, owner: info.owner, repo: info.repo, token }).catch((e) => console.warn("fetch:", e));
       }
-      return invoke("git_local_changes", { path: root, base: base || null });
+      return invoke("git_local_changes", { path: root, base: base || null, head: head || null });
     },
-    /** For "Compare with": the branches (local, then GitHub's) and the latest commits. */
+    /** For the pickers: the branches (local, then GitHub's) and a branch's commits. */
     branches: (root) => invoke("git_branches", { path: root }),
-    commits: (root) => invoke("git_log", { path: root, limit: 50 }),
+    commits: async (root, rev, offset, count) => (await invoke("git_log", { path: root, limit: offset + count, rev })).slice(offset),
     source(root, rev) {
       return {
         readText: async (file) => new TextDecoder().decode(new Uint8Array(await invoke("git_read", { path: root, rev, file }))),
@@ -169,9 +170,9 @@ export function localGitApi() {
 
 /**
  * The project bar's branch menu (src/app/branch-menu.js) while `folder`, a
- * local git copy, is open: its branches to switch to, plus new branch, the
- * visual diff and commit and push; and the history menu, the branch's commits.
- * Nothing if the folder isn't a git copy.
+ * local git copy, is open: its branches to switch to, plus new branch and
+ * commit and push; the history menu, the branch's commits; and the Visual diff
+ * button's link. Nothing (the button greyed out) if the folder isn't a git copy.
  * @param {string} folder
  * @param {{viewing: () => string|null, show: (sha: string|null) => Promise<void>}} history
  *   the commit shown (null: the working files), and how to show another (desktop.js)
@@ -189,8 +190,17 @@ export function mountGitMenu(folder, history) {
       // not a git copy
     }
     if (window.kivi?.source?.path !== folder) return; // another project was opened meanwhile
-    if (!info?.root) return removeOurs();
+    if (!info?.root) {
+      setDiffButton({ title: "Visual diff needs a git repository: add the folder with + → Local project… to make it one" });
+      return removeOurs();
+    }
     const n = info.changes;
+    // The working files against main, or the commit shown against its parent.
+    const shown = history.viewing();
+    setDiffButton({
+      href: `diff.html#${new URLSearchParams({ local: info.root, ...(shown && { base: `${shown}^`, head: shown }) })}`,
+      title: shown ? `Visual diff of commit ${shown.slice(0, 7)}` : `Visual diff of the working files${n ? ` (${n} changed)` : ""} against main; pick other branches or commits there`,
+    });
     const ahead = info.ahead ? `, ${info.ahead} commit${info.ahead > 1 ? "s" : ""} to push` : "";
     // Without GitHub, commits stay on this computer.
     const commitItem = info.owner
@@ -202,7 +212,6 @@ export function mountGitMenu(folder, history) {
       count: n,
       title: `${info.root}\n${n} changed file${n === 1 ? "" : "s"}${ahead}`,
       itemsHtml: `<button type="button" data-act="branch">New branch…</button>
-        <a href="${escapeHtml(diffUrl(info.root))}">Visual diff of changes${n ? ` (${n})` : ""}</a>
         ${commitItem}`,
       onAct: async (act) => {
         try {
@@ -240,8 +249,6 @@ export function mountGitMenu(folder, history) {
   refresh();
   return { refresh };
 }
-
-const diffUrl = (root) => `diff.html#${new URLSearchParams({ local: root })}`;
 
 // ---- dialogs -------------------------------------------------------------------------------
 

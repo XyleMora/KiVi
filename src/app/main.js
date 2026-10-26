@@ -12,6 +12,7 @@ import { BomTab } from "./bom-tab.js";
 import { ReviewStore } from "./review-ui.js";
 import { mountBranchMenu } from "./branch-menu.js";
 import { mountHistoryMenu } from "./history-menu.js";
+import { setDiffButton } from "./diff-button.js";
 import { $, toast, settings } from "./ui.js";
 
 class App {
@@ -161,6 +162,7 @@ class App {
       if (this.source.kind === "github") {
         this.mountGitHubBranches(entry);
         this.mountGitHubHistory();
+        this.setGitHubDiff();
       } else {
         // a local copy's come from desktop.js
         for (const id of ["#branch-menu", "#history-menu"]) if ($(id)?.dataset.kind === "github") $(id).remove();
@@ -441,6 +443,21 @@ class App {
         if (sha) p.set("commit", sha);
         location.hash = p.toString();
       },
+    });
+  }
+
+  /**
+   * The Visual diff button of a GitHub project: the pull request, the commit
+   * shown, or the branch against the default branch (the diff page then lets
+   * other branches and commits be picked).
+   */
+  setGitHubDiff() {
+    const s = this.source;
+    const at = this.pr ? { pr: String(this.pr.number) } : s.commit || /^[0-9a-f]{40}$/i.test(s.ref) ? { commit: s.commit ?? s.ref } : { head: s.ref };
+    const owner = this.pr?.owner ?? s.owner, repo = this.pr?.repo ?? s.repo; // a fork's PR is diffed in the base repository
+    setDiffButton({
+      href: `diff.html#${new URLSearchParams({ gh: `${owner}/${repo}`, ...at })}`,
+      title: this.pr ? `Visual diff of pull request #${this.pr.number}` : at.commit ? `Visual diff of commit ${at.commit.slice(0, 7)}` : `Visual diff of ${s.ref} against the default branch (its latest commit if it is the default); pick other branches or commits there`,
     });
   }
 

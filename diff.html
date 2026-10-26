@@ -55,10 +55,10 @@
   </aside>
   <div class="canvas-wrap">
     <div id="split" class="split">
-      <div class="pane"><div class="pane-label">Before <span id="before-ref" class="mono muted"></span></div><div id="before" class="canvas diffcanvas"></div></div>
-      <div class="pane"><div class="pane-label">After <span id="after-ref" class="mono muted"></span></div><div id="after" class="canvas diffcanvas"></div></div>
+      <div class="pane"><div class="pane-label">Before <span id="before-ref" class="mono muted"></span><span id="before-pick" class="pick-slot"></span></div><div id="before" class="canvas diffcanvas"></div></div>
+      <div class="pane"><div class="pane-label">After <span id="after-ref" class="mono muted"></span><span id="after-pick" class="pick-slot"></span></div><div id="after" class="canvas diffcanvas"></div></div>
     </div>
-    <div id="overlay-pane" class="pane" hidden><div class="pane-label">Overlay <span class="muted">· orange = before, blue = after</span></div><div id="overlay" class="canvas diffcanvas"></div></div>
+    <div id="overlay-pane" class="pane" hidden><div class="pane-label">Overlay <span class="muted">· orange = before</span><span id="overlay-before-pick" class="pick-slot"></span><span class="muted">, blue = after</span><span id="overlay-after-pick" class="pick-slot"></span></div><div id="overlay" class="canvas diffcanvas"></div></div>
     <div class="zoom-ctl">
       <button class="btn icon" data-zoom="in" aria-label="Zoom in">+</button>
       <button class="btn icon" data-zoom="out" aria-label="Zoom out">−</button>

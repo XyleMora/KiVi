@@ -100,7 +100,7 @@ README doesn't: conventions, environment and pitfalls.
 - `src/desktop/desktop.js`: loaded after `main.js` / `diff.js`. Mounts the
   header, adds drag and drop, live reload on
   `folder-changed` (keeps tab, sheet and selection) and
-  `index.html#folder=<path>[&project=…]`.
+  `index.html#folder=<path>[&project=…][&commit=<sha>]`.
 - `src-tauri/src/lib.rs` commands:
   - `open_folder` (lists the folder and starts a 500 ms debounced watcher that
     emits `folder-changed` for KiCad and model files)
@@ -175,11 +175,23 @@ README doesn't: conventions, environment and pitfalls.
   commit, paths made relative to the open folder, which may sit below the
   repository's root). While a `GitRevSource` is open, live reload is skipped
   and Open in KiCad is greyed out; switching branch returns to the working files.
-- Visual diff of a local copy: **Compare with** (`#base-menu`, diff.js
-  `mountBaseMenu`, the user's request) lists `git_branches` and `git_log`
-  (through `localGitApi`, so diff.js stays Tauri-free) and reloads with
-  `base=`; `git_local_changes` takes a branch (from the merge base) or any
-  revision (that commit itself, `base_tip` in git.rs).
+- Visual diff button `#visual-diff` (index.html, set by `setDiffButton` in
+  `src/app/diff-button.js` from main.js `setGitHubDiff` or git.js
+  `mountGitMenu`; it replaced the branch menu's "Visual diff of changes", the
+  user's request). The side pickers, in the Before/After pane labels and the
+  Overlay one (`.pick-slot`, the user's design; the bar shows only the
+  project's name, `projectName`: the `.kicad_pro` next to the shown file,
+  else the repository or folder) (`src/app/ref-picker.js`, diff.js
+  `mountPickers`; none for a PR) list
+  branches and the commits of a branch chosen in the menu, for GitHub through
+  the API and for a local copy through `localGitApi` (so diff.js stays
+  Tauri-free), and reload with `base=` / `head=`. Local: `git_local_changes`
+  takes a base branch (from the merge base) or revision (that commit itself,
+  `base_tip`) and an optional head (`rev_tip`: local branch, GitHub's, then any
+  revision; none = working files); `git_log` takes `rev`. GitHub
+  (`resolveComparison`): no base = default branch, base = head → that commit
+  vs its parent, a full-SHA base that isn't the merge base → `treeDiff` (two
+  recursive trees; refuses truncated ones).
 - `src/desktop/git.js`: card menu actions (projects.js), the local branch
   menu, the dialogs,
   and `localGitApi()` which desktop.js hands to `kiviDiff.attachLocalGit()` for

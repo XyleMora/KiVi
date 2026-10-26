@@ -44,8 +44,8 @@ export function mountHistoryMenu(o) {
       <div class="branch-list" role="listbox"><span class="muted branch-note">Loading commits…</span></div>
     </div>`;
   const actions = $("#projbar .proj-actions");
-  const kicad = actions?.querySelector("#open-kicad");
-  if (kicad) kicad.before(el);
+  const next = actions?.querySelector("#visual-diff, #open-kicad");
+  if (next) next.before(el);
   else actions?.append(el);
 
   let commits = null;

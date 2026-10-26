@@ -52,7 +52,7 @@ open it in KiVi.
 
 
 **Visual diff.** A pull request, commit or branch comparison, side by side or
-overlaid, with a list of what changed in KiCad terms rather than text. During pull request review users can leave comments pinned where they belong (to actual components or traces):
+overlaid, of a GitHub repository or a local git copy (its working files too), with a list of what changed in KiCad terms rather than text. During pull request review users can leave comments pinned where they belong (to actual components or traces):
 
 ![Visual diff of a schematic sheet with a review comment open on R404](docs/screenshots/visual-diff.png)
 
@@ -210,18 +210,25 @@ Rust `git2` crate), with HTTPS going through the same TLS stack as sign-in.
   first item is the working files, and while an earlier commit is shown, live
   reload and **Open in KiCad** wait until you're back on them. Not shown while
   reviewing a pull request.
+- **Visual diff**, next to History, opens the visual diff of what's shown: a
+  local copy's working files (uncommitted edits included) against where the
+  branch left main (after updating main from GitHub), like the pull request
+  would; a GitHub branch against the default branch (the default branch
+  itself: its latest commit); a commit from History against its parent; a
+  pull request as reviewed. Greyed out for a folder that isn't a git repository.
+  The diff's bar shows the project's name; the **Before** and **After**
+  labels on the two panes (and the Overlay label) pick each side: the menu's
+  "Commits on" list chooses a branch (local and GitHub ones for a local copy),
+  then **Latest on <branch>** (the branch itself) or one of its commits; a
+  local copy's after side can also be its working files. A branch before counts from where the after side left
+  it, like a pull request; a commit is compared with as it is. The choice
+  goes into the link as `&base=` / `&head=`. A pull request keeps its two
+  sides (and its title in the bar).
 - With a local copy open, the branch button also counts the changed files and
   its menu has:
   - **New branch…** creates a branch at the current commit and switches to it;
     uncommitted edits come along. Before the first commit it replaces `main`:
     the first commit starts the new branch.
-  - **Visual diff of changes** compares the working files, uncommitted edits
-    included, with the point where the branch left main (after updating main
-    from GitHub), like the pull request would: `diff.html#local=<folder>`.
-    **Compare with** in its bar picks something else: another branch (again
-    from where this branch left it) or one of the branch's latest 50 commits
-    (that commit itself, e.g. the last one for only the uncommitted edits);
-    the choice goes into the link as `&base=<branch or SHA>`.
   - **Commit and push…** lists the changed files with checkboxes, commits the
     chosen ones with your message and pushes the branch to the same branch on
     GitHub, then offers to open a pull request. The commit author is your git
@@ -267,9 +274,12 @@ found. Linking is never automatic; an empty box unlinks it.
 index.html#gh=owner/repo@main:hardware&tab=pcb&sel=U3     project in a repository
 index.html#gh=owner/repo&pr=owner/repo%2312               … at a pull request's head, with its review comments
 index.html#folder=/path/to/project                        local folder
+index.html#folder=/path/to/project&commit=<sha>           … at a commit (git copies)
 diff.html#gh=owner/repo&pr=42                             visual diff of a pull request
 diff.html#gh=owner/repo&commit=<sha>                      … of a commit
 diff.html#gh=owner/repo&base=main&head=feature&file=hw/board.kicad_pcb
+diff.html#gh=owner/repo&head=feature                      … against the default branch
+diff.html#local=/path/to/copy[&base=<ref>][&head=<ref>]   a local copy (no head: its working files)
 inbox.html#projects, inbox.html#prs                       home screen views
 ```
 

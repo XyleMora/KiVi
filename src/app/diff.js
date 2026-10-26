@@ -16,6 +16,7 @@ import { SvgView } from "./svgview.js";
 import { ReviewStore, ReviewPanel, openCounts, COMMENT_ICON } from "./review-ui.js";
 import { pickPcb, pickSch, locatePcb, locateSch } from "../diff/anchors.js";
 import { buildConnectivity } from "../sch/connectivity.js";
+import { refPicker } from "./ref-picker.js";
 import { $, ago, escapeHtml, toast, settings, refCompare } from "./ui.js";
 
 const LAYER_PRESETS = {
@@ -56,8 +57,8 @@ class DiffApp {
 
   /**
    * Called by the desktop app (src/desktop/desktop.js) with what reading a local
-   * git copy needs: changes(root, base), source(root, rev) ("" = working files),
-   * and branches(root) / commits(root) for the "Compare with" menu.
+   * git copy needs: changes(root, base, head), source(root, rev) ("" = working files),
+   * and branches(root) / commits(root, rev, offset, count) for the pickers.
    */
   attachLocalGit(api) {
     this.localGit = api;
@@ -65,17 +66,21 @@ class DiffApp {
     this.pendingLocal = null;
   }
 
-  /** A local copy against main, in the shape resolveComparison returns. */
+  /** A local copy (its working files, or `spec.head`) against main or `spec.base`, in the shape resolveComparison returns. */
   async localComparison(spec) {
     if (!this.localGit) throw new Error("Local changes can only be shown in the KiVi desktop app");
-    const lc = await this.localGit.changes(spec.local, spec.base);
+    const lc = await this.localGit.changes(spec.local, spec.base, spec.head);
     const files = lc.files.filter((f) => DIFFABLE.test(f.path) || DIFFABLE.test(f.previous)).map((f) => ({ path: f.path, previous: f.previous, status: f.status }));
     const branch = lc.branch ?? "working copy";
+    const head = lc.head_sha
+      ? { sha: lc.head_sha, ref: lc.head_ref, src: this.localGit.source(lc.root, lc.head_sha) }
+      : { sha: null, ref: branch, label: "working copy", src: this.localGit.source(lc.root, "") };
     return {
       base: { sha: lc.base_sha, ref: lc.base_ref, src: this.localGit.source(lc.root, lc.base_sha) },
-      head: { sha: null, ref: branch, label: "working copy", src: this.localGit.source(lc.root, "") },
+      head,
       files,
-      title: `Local changes on ${branch}`,
+      title: lc.head_sha ? `${lc.base_ref} → ${lc.head_ref}` : `Local changes on ${branch}`,
+      branch: lc.branch,
       url: null,
       root: lc.root,
     };
@@ -110,13 +115,14 @@ class DiffApp {
   }
 
   specFromHash(p) {
-    if (p.get("local")) return { local: p.get("local"), base: p.get("base") };
+    if (p.get("local")) return { local: p.get("local"), base: p.get("base"), head: p.get("head") };
     const gh = p.get("gh");
     if (!gh) return null;
     const [owner, repo] = gh.split("/");
     if (p.get("pr")) return { owner, repo, pr: Number(p.get("pr")) };
     if (p.get("commit")) return { owner, repo, commit: p.get("commit") };
-    if (p.get("base") && p.get("head")) return { owner, repo, base: p.get("base"), head: p.get("head") };
+    // Without a base: the default branch (resolveComparison).
+    if (p.get("head")) return { owner, repo, base: p.get("base"), head: p.get("head") };
     return null;
   }
 
@@ -126,12 +132,13 @@ class DiffApp {
     if (s.local) {
       p.set("local", s.local);
       if (s.base) p.set("base", s.base);
+      if (s.head) p.set("head", s.head);
     } else {
       p.set("gh", `${s.owner}/${s.repo}`);
       if (s.pr) p.set("pr", String(s.pr));
       else if (s.commit) p.set("commit", s.commit);
       else {
-        p.set("base", s.base);
+        if (s.base) p.set("base", s.base);
         p.set("head", s.head);
       }
     }
@@ -148,22 +155,33 @@ class DiffApp {
   async open(spec, initialFile = null, focus = null) {
     this.spec = spec;
     this.cache.clear();
+    this.proCache = new Map(); // the sides may be other commits now
     try {
       this.busy(spec.local ? "Reading local changes…" : "Reading changes from GitHub…");
       const cmp = spec.local ? await this.localComparison(spec) : await resolveComparison(spec, settings().token);
       this.cmp = cmp;
       $("#diff-bar").hidden = false;
       $("#diff-main").hidden = false;
-      $("#diff-title").textContent = cmp.title;
-      $("#diff-refs").textContent = `${cmp.base.ref ?? cmp.base.sha?.slice(0, 7)} → ${cmp.head.ref ?? cmp.head.sha.slice(0, 7)}`;
-      if (spec.local) this.mountBaseMenu(spec, cmp);
-      else $("#base-menu")?.remove();
-      $("#before-ref").textContent = cmp.base.sha ? cmp.base.sha.slice(0, 7) : "";
-      $("#after-ref").textContent = cmp.head.label ?? cmp.head.sha.slice(0, 7);
+      // The project's name (set per file by showFile); a pull request adds its title.
+      $("#diff-title").textContent = this.repoName();
+      $("#diff-refs").textContent = spec.pr ? cmp.title : "";
+      $("#diff-refs").hidden = !spec.pr;
+      // A pull request's sides stay as they are (its review comments belong to them); anything else can be re-picked.
+      $("#before-ref").textContent = spec.pr ? (cmp.base.sha?.slice(0, 7) ?? "") : "";
+      $("#after-ref").textContent = spec.pr ? (cmp.head.label ?? cmp.head.sha.slice(0, 7)) : "";
+      this.mountPickers(spec, cmp);
       document.title = `${cmp.title} — KiVi diff`;
       if (!cmp.files.length) {
+        // The panes stay, empty, so their labels can still pick other versions.
+        this.file = null;
+        this.res = null;
         $("#file-list").innerHTML = `<li class="muted" style="font-size:13px">No schematic or board files changed.</li>`;
         $("#change-list").innerHTML = "";
+        $("#change-count").textContent = "";
+        $("#layer-preset").hidden = true;
+        const home = { x0: 0, y0: 0, x1: 400, y1: 100 };
+        const empty = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 100"><text x="200" y="50" text-anchor="middle" font-size="10" fill="#6e7681" font-family="sans-serif">No schematic or board files changed between these versions</text></svg>`;
+        for (const v of [this.before, this.after, this.overlay]) v.setSvg(empty, home);
         this.busy(null);
         return;
       }
@@ -185,77 +203,85 @@ class DiffApp {
   }
 
   /**
-   * "Compare with" for a local copy: another branch (from where this one left
-   * it, like a pull request) or one of the latest commits (that commit itself).
-   * Picking one reloads the diff with `base` in the URL.
+   * The pickers in the pane labels: a branch or a commit for each side (and a
+   * local copy's working files for the after side), in the Before and After
+   * labels and again in the Overlay one. Picking reloads the diff with `base` /
+   * `head` in the URL. Not for a pull request.
    */
-  mountBaseMenu(spec, cmp) {
-    $("#base-menu")?.remove();
-    const el = document.createElement("details");
-    el.id = "base-menu";
-    el.className = "menu branch-menu base-menu";
-    el.innerHTML = `<summary class="btn small" title="Compare the working copy with another branch or commit">Compare with <span class="branch-name">${escapeHtml(cmp.base.ref ?? "")}</span> ▾</summary>
-      <div class="branch-menu-list">
-        <input class="input branch-filter" type="search" placeholder="Find a branch or commit…" spellcheck="false" aria-label="Find a branch or commit">
-        <div class="branch-list" role="listbox"><span class="muted branch-note">Loading…</span></div>
-      </div>`;
-    $("#diff-refs").after(el);
-    const list = el.querySelector(".branch-list");
-    const filter = el.querySelector(".branch-filter");
-    let items = null; // [{base, html, text}] once loaded
-    // Ticked: the chosen base, or by default main (shown as e.g. origin/main).
-    const current = spec.base || cmp.base.ref;
-    const isCurrent = (base) => base === current || (!spec.base && current.endsWith(`/${base}`) && current.indexOf("/") === current.length - base.length - 1);
-    const show = () => {
-      const q = filter.value.trim().toLowerCase();
-      const shown = items.filter((i) => i.head || i.text.includes(q));
-      list.innerHTML = shown.map((i) => i.html).join("") || `<span class="muted branch-note">Nothing matches</span>`;
-    };
-    el.addEventListener("toggle", async () => {
-      if (!el.open) return;
-      filter.value = "";
-      if (!items) {
-        try {
-          const [branches, commits] = await Promise.all([this.localGit.branches(cmp.root), this.localGit.commits(cmp.root)]);
-          const option = (base, label, note, title) =>
-            `<button type="button" role="option" data-base="${escapeHtml(base)}" title="${escapeHtml(title)}"${isCurrent(base) ? ' aria-selected="true"' : ""}><span class="branch-check">${isCurrent(base) ? "✓" : ""}</span>${label}${note ? `<span class="muted branch-tag">${escapeHtml(note)}</span>` : ""}</button>`;
-          const branch = cmp.head.ref;
-          items = [
-            { head: true, html: `<div class="branch-head">Branches: from where ${escapeHtml(branch)} left them</div>` },
-            ...branches.map((b) => ({
-              text: b.name.toLowerCase(),
-              html: option(b.name, `<span class="mono">${escapeHtml(b.name)}</span>`, b.current ? "this branch" : b.remote ? "on GitHub" : "", `Changes since ${branch} left ${b.name}, as a pull request into it would show`),
-            })),
-            { head: true, html: `<div class="branch-head">Commits on ${escapeHtml(branch)}</div>` },
-            ...commits.map((c) => ({
-              text: `${c.sha} ${c.summary} ${c.author}`.toLowerCase(),
-              html: option(c.sha, `<span class="mono">${c.sha.slice(0, 7)}</span><span class="base-summary">${escapeHtml(c.summary)}</span>`, ago(c.time), `${c.summary}
-${c.author}, ${new Date(c.time * 1000).toLocaleString()}
-Changes since this commit`),
-            })),
-          ];
-        } catch (e) {
-          list.innerHTML = `<span class="muted branch-note">Couldn't list branches and commits: ${escapeHtml(e.message ?? String(e))}</span>`;
-          return;
-        }
-      }
-      show();
-      filter.focus();
-    });
-    filter.addEventListener("input", show);
-    el.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && el.open) {
-        e.preventDefault();
-        el.open = false;
-      }
-    });
-    el.addEventListener("click", async (e) => {
-      const b = e.target.closest("button[data-base]");
-      if (!b) return;
-      el.open = false;
-      await this.open({ ...spec, base: b.dataset.base }, this.file?.path);
+  mountPickers(spec, cmp) {
+    for (const slot of document.querySelectorAll(".pick-slot")) slot.replaceChildren();
+    if (spec.pr) return;
+    const local = !!spec.local;
+    const gh = local ? null : spec;
+    // Both pickers list the same branches, read once per comparison.
+    let branchList = null;
+    const branches = () =>
+      (branchList ??= local
+        ? this.localGit.branches(cmp.root).then((bs) => bs.map((b) => ({ name: b.name, note: b.current ? "checked out" : b.remote ? "on GitHub" : "" })))
+        : (async () => {
+            const all = [];
+            for (let page = 1; page <= 5; page++) {
+              const batch = await GitHubSource.api(`/repos/${gh.owner}/${gh.repo}/branches?per_page=100&page=${page}`, settings().token);
+              all.push(...batch);
+              if (batch.length < 100) break;
+            }
+            return all.map((b) => ({ name: b.name }));
+          })());
+    const commits = local
+      ? (branch, offset, count) => this.localGit.commits(cmp.root, branch, offset, count)
+      : async (branch, offset, count) => {
+          const batch = await GitHubSource.api(`/repos/${gh.owner}/${gh.repo}/commits?sha=${encodeURIComponent(branch)}&per_page=${count}&page=${Math.floor(offset / count) + 1}`, settings().token);
+          return batch.map((c) => ({ sha: c.sha, summary: c.commit.message.split("\n")[0], author: c.commit.author?.name ?? c.author?.login ?? "", time: Date.parse(c.commit.author?.date) / 1000 }));
+        };
+    const sha = /^[0-9a-f]{7,40}\^?$/i;
+    // What each side is now: the URL's choice, else what it was resolved to
+    // (a local copy's default base is e.g. origin/main, listed as main).
+    const baseValue = spec.base ?? (local ? cmp.base.ref.split("/").pop() : !cmp.base.sha ? null : cmp.base.sha.startsWith(cmp.base.ref) ? cmp.base.sha : cmp.base.ref); // null: a first commit has no parent
+    const headValue = local ? (spec.head ?? "") : (spec.head ?? cmp.head.sha);
+    const headBranch = local ? (spec.head && !sha.test(spec.head) ? spec.head : cmp.branch) : !sha.test(headValue) ? headValue : null;
+    const pick = (side) => async (value) => {
+      const next = local ? { local: spec.local, base: spec.base, head: spec.head } : { owner: gh.owner, repo: gh.repo, base: baseValue, head: headValue };
+      next[side] = value || null;
+      await this.open(next, this.file?.path);
       this.writeHash();
-    });
+    };
+    const before = () =>
+      refPicker({
+        current: cmp.base.ref ?? cmp.base.sha?.slice(0, 7) ?? "(none)",
+        value: baseValue,
+        hint: "A branch: the changes since the after side left it, like a pull request. A commit: compared with it as it is.",
+        commitsOf: !sha.test(baseValue ?? "") ? baseValue : headBranch,
+        branches,
+        commits,
+        pick: pick("base"),
+      });
+    const after = () =>
+      refPicker({
+        current: cmp.head.label ?? cmp.head.ref ?? cmp.head.sha.slice(0, 7),
+        value: headValue,
+        working: local,
+        hint: local ? "The working files (uncommitted edits too), a branch or a commit." : "A branch or a commit.",
+        commitsOf: headBranch ?? (!sha.test(baseValue ?? "") ? baseValue : null),
+        branches,
+        commits,
+        pick: pick("head"),
+      });
+    $("#before-pick").append(before());
+    $("#after-pick").append(after());
+    $("#overlay-before-pick").append(before());
+    $("#overlay-after-pick").append(after());
+  }
+
+  /** The repository's or folder's name, the header until a file's project is known. */
+  repoName() {
+    return this.cmp.root ? this.cmp.root.replace(/[\\/]+$/, "").split(/[\\/]/).pop() : this.cmp.head.repo ?? this.spec.repo;
+  }
+
+  /** The project a changed file belongs to: the .kicad_pro next to it, else the repository's or folder's name. */
+  async projectName(fl) {
+    const side = fl.status === "removed" ? "base" : "head";
+    const { pro } = await this.projectInfo(side, side === "base" ? fl.previous : fl.path);
+    return pro ? pro.split("/").pop().replace(/\.kicad_pro$/i, "") : this.repoName();
   }
 
   renderFileList() {
@@ -280,23 +306,27 @@ Changes since this commit`),
 
   /** Text variables of the project next to `path` (${TITLE}, ${VERSION}, …), best effort. */
   async projectVars(side, path) {
+    return (await this.projectInfo(side, path)).vars;
+  }
+
+  /** The .kicad_pro next to `path` on one side and its text variables, read once per folder: {pro, vars}. */
+  projectInfo(side, path) {
     const ref = this.cmp[side];
-    if (!ref.sha && !ref.src) return {};
+    if (!ref.sha && !ref.src) return Promise.resolve({ pro: null, vars: {} });
     const dir = dirname(path);
     const key = `${side}:${dir}`;
-    this.varCache ??= new Map();
-    if (!this.varCache.has(key)) {
-      this.varCache.set(
+    if (!this.proCache.has(key)) {
+      this.proCache.set(
         key,
         (async () => {
           const src = ref.src ?? new GitHubSource({ owner: ref.owner, repo: ref.repo, ref: ref.sha, sha: ref.sha, path: dir, token: settings().token });
-          const pro = (await src.list()).find((p) => p.endsWith(".kicad_pro") && dirname(p) === dir);
-          if (!pro) return {};
-          return JSON.parse(await src.readText(pro)).text_variables ?? {};
-        })().catch(() => ({})),
+          const pro = (await src.list()).find((p) => p.endsWith(".kicad_pro") && dirname(p) === dir) ?? null;
+          if (!pro) return { pro, vars: {} };
+          return { pro, vars: JSON.parse(await src.readText(pro)).text_variables ?? {} };
+        })().catch(() => ({ pro: null, vars: {} })),
       );
     }
-    return this.varCache.get(key);
+    return this.proCache.get(key);
   }
 
   async computeFile(fl) {
@@ -341,6 +371,7 @@ Changes since this commit`),
     try {
       const res = await this.computeFile(fl);
       this.file = fl;
+      this.projectName(fl).then((name) => this.file === fl && ($("#diff-title").textContent = name));
       this.res = res;
       this.selected = -1;
       for (const b of document.querySelectorAll("#file-list button")) b.toggleAttribute("aria-current", this.cmp.files[Number(b.dataset.file)] === fl);
@@ -358,9 +389,9 @@ Changes since this commit`),
       this.renderChanges();
       this.drawMarks();
       this.review.refresh();
-      // A local copy opens its working files (the folder, with the project of this file).
+      // A local copy opens its working files (the folder, with the project of this file), or the compared commit.
       const viewerHash = this.cmp.root
-        ? new URLSearchParams({ folder: this.cmp.root, project: fl.path.replace(/\.kicad_(sch|pcb)$/i, ".kicad_pro") })
+        ? new URLSearchParams({ folder: this.cmp.root, project: fl.path.replace(/\.kicad_(sch|pcb)$/i, ".kicad_pro"), ...(this.cmp.head.sha && { commit: this.cmp.head.sha }) })
         : new URLSearchParams({ gh: `${this.cmp.head.owner}/${this.cmp.head.repo}@${this.cmp.head.sha}${dirname(fl.path) ? `:${dirname(fl.path)}` : ""}`, tab: res.kind === "pcb" ? "pcb" : "sch", file: fl.path });
       if (this.spec.pr) viewerHash.set("pr", `${this.spec.owner}/${this.spec.repo}#${this.spec.pr}`);
       $("#open-viewer").href = `index.html#${viewerHash}`;

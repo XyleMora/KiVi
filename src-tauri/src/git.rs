@@ -366,6 +366,9 @@ pub struct LocalChanges {
     base_ref: String,
     /// The commit where the branch left it (the merge base).
     base_sha: String,
+    /// The other side when it isn't the working files: a branch or a short SHA, and its commit.
+    head_ref: Option<String>,
+    head_sha: Option<String>,
     files: Vec<FileChange>,
 }
 
@@ -400,15 +403,41 @@ fn base_tip(repo: &Repository, base: Option<&str>) -> Result<(String, Oid, bool)
         .ok_or_else(|| "no main branch to compare with".to_string())
 }
 
-fn local_changes(repo: &Repository, base: Option<&str>) -> Result<LocalChanges, String> {
+/// A branch (this copy's, else GitHub's as last fetched) or any revision git
+/// understands, as a label and its commit: the "after" side of a comparison, or
+/// where a log starts.
+fn rev_tip(repo: &Repository, rev: &str) -> Result<(String, Oid), String> {
+    let remote = github_remote(repo).map(|g| g.0).unwrap_or_else(|| "origin".into());
+    for r in [format!("refs/heads/{rev}"), format!("refs/remotes/{remote}/{rev}")] {
+        if let Ok(id) = repo.refname_to_id(&r) {
+            return Ok((rev.to_string(), id));
+        }
+    }
+    let id = repo.revparse_single(rev).and_then(|o| o.peel_to_commit()).map_err(|_| format!("{rev}: no such branch or commit"))?.id();
+    Ok((id.to_string()[..7].to_string(), id))
+}
+
+fn local_changes(repo: &Repository, base: Option<&str>, head: Option<&str>) -> Result<LocalChanges, String> {
     let root = workdir(repo)?;
     let (base_ref, tip, from_merge_base) = base_tip(repo, base)?;
-    let head = repo.head().ok().and_then(|h| h.target());
-    let base_sha = if from_merge_base { head.and_then(|h| repo.merge_base(h, tip).ok()).unwrap_or(tip) } else { tip };
+    let after = head.filter(|h| !h.is_empty()).map(|h| rev_tip(repo, h)).transpose()?;
+    let head_id = after.as_ref().map(|a| a.1).or_else(|| repo.head().ok().and_then(|h| h.target()));
+    let base_sha = if from_merge_base { head_id.and_then(|h| repo.merge_base(h, tip).ok()).unwrap_or(tip) } else { tip };
     let tree = repo.find_commit(base_sha).and_then(|c| c.tree()).map_err(|e| e.message().to_string())?;
     let mut opts = DiffOptions::new();
-    opts.include_untracked(true).recurse_untracked_dirs(true).show_untracked_content(true);
-    let mut diff = repo.diff_tree_to_workdir_with_index(Some(&tree), Some(&mut opts)).map_err(|e| e.message().to_string())?;
+    let mut diff = match &after {
+        // Two commits.
+        Some((_, id)) => {
+            let head_tree = repo.find_commit(*id).and_then(|c| c.tree()).map_err(|e| e.message().to_string())?;
+            repo.diff_tree_to_tree(Some(&tree), Some(&head_tree), Some(&mut opts))
+        }
+        // A commit and the working files, untracked ones included.
+        None => {
+            opts.include_untracked(true).recurse_untracked_dirs(true).show_untracked_content(true);
+            repo.diff_tree_to_workdir_with_index(Some(&tree), Some(&mut opts))
+        }
+    }
+    .map_err(|e| e.message().to_string())?;
     let mut find = DiffFindOptions::new();
     find.renames(true).for_untracked(true);
     diff.find_similar(Some(&mut find)).map_err(|e| e.message().to_string())?;
@@ -431,15 +460,23 @@ fn local_changes(repo: &Repository, base: Option<&str>) -> Result<LocalChanges, 
         })
         .collect();
     files.sort_by(|a, b| a.path.cmp(&b.path));
-    Ok(LocalChanges { root: root.to_string_lossy().into_owned(), branch: current_branch(repo), base_ref, base_sha: base_sha.to_string(), files })
+    Ok(LocalChanges {
+        root: root.to_string_lossy().into_owned(),
+        branch: current_branch(repo),
+        base_ref,
+        base_sha: base_sha.to_string(),
+        head_ref: after.as_ref().map(|a| a.0.clone()),
+        head_sha: after.map(|a| a.1.to_string()),
+        files,
+    })
 }
 
-/// The working copy (uncommitted edits and the branch's commits) against the
-/// point where the branch left main (or `base`, a branch), what a pull request
-/// would show; or against `base` itself when it's a commit.
+/// The working copy (uncommitted edits and the branch's commits), or `head` (a
+/// branch or commit), against the point where it left main (or `base`, a
+/// branch), what a pull request would show; or against `base` itself when it's a commit.
 #[tauri::command]
-pub async fn git_local_changes(path: String, base: Option<String>) -> Result<LocalChanges, String> {
-    blocking(move || local_changes(&open(&path)?, base.as_deref())).await
+pub async fn git_local_changes(path: String, base: Option<String>, head: Option<String>) -> Result<LocalChanges, String> {
+    blocking(move || local_changes(&open(&path)?, base.as_deref(), head.as_deref())).await
 }
 
 /// A file in the working copy (`rev` empty) or at a commit; only inside the copy.
@@ -669,8 +706,12 @@ pub struct CommitInfo {
     time: i64,
 }
 
-fn log(repo: &Repository, limit: usize) -> Result<Vec<CommitInfo>, String> {
-    let Some(head) = repo.head().ok().and_then(|h| h.target()) else { return Ok(Vec::new()) }; // nothing committed yet
+fn log(repo: &Repository, limit: usize, rev: Option<&str>) -> Result<Vec<CommitInfo>, String> {
+    let start = match rev.filter(|r| !r.is_empty()) {
+        Some(r) => Some(rev_tip(repo, r)?.1),
+        None => repo.head().ok().and_then(|h| h.target()),
+    };
+    let Some(head) = start else { return Ok(Vec::new()) }; // nothing committed yet
     let mut walk = repo.revwalk().map_err(|e| e.message().to_string())?;
     walk.push(head).map_err(|e| e.message().to_string())?;
     walk.set_sorting(git2::Sort::TIME).map_err(|e| e.message().to_string())?;
@@ -687,10 +728,11 @@ fn log(repo: &Repository, limit: usize) -> Result<Vec<CommitInfo>, String> {
         .collect())
 }
 
-/// The latest commits on the checked-out branch, newest first (the visual diff's "Compare with").
+/// The latest commits on the checked-out branch, or on `rev` (a branch or commit), newest first
+/// (the viewer's history, the visual diff's pickers).
 #[tauri::command]
-pub async fn git_log(path: String, limit: usize) -> Result<Vec<CommitInfo>, String> {
-    blocking(move || log(&open(&path)?, limit)).await
+pub async fn git_log(path: String, limit: usize, rev: Option<String>) -> Result<Vec<CommitInfo>, String> {
+    blocking(move || log(&open(&path)?, limit, rev.as_deref())).await
 }
 
 // ---- linking a local project to GitHub -------------------------------------------
@@ -838,7 +880,7 @@ mod tests {
         );
 
         // The visual diff compares with where the branch left main.
-        let lc = local_changes(&repo, Some("main")).unwrap();
+        let lc = local_changes(&repo, Some("main"), None).unwrap();
         assert_eq!(lc.base_ref, "origin/main");
         assert_eq!(lc.files.len(), 3);
         assert_eq!(read(&repo, &lc.base_sha, "board/board.kicad_sch").unwrap(), b"(kicad_sch v1)");
@@ -856,7 +898,7 @@ mod tests {
         assert_eq!(info(&repo).unwrap().ahead, Some(0));
 
         // Committed changes still count against main, the uncommitted file too.
-        let lc = local_changes(&repo, None).unwrap();
+        let lc = local_changes(&repo, None, None).unwrap();
         assert_eq!(lc.files.len(), 3);
 
         // fetch_from brings in others' work on main.
@@ -886,7 +928,7 @@ mod tests {
         let repo = clone_from("https://github.com/octocat/Hello-World.git", &dest, |_| events += 1).unwrap();
         assert!(dest.join("README").exists());
         assert!(events > 0, "progress was reported");
-        assert!(local_changes(&repo, None).unwrap().files.is_empty());
+        assert!(local_changes(&repo, None, None).unwrap().files.is_empty());
         // The gallery's sync check asks GitHub for its branch tips without downloading.
         let st = remote_state(&repo, "https://github.com/octocat/Hello-World.git", "origin").unwrap();
         assert_eq!((st.relation.as_str(), st.changes, st.error.is_none()), ("same", 0, true), "{st:?}");
@@ -1032,20 +1074,32 @@ mod tests {
         let second = commit(&repo, &["board/board.kicad_sch".into()], "second", ("T", "t@example.com")).unwrap();
         write(&work, "board/board.kicad_pcb", "(kicad_pcb v2)"); // uncommitted
 
-        let commits = log(&repo, 10).unwrap();
+        let commits = log(&repo, 10, None).unwrap();
         assert_eq!(commits.iter().map(|c| c.summary.as_str()).collect::<Vec<_>>(), vec!["second", "first"]);
         assert_eq!(commits[0].sha, second);
 
         // Against main (no base): the branch's commit and the edit.
-        let lc = local_changes(&repo, None).unwrap();
+        let lc = local_changes(&repo, None, None).unwrap();
         assert_eq!((lc.base_ref.as_str(), lc.files.len()), ("origin/main", 2));
         // Against the latest commit itself: only the uncommitted edit.
-        let lc = local_changes(&repo, Some(&second)).unwrap();
+        let lc = local_changes(&repo, Some(&second), None).unwrap();
         assert_eq!((lc.base_sha.as_str(), lc.base_ref.as_str()), (second.as_str(), &second[..7]));
         assert_eq!(lc.files.iter().map(|f| f.path.as_str()).collect::<Vec<_>>(), vec!["board/board.kicad_pcb"]);
         // A short SHA works too; a name that is neither is refused.
-        assert_eq!(local_changes(&repo, Some(&first.to_string()[..8])).unwrap().files.len(), 2);
-        assert!(local_changes(&repo, Some("no-such-thing")).err().unwrap().contains("no such branch or commit"));
+        assert_eq!(local_changes(&repo, Some(&first.to_string()[..8]), None).unwrap().files.len(), 2);
+        assert!(local_changes(&repo, Some("no-such-thing"), None).err().unwrap().contains("no such branch or commit"));
+
+        // Two commits, or a branch against GitHub's main: the working files stay out.
+        let lc = local_changes(&repo, Some(&first.to_string()), Some(&second)).unwrap();
+        assert_eq!((lc.head_ref.as_deref(), lc.head_sha.as_deref()), (Some(&second[..7]), Some(second.as_str())));
+        assert_eq!(lc.files.iter().map(|f| f.path.as_str()).collect::<Vec<_>>(), vec!["board/board.kicad_sch"]);
+        let lc = local_changes(&repo, Some("main"), Some("main")).unwrap();
+        assert_eq!((lc.base_ref.as_str(), lc.head_ref.as_deref(), lc.files.len()), ("origin/main", Some("main"), 1));
+        assert!(local_changes(&repo, None, Some("nope")).is_err());
+        // The log of another branch or commit.
+        let at = |r: &str| log(&repo, 10, Some(r)).unwrap().into_iter().map(|c| c.summary).collect::<Vec<_>>();
+        assert_eq!(at("origin/main"), vec!["first"]);
+        assert_eq!(at("main"), vec!["second", "first"]);
         std::fs::remove_dir_all(base).unwrap();
     }
 }

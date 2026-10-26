@@ -71,12 +71,14 @@ function setUpViewer() {
   window.addEventListener("kivi:settings", updateKicadButton);
   updateKicadButton();
 
-  async function show(path, state = null) {
+  /** Open a folder (watched for live reload), at its working files or at `commit`. */
+  async function show(path, state = null, commit = null) {
     try {
-      await app.openSource(await openFolder(path), state);
+      const working = await openFolder(path);
+      await app.openSource(commit ? await GitRevSource.open(path, commit) : working, state);
       document.title = `${app.project?.name ?? "KiVi"} — ${path}`;
       folder = path;
-      viewing = null;
+      viewing = commit;
       gitMenu = mountGitMenu(path, { viewing: () => viewing, show: showCommit });
     } catch (e) {
       toast(e.message ?? String(e), true);
@@ -122,8 +124,9 @@ function setUpViewer() {
     }
   });
 
-  // Folder from the home page or the command line (index.html#folder=/path[&project=x.kicad_pro]).
+  // Folder from the home page, the command line or the visual diff
+  // (index.html#folder=/path[&project=x.kicad_pro][&commit=<sha>]).
   const hash = new URLSearchParams(location.hash.slice(1));
   const fromHash = hash.get("folder");
-  if (fromHash) show(fromHash, { project: hash.get("project") ?? undefined, tab: hash.get("tab") ?? undefined });
+  if (fromHash) show(fromHash, { project: hash.get("project") ?? undefined, tab: hash.get("tab") ?? undefined }, hash.get("commit"));
 }

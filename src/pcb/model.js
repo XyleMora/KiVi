@@ -464,6 +464,8 @@ function parseZone(n, pcb) {
     filled,
     keepout: !!keepout,
     hatch: value(n, "hatch", 1, "edge"),
+    // Fills drawn with an outline of min_thickness (KiCad 6 and older; newer files say "no").
+    fillWidth: String(value(n, "filled_areas_thickness", 1, "yes")) === "no" ? 0 : Number(value(n, "min_thickness", 1, 0)) || 0,
   };
 }
 

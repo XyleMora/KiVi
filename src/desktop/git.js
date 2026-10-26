@@ -9,6 +9,7 @@ import { $, escapeHtml, settings, saveSettings, toast } from "../app/ui.js";
 import { GitHubSource } from "../sources.js";
 import { ensureFreshToken, invoke, listen, pickFolder } from "./tauri.js";
 import { mountBranchMenu } from "../app/branch-menu.js";
+import { mountHistoryMenu } from "../app/history-menu.js";
 
 
 // ---- links between GitHub projects and folders --------------------------------
@@ -169,11 +170,17 @@ export function localGitApi() {
 /**
  * The project bar's branch menu (src/app/branch-menu.js) while `folder`, a
  * local git copy, is open: its branches to switch to, plus new branch, the
- * visual diff and commit and push. Nothing if the folder isn't a git copy.
- * Returns {refresh()}.
+ * visual diff and commit and push; and the history menu, the branch's commits.
+ * Nothing if the folder isn't a git copy.
+ * @param {string} folder
+ * @param {{viewing: () => string|null, show: (sha: string|null) => Promise<void>}} history
+ *   the commit shown (null: the working files), and how to show another (desktop.js)
+ * @returns {{refresh: () => Promise<void>}}
  */
-export function mountGitMenu(folder) {
-  const removeOurs = () => $("#branch-menu")?.dataset.kind === "local" && $("#branch-menu").remove();
+export function mountGitMenu(folder, history) {
+  const removeOurs = () => {
+    for (const id of ["#branch-menu", "#history-menu"]) if ($(id)?.dataset.kind === "local") $(id).remove();
+  };
   async function refresh() {
     let info = null;
     try {
@@ -211,12 +218,23 @@ export function mountGitMenu(folder) {
         const list = await invoke("git_branches", { path: info.root });
         return list.map((b) => ({ name: b.name, current: b.current, note: b.remote ? "on GitHub" : "" }));
       },
-      // The files change on disk, so live reload shows the other branch.
+      // The files change on disk, so live reload shows the other branch
+      // (and an earlier commit makes way for them).
       switchTo: async (name) => {
         await invoke("git_switch_branch", { path: info.root, name });
         toast(`Switched to ${name}`);
+        if (history.viewing()) await history.show(null);
         refresh();
       },
+    });
+    mountHistoryMenu({
+      kind: "local",
+      viewing: history.viewing(),
+      latest: "Working files",
+      latestNote: n ? `${n} changed` : "",
+      branch: info.branch,
+      listCommits: async (offset, count) => (await invoke("git_log", { path: info.root, limit: offset + count })).slice(offset),
+      show: history.show,
     });
   }
   refresh();

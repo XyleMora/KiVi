@@ -11,6 +11,7 @@ import { PcbTab } from "./pcb-tab.js";
 import { BomTab } from "./bom-tab.js";
 import { ReviewStore } from "./review-ui.js";
 import { mountBranchMenu } from "./branch-menu.js";
+import { mountHistoryMenu } from "./history-menu.js";
 import { $, toast, settings } from "./ui.js";
 
 class App {
@@ -53,6 +54,8 @@ class App {
       const pr = state?.pr ? await this.resolvePr(state.pr, spec) : null;
       if (pr) spec = pr.spec;
       const src = await GitHubSource.open(spec, settings().token);
+      // An earlier commit from the history menu: read at that commit, still labelled with the branch.
+      if (!pr && /^[0-9a-f]{40}$/i.test(state?.commit ?? "")) src.sha = src.commit = state.commit;
       this.pr = pr;
       await this.openSource(src, state);
       this.showPr();
@@ -155,8 +158,13 @@ class App {
       const srcLabel = $("#proj-source");
       srcLabel.textContent = this.source.kind === "github" ? this.source.repo : this.source.label;
       srcLabel.title = this.source.label;
-      if (this.source.kind === "github") this.mountGitHubBranches(entry);
-      else if ($("#branch-menu")?.dataset.kind === "github") $("#branch-menu").remove(); // a local copy's comes from desktop.js
+      if (this.source.kind === "github") {
+        this.mountGitHubBranches(entry);
+        this.mountGitHubHistory();
+      } else {
+        // a local copy's come from desktop.js
+        for (const id of ["#branch-menu", "#history-menu"]) if ($(id)?.dataset.kind === "github") $(id).remove();
+      }
       document.title = `${project.name} — KiVi`;
 
       this.sch.load(project);
@@ -356,6 +364,7 @@ class App {
     const s = this.source;
     const p = new URLSearchParams();
     p.set("gh", `${s.owner}/${s.repo}@${s.ref}${s.dir ? `:${s.dir}` : ""}`);
+    if (s.commit) p.set("commit", s.commit);
     if (this.entry) p.set("project", this.entry.pro ?? this.entry.sch ?? this.entry.pcb);
     p.set("tab", this.tab);
     if (this.tab === "sch" && this.sch.pageIndex) p.set("page", String(this.sch.pageIndex));
@@ -402,11 +411,44 @@ class App {
     });
   }
 
+  /**
+   * The history menu of a GitHub project: the branch's commits; picking one reopens
+   * the project at that commit, through the URL (`commit=`, the branch stays in `gh=`).
+   * Not for a pull request, which shows its head commit with its review comments.
+   */
+  mountGitHubHistory() {
+    if (this.pr) return $("#history-menu")?.remove();
+    const s = this.source;
+    mountHistoryMenu({
+      kind: "github",
+      viewing: s.commit ?? null,
+      latest: `Latest on ${this.refLabel()}`,
+      branch: this.refLabel(),
+      listCommits: async (offset, count) => {
+        const page = Math.floor(offset / count) + 1;
+        const batch = await GitHubSource.api(`/repos/${s.owner}/${s.repo}/commits?sha=${encodeURIComponent(s.ref)}&per_page=${count}&page=${page}`, settings().token);
+        return batch.map((c) => ({
+          sha: c.sha,
+          summary: c.commit.message.split("\n")[0],
+          author: c.commit.author?.name ?? c.author?.login ?? "",
+          time: Date.parse(c.commit.author?.date ?? c.commit.committer?.date) / 1000,
+        }));
+      },
+      // The same project, tab, sheet and selection at the other commit.
+      show: async (sha) => {
+        const p = this.stateForHash();
+        p.delete("commit");
+        if (sha) p.set("commit", sha);
+        location.hash = p.toString();
+      },
+    });
+  }
+
   restoreFromHash() {
     const p = new URLSearchParams(location.hash.slice(1));
     const gh = p.get("gh");
     if (!gh) return;
-    this.openGitHub(gh, { project: p.get("project"), tab: p.get("tab"), page: p.get("page"), sel: p.get("sel"), net: p.get("net"), file: p.get("file"), pr: p.get("pr"), thread: p.get("thread") });
+    this.openGitHub(gh, { project: p.get("project"), tab: p.get("tab"), page: p.get("page"), sel: p.get("sel"), net: p.get("net"), file: p.get("file"), pr: p.get("pr"), thread: p.get("thread"), commit: p.get("commit") });
   }
 }
 

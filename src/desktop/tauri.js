@@ -40,6 +40,45 @@ export class TauriSource {
 }
 
 /**
+ * A project folder in a git copy as it was at a commit (the viewer's history
+ * menu), read from git; file paths are relative to the folder, as in TauriSource.
+ */
+export class GitRevSource {
+  constructor(path, rev, prefix, files) {
+    this.kind = "local";
+    this.path = path;
+    this.rev = rev;
+    this.prefix = prefix; // the folder inside the copy ("" or "hardware/")
+    this.files = files;
+    this.label = path.replace(/[\\/]+$/, "").split(/[\\/]/).pop();
+  }
+  /** The folder `path` at commit `rev`. */
+  static async open(path, rev) {
+    const { root } = await invoke("git_info", { path });
+    const trim = (p) => p.replace(/[\\/]+$/, "");
+    const inside = trim(path).slice(trim(root).length + 1);
+    const prefix = trim(path).startsWith(trim(root)) && inside ? `${inside.replace(/\\/g, "/")}/` : "";
+    const all = await invoke("git_list", { path, rev });
+    return new GitRevSource(path, rev, prefix, all.filter((f) => f.startsWith(prefix)).map((f) => f.slice(prefix.length)));
+  }
+  async list() {
+    return this.files;
+  }
+  has(path) {
+    return this.files.includes(path);
+  }
+  async readBinary(path) {
+    return new Uint8Array(await invoke("git_read", { path: this.path, rev: this.rev, file: this.prefix + path }));
+  }
+  async readText(path) {
+    return new TextDecoder().decode(await this.readBinary(path));
+  }
+  url() {
+    return null;
+  }
+}
+
+/**
  * A 3D model folder from Settings (e.g. KiCad's installed library), read
  * through the Rust side, which only hands out model files inside it.
  */

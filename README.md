@@ -201,6 +201,15 @@ Rust `git2` crate), with HTTPS going through the same TLS stack as sign-in.
   doesn't have yet included, marked "on GitHub"): uncommitted edits come
   along, unless that branch changes the same files, then nothing happens and
   KiVi says why.
+- **History**, next to the branch button, lists the commits on that branch,
+  newest first (with a filter and **Show more**). Picking one shows the
+  project as it was at that commit, on the same tab, sheet and selection; the
+  button then shows the commit (`🕘 07eced8`, in orange) and the menu's first
+  item goes back to the latest. For a GitHub project the commit goes into the
+  link as `&commit=<SHA>` (the branch stays in `gh=`); for a local copy the
+  first item is the working files, and while an earlier commit is shown, live
+  reload and **Open in KiCad** wait until you're back on them. Not shown while
+  reviewing a pull request.
 - With a local copy open, the branch button also counts the changed files and
   its menu has:
   - **New branch…** creates a branch at the current commit and switches to it;
@@ -319,14 +328,14 @@ src/pcb/                board model, renderer, shapes, hit testing,
                         STEP conversion (worker) and its cache
 src/app/                UI: tabs, pan/zoom viewport, inspectors, BOM, diff page
 src/desktop/
-  tauri.js              TauriSource (folder on disk), drag and drop, link routing,
+  tauri.js              TauriSource (folder on disk), GitRevSource (it at a commit), drag and drop, link routing,
                         sign-in, token refresh
   desktop.js            additions to the viewer and diff pages
   account.js            header on every page: home icons, account menu, Settings dialog
   inbox.js, desktop.css home screen: view switch, pull requests
   projects.js           project gallery: repository scan, caches, cards
   thumb-worker.js       board thumbnails (parse + render off the main thread)
-  git.js                local copies: download/link, branch menu, commit and push
+  git.js                local copies: download/link, branch and history menus, commit and push
   add-project.js        the "+" menu: local project, remote project (settings `watchRepos`)
   local-projects.js     local project folders in the gallery, Link to GitHub…
   icons.js              header and menu icons (repository / pull request follow Octicons)

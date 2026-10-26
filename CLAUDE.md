@@ -164,6 +164,17 @@ README doesn't: conventions, environment and pitfalls.
   removes only a "github" one, desktop.js mounts the "local" one after a folder
   opens and on live reload/focus. The left of the bar shows the repository
   (GitHub) or folder (local), no longer the ref.
+- History menu `#history-menu` (`src/app/history-menu.js`, shared, next to
+  the branch menu; `data-kind` like it): the branch's commits, 50 per
+  **Show more**. GitHub (main.js `mountGitHubHistory`, hidden in PR mode):
+  `/commits?sha=<ref>` (one API request per page per page load); picking one
+  sets `commit=<SHA>` in the URL, which `openGitHub` turns into the source's
+  `sha`/`commit` while `ref` (and the branch menu) keep the branch. Local
+  (git.js `mountGitMenu(folder, history)`, state in desktop.js `viewing`):
+  `git_log`, and `GitRevSource` (tauri.js: `git_list`/`git_read` at that
+  commit, paths made relative to the open folder, which may sit below the
+  repository's root). While a `GitRevSource` is open, live reload is skipped
+  and Open in KiCad is greyed out; switching branch returns to the working files.
 - Visual diff of a local copy: **Compare with** (`#base-menu`, diff.js
   `mountBaseMenu`, the user's request) lists `git_branches` and `git_log`
   (through `localGitApi`, so diff.js stays Tauri-free) and reloads with

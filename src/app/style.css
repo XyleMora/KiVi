@@ -367,7 +367,7 @@ textarea.input { resize: vertical; font-size: 12px; white-space: pre; overflow-x
 .branch-menu-list > a:hover, .branch-menu-list > button:hover, .branch-list button:hover:not(:disabled) { background: var(--bg); }
 .branch-menu-list hr { border: 0; border-top: 1px solid var(--border); margin: 4px 2px; }
 .branch-head { padding: 6px 10px 4px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
-.branch-filter { margin: 0 6px 4px; font-size: 12px; }
+.branch-filter { margin: 0 6px 4px; width: calc(100% - 12px); font-size: 12px; }
 .branch-list { max-height: 260px; overflow: auto; display: flex; flex-direction: column; }
 .branch-list button:disabled { cursor: default; color: var(--text); }
 .branch-list .mono { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -377,4 +377,9 @@ textarea.input { resize: vertical; font-size: 12px; white-space: pre; overflow-x
 /* The visual diff's "Compare with" (diff.js mountBaseMenu), on the left of its bar. */
 .base-menu .branch-menu-list { left: 0; right: auto; width: 420px; }
 .base-menu .branch-list { max-height: 420px; }
+/* The project bar's history button (src/app/history-menu.js): orange while an older commit is shown. */
+.history-menu .branch-menu-list { width: 400px; }
+.history-menu .branch-list { max-height: 360px; }
+.history-old summary { color: var(--accent); border-color: var(--accent); }
+.branch-list .history-more { justify-content: center; color: var(--muted); }
 .base-summary { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }

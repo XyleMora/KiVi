@@ -16,19 +16,13 @@ import { SvgView } from "./svgview.js";
 import { ReviewStore, ReviewPanel, openCounts, COMMENT_ICON } from "./review-ui.js";
 import { pickPcb, pickSch, locatePcb, locateSch } from "../diff/anchors.js";
 import { buildConnectivity } from "../sch/connectivity.js";
-import { $, escapeHtml, toast, settings, refCompare } from "./ui.js";
+import { $, ago, escapeHtml, toast, settings, refCompare } from "./ui.js";
 
 const LAYER_PRESETS = {
   top: (l) => ["F.Cu", "F.SilkS", "Edge.Cuts", "Vias", "Holes", "Dwgs.User"].includes(l),
   bottom: (l) => ["B.Cu", "B.SilkS", "Edge.Cuts", "Vias", "Holes", "Dwgs.User"].includes(l),
   copper: (l) => l.endsWith(".Cu") || ["Edge.Cuts", "Vias", "Holes"].includes(l),
 };
-/** "3 d ago" for a time in seconds since 1970. */
-function ago(t) {
-  const s = Date.now() / 1000 - t;
-  for (const [n, unit] of [[86400 * 365, "y"], [86400 * 30, "mo"], [86400, "d"], [3600, "h"], [60, "min"]]) if (s >= n) return `${Math.floor(s / n)} ${unit} ago`;
-  return "just now";
-}
 
 const VIEW_SIDE = { before: "base", after: "head", overlay: "head" };
 const TYPE_ORDER = ["symbol", "footprint", "sheet", "label", "routing", "vias", "wire", "bus", "zone", "rule area", "outline", "graphics", "junction", "no-connect", "text", "title block", "board"];

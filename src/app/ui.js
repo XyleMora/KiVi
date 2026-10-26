@@ -9,6 +9,13 @@ export function escapeHtml(s) {
   return unescapeKiCad(String(s ?? "")).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 }
 
+/** How long ago a time (seconds since 1970) was, e.g. "3 d ago". */
+export function ago(t) {
+  const s = Date.now() / 1000 - t;
+  for (const [n, unit] of [[86400 * 365, "y"], [86400 * 30, "mo"], [86400, "d"], [3600, "h"], [60, "min"]]) if (s >= n) return `${Math.floor(s / n)} ${unit} ago`;
+  return "just now";
+}
+
 let toastTimer = 0;
 export function toast(msg, error = false) {
   const el = $("#toast");

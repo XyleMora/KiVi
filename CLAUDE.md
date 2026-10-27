@@ -127,6 +127,31 @@ README doesn't: conventions, environment and pitfalls.
   A real sign-in against GitHub hasn't been confirmed; ask the user whether a
   GitHub App is registered before assuming it works.
 
+## Visual diff engines (`src/diff/`)
+
+- `sch-diff.js`: symbols/sheets by UUID, wires/labels by geometry, plus
+  `net-diff.js`: nets matched by name (same name on a sheet = one net), then
+  by shared pins; pins keyed by symbol UUID + pin number (renumbering isn't a
+  change) and pins of added/removed symbols left out. Per sheet only: a net
+  joined through a global label on another sheet isn't followed.
+  `diffSchematic` returns `connA`/`connB`, reused by diff.js for anchors.
+- `pcb-diff.js`: zones by UUID, else net+layers+outline; settings from
+  `zoneSettings` (pcb/model.js); teardrop zones (`attr teardrop`) collapsed
+  into one "Teardrops" line; Board setup adds stackup, finish and the
+  mask/paste fields of `(setup)`.
+- `rules-diff.js`: `.kicad_pro` (rules, rule_severities, size presets,
+  netclasses: a missing field inherits from Default in KiCad 9+, netclass
+  patterns and assignments) and `.kicad_dru` (`#` comments, several top-level
+  rules). Everything else in a `.kicad_pro` is ignored. `RULE_FILES`
+  (sources.js) files are fetched by the diff page, shown as a table
+  (`#rules-view`, `.rules-mode`) and dropped when unchanged
+  (`dropUnchangedRules`). The inbox badge counts the same files
+  (`src/desktop/pr-files.js`): a modified `.kicad_pro` is read at the PR head
+  and its base rebuilt from the PR's `patch` (`textBeforePatch`, sources.js),
+  so no extra API request for the base; unverifiable files count.
+- Changes may carry `boxesBefore`/`boxesAfter` (per-side marks) and `rows`
+  (rules table).
+
 ## GitHub integration notes
 
 - Don't cache failures as empty results (the "no KiCad files" sessionStorage

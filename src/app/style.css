@@ -245,6 +245,17 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.5); }
 .st-added { color: #6fa8ff; }
 .st-removed { color: #e8873a; }
 .st-modified, .st-renamed { color: #c9a6f0; }
+/* A design rule file (.kicad_pro, .kicad_dru) has a table instead of the canvases. */
+.rules-mode .split, .rules-mode #overlay-pane, .rules-mode .zoom-ctl { display: none !important; }
+.rules-view { flex: 1; overflow: auto; padding: 16px; }
+table.rules-table { border-collapse: collapse; width: 100%; max-width: 980px; font-size: 13px; }
+.rules-table th, .rules-table td { text-align: left; padding: 6px 12px; border-bottom: 1px solid var(--border-soft); vertical-align: top; }
+.rules-table thead th { position: sticky; top: 0; background: var(--surface); color: var(--muted); font-size: 12px; font-weight: 600; z-index: 1; }
+.rules-table td.mono { font-family: var(--mono); font-size: 12px; overflow-wrap: anywhere; }
+.rules-table .rules-head th { padding-top: 14px; font-weight: 600; cursor: pointer; }
+.rules-table .rules-head .ctype { color: var(--muted); font-weight: 400; font-size: 12px; margin-left: 4px; }
+.rules-table tbody { cursor: pointer; }
+.rules-table tbody[aria-current] td, .rules-table tbody[aria-current] th { background: #2a2213; }
 .cbody { display: flex; flex-direction: column; min-width: 0; }
 .clabel { overflow-wrap: anywhere; }
 .ctype { color: var(--faint); font-size: 11px; }

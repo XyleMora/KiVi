@@ -1,10 +1,13 @@
 // Semantic diff of two versions of one schematic sheet.
 //
 // Symbols and sheets are matched by UUID (stable across edits in KiCad);
-// wires, labels, junctions and text by geometry. Each change carries
-// bounding boxes (document mm) for highlighting before/after.
+// wires, labels, junctions and text by geometry, nets by the pins they
+// connect (net-diff.js). Each change carries bounding boxes (document mm) for
+// highlighting before/after.
 
 import { BBox } from "../geom.js";
+import { buildConnectivity } from "../sch/connectivity.js";
+import { diffNets } from "./net-diff.js";
 
 const r3 = (v) => Math.round(v * 1000) / 1000;
 const key2 = (x, y) => `${r3(x)},${r3(y)}`;
@@ -14,7 +17,8 @@ const key2 = (x, y) => `${r3(x)},${r3(y)}`;
  * @param {object} b       parsed schematic (after) or null if the file was removed
  * @param {object} ra      renderSchematic() result for `a` (items with bboxes)
  * @param {object} rb      renderSchematic() result for `b`
- * @returns {{changes: object[], summary: object}}
+ * @returns {{changes: object[], summary: object, connA: object|null, connB: object|null}}
+ *   connA/connB: each side's buildConnectivity(), for callers that need it too
  */
 export function diffSchematic(a, b, ra, rb) {
   const changes = [];
@@ -60,6 +64,11 @@ export function diffSchematic(a, b, ra, rb) {
     }
   }
   for (const [uuid, t] of shb) if (!sha.has(uuid)) changes.push({ kind: "added", type: "sheet", label: t.name, detail: t.file, after: sheetBox(t) });
+
+  // ---- nets (connectivity) ----
+  const connA = a && ra ? buildConnectivity(a, ra.items) : null;
+  const connB = b && rb ? buildConnectivity(b, rb.items) : null;
+  changes.push(...diffNets(connA, connB, ra, rb));
 
   // ---- wires & buses (geometry) ----
   for (const [type, la, lb] of [["wire", a?.wires, b?.wires], ["bus", a?.buses, b?.buses]]) {
@@ -114,7 +123,7 @@ export function diffSchematic(a, b, ra, rb) {
     if (d.length) changes.push({ kind: "modified", type: "title block", label: "Title block", detail: d.join("; "), fields: d, before: pageCorner(a), after: pageCorner(b) });
   }
 
-  return { changes, summary: summarize(changes) };
+  return { changes, summary: summarize(changes), connA, connB };
 }
 
 function prop(s, name) {

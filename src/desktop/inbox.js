@@ -9,10 +9,11 @@
 // Reload lists every repository again, bringing back those removed from projects.
 
 import { $, escapeHtml, settings, saveSettings } from "../app/ui.js";
-import { DIFFABLE } from "../sources.js";
+import { GitHubSource } from "../sources.js";
 import { initHeader } from "./account.js";
 import { ICONS } from "./icons.js";
 import { initProjects, repoHasProjects } from "./projects.js";
+import { kicadFilesChanged } from "./pr-files.js";
 import { ensureFreshToken, invoke, isDesktop, onDrop, routeExternalLinks } from "./tauri.js";
 
 const token = () => settings().token ?? null;
@@ -68,7 +69,7 @@ function prRow(it) {
   </li>`;
 }
 
-/** Mark each row with how many schematic/board files the PR changes (a few at a time). */
+/** Mark each row with how many KiCad files the PR changes (a few at a time; see pr-files.js). */
 async function checkKicadFiles(rows) {
   const queue = [...rows];
   const worker = async () => {
@@ -76,7 +77,9 @@ async function checkKicadFiles(rows) {
       const badge = row.querySelector(".kicad-badge");
       try {
         const files = await api(`/repos/${row.dataset.repo}/pulls/${row.dataset.number}/files?per_page=100`);
-        const n = files.filter((f) => DIFFABLE.test(f.filename)).length;
+        const [owner, repo] = row.dataset.repo.split("/");
+        const read = (path, ref) => new GitHubSource({ owner, repo, ref, sha: ref, token: token() }).readText(path);
+        const n = (await kicadFilesChanged(files, read)).length;
         badge.textContent = n ? `${n} KiCad file${n > 1 ? "s" : ""} changed` : "no KiCad changes";
         badge.classList.toggle("has-kicad", n > 0);
         row.classList.toggle("no-kicad", n === 0);

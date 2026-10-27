@@ -45,14 +45,22 @@ repositories), the first found wins.
 **Pull requests.** The second icon in the header lists open pull requests in
 remote projects and, once you sign in, those waiting for your review and
 your own, in repositories with KiCad projects only.
-Each says how many KiCad files it changes; **Visual diff** and **Hardware**
+Each says how many KiCad files it changes (schematics, boards, custom rules,
+and a `.kicad_pro` only when its design rules changed, as in the visual diff); **Visual diff** and **Hardware**
 open it in KiVi.
 
 ![Pull requests: the watched test repository's open PR, which changes 9 KiCad files](docs/screenshots/pull-requests.png)
 
 
 **Visual diff.** A pull request, commit or branch comparison, side by side or
-overlaid, of a GitHub repository or a local git copy (its working files too), with a list of what changed in KiCad terms rather than text. During pull request review users can leave comments pinned where they belong (to actual components or traces):
+overlaid, of a GitHub repository or a local git copy (its working files too), with a list of what changed in KiCad terms rather than text:
+which pins joined or left each net (redrawn wires that connect the same pins
+aren't a change), footprints moved or re-wired, routing per net, zone outlines
+and settings (clearance, pad connections, thermal reliefs, priority…; teardrops
+in one line), stackup and solder mask settings. A changed `.kicad_pro` or
+`.kicad_dru` gets a table of its design rule changes (constraints, DRC
+severities, netclasses and which nets they cover, custom rules); a
+`.kicad_pro` whose rules didn't change is left out of the list. During pull request review users can leave comments pinned where they belong (to actual components or traces):
 
 ![Visual diff of a schematic sheet with a review comment open on R404](docs/screenshots/visual-diff.png)
 
@@ -330,7 +338,7 @@ src/text.js             text layout (KiCad metrics, markup, escapes)
 src/drawing-sheet.js    .kicad_wks parser/renderer, built-in default sheet
 src/project.js          project discovery, hierarchy walk, page numbering
 src/sources.js          GitHub (API, PR/commit comparison), 3D model path resolution
-src/diff/               semantic schematic and board diffs, comment anchors
+src/diff/               semantic schematic, net, board and design rule diffs, comment anchors
 src/review.js           review comments on GitHub (threads, replies, resolve)
 src/sch/                schematic model, renderer, themes
 src/pcb/                board model, renderer, shapes, hit testing,

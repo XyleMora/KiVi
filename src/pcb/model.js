@@ -29,6 +29,7 @@ export function parsePcb(src, filename = "") {
     tracks: [],
     vias: [],
     zones: [],
+    setup: {},
   };
 
   // Layer table entries are lists headed by the layer ordinal: (0 "F.Cu" signal)
@@ -39,6 +40,11 @@ export function parsePcb(src, filename = "") {
   }
 
   const setup = child(root, "setup");
+  // Board-wide mask and paste rules (the rest of the design rules live in the .kicad_pro).
+  for (const k of ["pad_to_mask_clearance", "solder_mask_min_width", "pad_to_paste_clearance", "pad_to_paste_clearance_ratio", "allow_soldermask_bridges_in_footprints"]) {
+    const v = value(setup, k, 1, undefined);
+    if (v !== undefined) pcb.setup[k] = v;
+  }
   const stackup = child(setup, "stackup");
   if (stackup) {
     for (const l of children(stackup, "layer")) {
@@ -457,16 +463,49 @@ function parseZone(n, pcb) {
   const filled = children(n, "filled_polygon").map((p) => ({ layer: String(value(p, "layer", 1, layers[0] ?? "")), pts: polyPoints(child(p, "pts")), island: flag(p, "island") }));
   const keepout = child(n, "keepout");
   return {
+    uuid: String(value(n, "uuid", 1, value(n, "tstamp", 1, ""))),
     net: netOf(n, pcb) || String(value(n, "net_name", 1, "")),
     name: value(n, "name", 1, ""),
     layers,
     outline,
     filled,
     keepout: !!keepout,
+    // KiCad 8+ teardrops are zones it regenerates from the routing.
+    teardrop: !!child(child(n, "attr"), "teardrop") || String(value(n, "name", 1, "")).startsWith("$teardrop"),
+    settings: zoneSettings(n, keepout),
     hatch: value(n, "hatch", 1, "edge"),
     // Fills drawn with an outline of min_thickness (KiCad 6 and older; newer files say "no").
     fillWidth: String(value(n, "filled_areas_thickness", 1, "yes")) === "no" ? 0 : Number(value(n, "min_thickness", 1, 0)) || 0,
   };
+}
+
+const PAD_CONNECTION = { yes: "solid", no: "none", thru_hole_only: "thermal reliefs for PTH only" };
+const ISLANDS = { 0: "always", 1: "never", 2: "below minimum area" };
+
+/** The settings of KiCad's zone dialog that change the copper, as comparable values. */
+function zoneSettings(n, keepout) {
+  const pads = child(n, "connect_pads");
+  const fill = child(n, "fill");
+  const s = {
+    priority: value(n, "priority", 1, 0),
+    pads: pads && typeof pads[1] === "string" ? PAD_CONNECTION[pads[1]] ?? pads[1] : "thermal reliefs",
+    clearance: value(pads, "clearance", 1, null),
+    minWidth: value(n, "min_thickness", 1, null),
+    fill: value(fill, "mode", 1, "solid") === "hatch" ? "hatched" : "solid",
+    thermalGap: value(fill, "thermal_gap", 1, null),
+    spokeWidth: value(fill, "thermal_bridge_width", 1, null),
+    islands: ISLANDS[value(fill, "island_removal_mode", 1, 0)] ?? "always",
+    islandArea: value(fill, "island_removal_mode", 1, 0) === 2 ? value(fill, "island_area_min", 1, null) : null,
+    hatchWidth: value(fill, "hatch_thickness", 1, null),
+    hatchGap: value(fill, "hatch_gap", 1, null),
+    smoothing: value(fill, "smoothing", 1, "none"),
+    radius: value(fill, "radius", 1, null),
+  };
+  if (keepout) {
+    const banned = ["tracks", "vias", "pads", "copperpour", "footprints"].filter((k) => value(keepout, k, 1, "allowed") === "not_allowed");
+    s.keepout = banned.map((k) => (k === "copperpour" ? "copper pour" : k)).join(", ") || "nothing";
+  }
+  return s;
 }
 
 // ---- helpers --------------------------------------------------------------

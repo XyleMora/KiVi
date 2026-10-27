@@ -376,6 +376,8 @@ textarea.input { resize: vertical; font-size: 12px; white-space: pre; overflow-x
 .branch-menu-list { position: absolute; right: 0; top: calc(100% + 4px); z-index: 20; width: 280px; display: flex; flex-direction: column; padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 8px 24px rgb(0 0 0 / 0.45); }
 .branch-menu-list > a, .branch-menu-list > button, .branch-list button { display: flex; align-items: center; gap: 6px; background: none; border: 0; color: var(--text); font: inherit; font-size: 13px; text-align: left; padding: 6px 10px; border-radius: 4px; cursor: pointer; text-decoration: none; }
 .branch-menu-list > a:hover, .branch-menu-list > button:hover, .branch-list button:hover:not(:disabled) { background: var(--bg); }
+.branch-menu-list > button[aria-disabled="true"] { opacity: 0.45; cursor: default; }
+.branch-menu-list > button[aria-disabled="true"]:hover { background: none; }
 .branch-menu-list hr { border: 0; border-top: 1px solid var(--border); margin: 4px 2px; }
 .branch-head { padding: 6px 10px 4px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
 .branch-filter { margin: 0 6px 4px; width: calc(100% - 12px); font-size: 12px; }

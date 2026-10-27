@@ -171,11 +171,11 @@ project's local settings `*.kicad_prl`; nothing is committed), so its changes ca
 - **Link to GitHub…** asks for a repository (`owner/repo` or its github.com
   address), checks that it exists and that your account can see it, and adds
   it as the folder's git remote (`origin`, or `github` if origin points
-  elsewhere). Nothing is uploaded: open the project and use **Commit and push…**
-  from its branch menu. Use an empty repository, since KiVi can't merge a
+  elsewhere). Nothing is uploaded: open the project and use **Commit…** and
+  **Push…** from its branch menu. Use an empty repository, since KiVi can't merge a
   history that GitHub already has.
 - Once linked, the card gets the sync icon and View on GitHub, and the
-  branch menu's **Commit…** becomes **Commit and push…**. Before that, new
+  branch menu gets **Push…** next to **Commit…**. Before that, new
   branches and commits stay on this computer.
 - A folder that is a clone of a repository already in the gallery isn't added
   as a card of its own: it becomes that repository's linked copy (as **Link**
@@ -237,13 +237,16 @@ Rust `git2` crate), with HTTPS going through the same TLS stack as sign-in.
   - **New branch…** creates a branch at the current commit and switches to it;
     uncommitted edits come along. Before the first commit it replaces `main`:
     the first commit starts the new branch.
-  - **Commit and push…** lists the changed files with checkboxes, commits the
-    chosen ones with your message and pushes the branch to the same branch on
-    GitHub, then offers to open a pull request. The commit author is your git
-    identity if the clone has one, else your GitHub account with its private
-    e-mail address. On `main` it warns first, since protected branches refuse it.
-    A local project not linked to GitHub gets **Commit…** instead: the same
-    list and message, committed in the folder's repository, nothing pushed.
+  - **Commit…** lists the changed files with checkboxes and commits the
+    chosen ones with your message, on this computer. The commit author is
+    your git identity if the clone has one, else your GitHub account with its
+    private e-mail address.
+  - **Push…** (**Push 2 commits…** when it knows how many) pushes the branch
+    to the same branch on GitHub, then offers to open a pull request. On
+    `main` it warns first, since protected branches refuse it. A local
+    project not linked to GitHub has no Push.
+  - Both are greyed out, saying why, when there's nothing to do: no
+    uncommitted changes, nothing committed yet, or everything pushed.
 - GitHub is always reached at `https://github.com/<owner>/<repo>.git` with your
   sign-in token (in a request header, never stored in the clone), so a clone
   with an SSH remote works too. There's no pull or merge: if GitHub has commits

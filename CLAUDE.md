@@ -182,9 +182,11 @@ README doesn't: conventions, environment and pitfalls.
   `mountGitHubBranches`: `/branches` API, switching rewrites the URL's `gh=`
   ref so `restoreFromHash` reopens the project, same tab) and local copies
   (git.js `mountGitMenu`: `git_branches` after a best-effort fetch,
-  `git_switch_branch` = safe checkout like `git switch`, plus new branch, diff,
-  commit and push on top; a folder without a GitHub remote gets **Commit…**
-  (no push, no sign-in needed; the user's request), and before its first
+  `git_switch_branch` = safe checkout like `git switch`, plus New branch…,
+  Commit… and Push… on top (separate items and dialogs, the user's request;
+  greyed out via `aria-disabled` with the reason as title/toast when there's
+  nothing to do); a folder without a GitHub remote gets no Push (no sign-in
+  needed; the user's request), and before its first
   commit `git_info.branch` is the unborn branch and a new branch replaces it). `data-kind` tells which side owns it: main.js
   removes only a "github" one, desktop.js mounts the "local" one after a folder
   opens and on live reload/focus. The left of the bar shows the repository

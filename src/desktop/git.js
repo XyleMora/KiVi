@@ -202,21 +202,24 @@ export function mountGitMenu(folder, history) {
       title: shown ? `Visual diff of commit ${shown.slice(0, 7)}` : `Visual diff of the working files${n ? ` (${n} changed)` : ""} against main; pick other branches or commits there`,
     });
     const ahead = info.ahead ? `, ${info.ahead} commit${info.ahead > 1 ? "s" : ""} to push` : "";
-    // Without GitHub, commits stay on this computer.
-    const commitItem = info.owner
-      ? `<button type="button" data-act="commit">${n || !info.ahead ? "Commit and push…" : `Push ${info.ahead} commit${info.ahead > 1 ? "s" : ""}…`}</button>`
-      : `<button type="button" data-act="commit">Commit…</button><span class="muted branch-note">Not linked to GitHub: no push</span>`;
+    // Greyed out (saying why) when there's nothing to do. Without GitHub, commits stay on this computer.
+    const item = (act, label, why) => `<button type="button" data-act="${act}"${why ? ` aria-disabled="true" title="${escapeHtml(why)}"` : ""}>${label}</button>`;
+    const commitItem = item("commit", "Commit…", n ? "" : "No uncommitted changes");
+    const pushItem = !info.owner
+      ? `<span class="muted branch-note">Not linked to GitHub: no push</span>`
+      : item("push", info.ahead ? `Push ${info.ahead} commit${info.ahead > 1 ? "s" : ""}…` : "Push…", !info.head ? "Nothing committed yet" : info.ahead === 0 ? "Everything is pushed" : "");
     mountBranchMenu({
       kind: "local",
       branch: info.branch,
       count: n,
       title: `${info.root}\n${n} changed file${n === 1 ? "" : "s"}${ahead}`,
       itemsHtml: `<button type="button" data-act="branch">New branch…</button>
-        ${commitItem}`,
+        ${commitItem}${pushItem}`,
       onAct: async (act) => {
         try {
           if (act === "branch") await newBranchDialog(info);
           if (act === "commit") await commitDialog(info);
+          if (act === "push") await pushDialog(info);
         } finally {
           refresh();
         }
@@ -317,24 +320,16 @@ async function fallbackAuthor() {
   }
 }
 
+/** Commit chosen files with a message, on this computer (Push… sends them to GitHub). */
 async function commitDialog(info) {
-  const push = !!info.owner; // a folder not linked to GitHub only commits
-  if (push && !settings().token) {
-    window.dispatchEvent(new Event("kivi:signin"));
-    throw new Error("Sign in with GitHub to push");
-  }
   const files = await invoke("git_status", { path: info.root });
-  const onMain = push && (info.branch === "main" || info.branch === "master");
   const icon = { added: "+", removed: "−", modified: "~", conflicted: "!" };
   return new Promise((resolve) => {
     const dlg = dialog(`<form method="dialog" class="settings git-commit">
-      <h2>${!push ? "Commit" : files.length ? "Commit and push" : "Push"}</h2>
-      <p class="muted settings-hint">${
-        push
-          ? `To <b>${escapeHtml(info.branch ?? "?")}</b> on github.com/${escapeHtml(`${info.owner}/${info.repo}`)}.`
-          : `On <b>${escapeHtml(info.branch ?? "HEAD")}</b>, on this computer only: the folder isn't linked to GitHub.`
+      <h2>Commit</h2>
+      <p class="muted settings-hint">On <b>${escapeHtml(info.branch ?? "HEAD")}</b>, on this computer${
+        info.owner ? `: <b>Push…</b> in the branch menu sends it to GitHub.` : ` only: the folder isn't linked to GitHub.`
       }</p>
-      ${onMain ? `<p class="git-warn">You're on <b>${escapeHtml(info.branch)}</b>: pushing changes it for everyone, and protected branches refuse it. Create a branch first to open a pull request instead.</p>` : ""}
       ${
         files.length
           ? `<label class="check"><input type="checkbox" id="git-all" checked> All ${files.length} changed files</label>
@@ -343,13 +338,10 @@ async function commitDialog(info) {
                .join("")}</ul>
              <label class="field-label" for="git-message">Message</label>
              <textarea id="git-message" class="input" rows="3" required placeholder="What changed, e.g. Swap R12 for a 0603"></textarea>`
-          : `<p>No uncommitted changes. ${!push ? "" : info.ahead ? `${info.ahead} commit(s) aren't on GitHub yet.` : "Everything is pushed."}</p>`
+          : `<p>No uncommitted changes.</p>`
       }
       <p class="git-result muted" hidden></p>
-      <div class="row end gap"><button value="cancel" class="btn" formnovalidate>Close</button>${
-        !push ? (files.length ? `<button value="commit" class="btn primary">Commit</button>` : "")
-        : `${files.length ? `<button value="commit" class="btn">Commit</button>` : ""}<button value="push" class="btn primary">${files.length ? "Commit and push" : "Push"}</button>`
-      }</div>
+      <div class="row end gap"><button value="cancel" class="btn" formnovalidate>Close</button>${files.length ? `<button value="commit" class="btn primary">Commit</button>` : ""}</div>
     </form>`);
     const boxes = [...dlg.querySelectorAll("[data-file]")];
     const all = dlg.querySelector("#git-all");
@@ -363,38 +355,67 @@ async function commitDialog(info) {
     }
     const result = dlg.querySelector(".git-result");
     const buttons = [...dlg.querySelectorAll("button")];
-    let committed = false; // a failed push is retried without committing again
     dlg.querySelector("form").addEventListener("submit", async (e) => {
-      const act = e.submitter?.value;
-      if (act === "cancel") return;
+      if (e.submitter?.value === "cancel") return;
       e.preventDefault(); // stay open to show the result
       buttons.forEach((b) => (b.disabled = true));
       try {
-        if (files.length && !committed) {
-          const chosen = files.filter((_, i) => boxes[i].checked).map((f) => f.path);
-          if (!chosen.length) throw new Error("Choose at least one file");
-          const message = dlg.querySelector("#git-message").value;
-          const author = await fallbackAuthor();
-          await invoke("git_commit", { path: info.root, files: chosen, message, name: author.name, email: author.email });
-          committed = true;
-          boxes.forEach((b) => (b.disabled = true));
-          dlg.querySelector("button[value=commit]")?.remove();
-        }
-        if (act === "push") {
-          result.hidden = false;
-          result.textContent = "Pushing to GitHub…";
-          const token = await ensureFreshToken();
-          const branch = await invoke("git_push", { path: info.root, owner: info.owner, repo: info.repo, token });
-          const compare = `https://github.com/${info.owner}/${info.repo}/compare/${encodeURIComponent(branch)}?expand=1`;
-          result.innerHTML = `Pushed <b>${escapeHtml(branch)}</b> to GitHub. ${onMain ? "" : `<a href="${escapeHtml(compare)}" target="_blank" rel="noopener">Open a pull request</a>`}`;
-        } else {
-          result.hidden = false;
-          result.textContent = push ? "Committed. Push when you're ready." : "Committed.";
-        }
+        const chosen = files.filter((_, i) => boxes[i].checked).map((f) => f.path);
+        if (!chosen.length) throw new Error("Choose at least one file");
+        const message = dlg.querySelector("#git-message").value;
+        const author = await fallbackAuthor();
+        await invoke("git_commit", { path: info.root, files: chosen, message, name: author.name, email: author.email });
+        boxes.forEach((b) => (b.disabled = true));
         dlg.querySelector("button[value=commit]")?.remove();
-        dlg.querySelector("button[value=push]")?.remove();
+        result.hidden = false;
+        result.classList.remove("git-error");
+        result.textContent = info.owner ? "Committed. Push when you're ready." : "Committed.";
       } catch (err) {
         result.hidden = false;
+        result.textContent = String(err.message ?? err);
+        result.classList.add("git-error");
+      } finally {
+        buttons.forEach((b) => (b.disabled = false));
+      }
+    });
+    dlg.addEventListener("close", () => resolve());
+  });
+}
+
+/** Push the checked-out branch to the same branch on GitHub, then offer a pull request. */
+async function pushDialog(info) {
+  if (!settings().token) {
+    window.dispatchEvent(new Event("kivi:signin"));
+    throw new Error("Sign in with GitHub to push");
+  }
+  const onMain = info.branch === "main" || info.branch === "master";
+  const n = info.ahead;
+  const what = n == null ? "The branch isn't on GitHub yet: pushing creates it." : `${n} commit${n > 1 ? "s" : ""} not on GitHub yet.`;
+  return new Promise((resolve) => {
+    const dlg = dialog(`<form method="dialog" class="settings git-commit">
+      <h2>Push</h2>
+      <p class="muted settings-hint">To <b>${escapeHtml(info.branch ?? "?")}</b> on github.com/${escapeHtml(`${info.owner}/${info.repo}`)}.</p>
+      ${onMain ? `<p class="git-warn">You're on <b>${escapeHtml(info.branch)}</b>: pushing changes it for everyone, and protected branches refuse it. Create a branch first to open a pull request instead.</p>` : ""}
+      <p>${what}${info.changes ? ` ${info.changes} uncommitted file${info.changes > 1 ? "s" : ""} stay${info.changes > 1 ? "" : "s"} on this computer: commit ${info.changes > 1 ? "them" : "it"} first to include ${info.changes > 1 ? "them" : "it"}.` : ""}</p>
+      <p class="git-result muted" hidden></p>
+      <div class="row end gap"><button value="cancel" class="btn" formnovalidate>Close</button><button value="push" class="btn primary">Push</button></div>
+    </form>`);
+    const result = dlg.querySelector(".git-result");
+    const buttons = [...dlg.querySelectorAll("button")];
+    dlg.querySelector("form").addEventListener("submit", async (e) => {
+      if (e.submitter?.value === "cancel") return;
+      e.preventDefault(); // stay open to show the result
+      buttons.forEach((b) => (b.disabled = true));
+      try {
+        result.hidden = false;
+        result.classList.remove("git-error");
+        result.textContent = "Pushing to GitHub…";
+        const token = await ensureFreshToken();
+        const branch = await invoke("git_push", { path: info.root, owner: info.owner, repo: info.repo, token });
+        const compare = `https://github.com/${info.owner}/${info.repo}/compare/${encodeURIComponent(branch)}?expand=1`;
+        result.innerHTML = `Pushed <b>${escapeHtml(branch)}</b> to GitHub. ${onMain ? "" : `<a href="${escapeHtml(compare)}" target="_blank" rel="noopener">Open a pull request</a>`}`;
+        dlg.querySelector("button[value=push]")?.remove();
+      } catch (err) {
         result.textContent = String(err.message ?? err);
         result.classList.add("git-error");
       } finally {

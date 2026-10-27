@@ -28,6 +28,7 @@ fd6d648715f35afea6984ad5bc330cf1bb2c24c3	54994	ecc83/ecc83-pp_v2.kicad_sch
 ae7bf1e338d759b4aec7f9e5ed9b3655340104ed	638320	jetson-agx-thor-baseboard/csi.kicad_sch
 f5c8e84db7d92a1be20fbeaa8f1bfe88d9be7e59	1288331	jetson-agx-thor-baseboard/dcdc.kicad_sch
 b61d68869736b6e4b94d1e7d16d2fe9fc42315b2	1015701	jetson-agx-thor-baseboard/expansion_connector.kicad_sch
+d67e8b17eeee44ade32186fc6ff3712822773f2e	1003	jetson-agx-thor-baseboard/jetson-agx-thor-baseboard.kicad_dru
 dad49eb608fda160ed0658cf05d01242e1a59bfb	47388	jetson-agx-thor-baseboard/jetson-agx-thor-baseboard.kicad_pro
 a2029708036ffa7801da317ab01b2e78bba2762e	261547	jetson-agx-thor-baseboard/jetson-agx-thor-baseboard.kicad_sch
 c6c441ca1ca959893f771b664351bb1744edefad	236499	jetson-agx-thor-baseboard/level_shifter_x8.kicad_sch
@@ -161,6 +162,7 @@ b0953850f710ec16cccfc2f7c6fdb8d0b647eeba	85506	vme-wren/pp_driver_8x.kicad_sch
 6eb18794159e8482e261353a72f4f0f8b9369054	333922	vme-wren/sfp+.kicad_sch
 2fc42fcea5c215fa78523a8c56d4a1554818c82e	165344	vme-wren/slow_gpio.kicad_sch
 b8a340f84d000f06e1d2b7262f19b60ffe1ab304	239464	vme-wren/user_interface.kicad_sch
+b93fa49e763c32e92f1df04ebbe110aee386fa28	2004	vme-wren/vme-wren.kicad_dru
 1c35a9c0645fe328442198cba2580df71eafbb9d	40013	vme-wren/vme-wren.kicad_pro
 286084d0ceea95352ad1f10d609f2115202cd6f0	558200	vme-wren/vme-wren.kicad_sch
 b89ae19b3fc8d10eb9b415f0f2a6f5067e9daa1b	450688	vme-wren/vme_buffers_addr.kicad_sch

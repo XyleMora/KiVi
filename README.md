@@ -395,7 +395,7 @@ python3 tools/make_icons.py
 
 The tooling runs on `gjs` (GNOME's JavaScript runtime), so Node is not needed.
 The tests use KiCad's demo projects without a KiCad installation:
-`tests/kicad-demos.txt` lists the design files they read (170 files, 74 MB, at a
+`tests/kicad-demos.txt` lists the design files they read (172 files, 74 MB, at a
 pinned KiCad release, with git hashes), and `tools/fetch_demos.py` downloads
 those from KiCad's GitHub mirror into the git-ignored `tests/kicad-demos/`,
 checking each hash and skipping files already there.
@@ -436,9 +436,9 @@ What a passing run prints:
 
 ```console
 $ python3 tools/fetch_demos.py          # here 5 files were missing or damaged
-downloading 5 of 170 KiCad 10.0.6 demo files from KiCad/kicad-source-mirror …
+downloading 5 of 172 KiCad 10.0.6 demo files from KiCad/kicad-source-mirror …
   1.3 MB in 3 s
-tests/kicad-demos: 170 KiCad 10.0.6 demo files ready
+tests/kicad-demos: 172 KiCad 10.0.6 demo files ready
 $ gjs -m tests/diff.js | tail -1
 all diff checks passed
 $ tests/smoke.sh

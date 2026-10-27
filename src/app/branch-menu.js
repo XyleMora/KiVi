@@ -70,6 +70,8 @@ export function mountBranchMenu(o) {
   el.addEventListener("click", async (e) => {
     const b = e.target.closest("button[data-branch], button[data-act]");
     if (!b || b.disabled) return;
+    // Greyed-out items say why instead.
+    if (b.getAttribute("aria-disabled") === "true") return toast(b.title, true);
     el.open = false;
     try {
       if (b.dataset.branch) await o.switchTo(b.dataset.branch);

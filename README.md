@@ -45,14 +45,22 @@ repositories), the first found wins.
 **Pull requests.** The second icon in the header lists open pull requests in
 remote projects and, once you sign in, those waiting for your review and
 your own, in repositories with KiCad projects only.
-Each says how many KiCad files it changes; **Visual diff** and **Hardware**
+Each says how many KiCad files it changes (schematics, boards, custom rules,
+and a `.kicad_pro` only when its design rules changed, as in the visual diff); **Visual diff** and **Hardware**
 open it in KiVi.
 
 ![Pull requests: the watched test repository's open PR, which changes 9 KiCad files](docs/screenshots/pull-requests.png)
 
 
 **Visual diff.** A pull request, commit or branch comparison, side by side or
-overlaid, of a GitHub repository or a local git copy (its working files too), with a list of what changed in KiCad terms rather than text. During pull request review users can leave comments pinned where they belong (to actual components or traces):
+overlaid, of a GitHub repository or a local git copy (its working files too), with a list of what changed in KiCad terms rather than text:
+which pins joined or left each net (redrawn wires that connect the same pins
+aren't a change), footprints moved or re-wired, routing per net, zone outlines
+and settings (clearance, pad connections, thermal reliefs, priority…; teardrops
+in one line), stackup and solder mask settings. A changed `.kicad_pro` or
+`.kicad_dru` gets a table of its design rule changes (constraints, DRC
+severities, netclasses and which nets they cover, custom rules); a
+`.kicad_pro` whose rules didn't change is left out of the list. During pull request review users can leave comments pinned where they belong (to actual components or traces):
 
 ![Visual diff of a schematic sheet with a review comment open on R404](docs/screenshots/visual-diff.png)
 
@@ -163,11 +171,11 @@ project's local settings `*.kicad_prl`; nothing is committed), so its changes ca
 - **Link to GitHub…** asks for a repository (`owner/repo` or its github.com
   address), checks that it exists and that your account can see it, and adds
   it as the folder's git remote (`origin`, or `github` if origin points
-  elsewhere). Nothing is uploaded: open the project and use **Commit and push…**
-  from its branch menu. Use an empty repository, since KiVi can't merge a
+  elsewhere). Nothing is uploaded: open the project and use **Commit…** and
+  **Push…** from its branch menu. Use an empty repository, since KiVi can't merge a
   history that GitHub already has.
 - Once linked, the card gets the sync icon and View on GitHub, and the
-  branch menu's **Commit…** becomes **Commit and push…**. Before that, new
+  branch menu gets **Push…** next to **Commit…**. Before that, new
   branches and commits stay on this computer.
 - A folder that is a clone of a repository already in the gallery isn't added
   as a card of its own: it becomes that repository's linked copy (as **Link**
@@ -229,13 +237,16 @@ Rust `git2` crate), with HTTPS going through the same TLS stack as sign-in.
   - **New branch…** creates a branch at the current commit and switches to it;
     uncommitted edits come along. Before the first commit it replaces `main`:
     the first commit starts the new branch.
-  - **Commit and push…** lists the changed files with checkboxes, commits the
-    chosen ones with your message and pushes the branch to the same branch on
-    GitHub, then offers to open a pull request. The commit author is your git
-    identity if the clone has one, else your GitHub account with its private
-    e-mail address. On `main` it warns first, since protected branches refuse it.
-    A local project not linked to GitHub gets **Commit…** instead: the same
-    list and message, committed in the folder's repository, nothing pushed.
+  - **Commit…** lists the changed files with checkboxes and commits the
+    chosen ones with your message, on this computer. The commit author is
+    your git identity if the clone has one, else your GitHub account with its
+    private e-mail address.
+  - **Push…** (**Push 2 commits…** when it knows how many) pushes the branch
+    to the same branch on GitHub, then offers to open a pull request. On
+    `main` it warns first, since protected branches refuse it. A local
+    project not linked to GitHub has no Push.
+  - Both are greyed out, saying why, when there's nothing to do: no
+    uncommitted changes, nothing committed yet, or everything pushed.
 - GitHub is always reached at `https://github.com/<owner>/<repo>.git` with your
   sign-in token (in a request header, never stored in the clone), so a clone
   with an SSH remote works too. There's no pull or merge: if GitHub has commits
@@ -330,7 +341,7 @@ src/text.js             text layout (KiCad metrics, markup, escapes)
 src/drawing-sheet.js    .kicad_wks parser/renderer, built-in default sheet
 src/project.js          project discovery, hierarchy walk, page numbering
 src/sources.js          GitHub (API, PR/commit comparison), 3D model path resolution
-src/diff/               semantic schematic and board diffs, comment anchors
+src/diff/               semantic schematic, net, board and design rule diffs, comment anchors
 src/review.js           review comments on GitHub (threads, replies, resolve)
 src/sch/                schematic model, renderer, themes
 src/pcb/                board model, renderer, shapes, hit testing,
@@ -384,7 +395,7 @@ python3 tools/make_icons.py
 
 The tooling runs on `gjs` (GNOME's JavaScript runtime), so Node is not needed.
 The tests use KiCad's demo projects without a KiCad installation:
-`tests/kicad-demos.txt` lists the design files they read (170 files, 74 MB, at a
+`tests/kicad-demos.txt` lists the design files they read (172 files, 74 MB, at a
 pinned KiCad release, with git hashes), and `tools/fetch_demos.py` downloads
 those from KiCad's GitHub mirror into the git-ignored `tests/kicad-demos/`,
 checking each hash and skipping files already there.
@@ -425,9 +436,9 @@ What a passing run prints:
 
 ```console
 $ python3 tools/fetch_demos.py          # here 5 files were missing or damaged
-downloading 5 of 170 KiCad 10.0.6 demo files from KiCad/kicad-source-mirror …
+downloading 5 of 172 KiCad 10.0.6 demo files from KiCad/kicad-source-mirror …
   1.3 MB in 3 s
-tests/kicad-demos: 170 KiCad 10.0.6 demo files ready
+tests/kicad-demos: 172 KiCad 10.0.6 demo files ready
 $ gjs -m tests/diff.js | tail -1
 all diff checks passed
 $ tests/smoke.sh

@@ -48,7 +48,7 @@ export function buildConnectivity(sch, items) {
     if (it.kind !== "symbol") continue;
     for (const p of it.pins) {
       if (p.hidden) continue;
-      points.push(add({ kind: "pin", ref: it.baseReference, number: p.number, name: p.name, power: it.power, value: it.value, x: p.x, y: p.y }));
+      points.push(add({ kind: "pin", uuid: it.uuid, ref: it.baseReference, number: p.number, name: p.name, power: it.power, value: it.value, x: p.x, y: p.y }));
     }
   }
 

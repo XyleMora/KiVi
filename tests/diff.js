@@ -8,6 +8,10 @@ import { parsePcb } from "../src/pcb/model.js";
 import { renderPcb } from "../src/pcb/render.js";
 import { diffSchematic } from "../src/diff/sch-diff.js";
 import { diffPcb } from "../src/diff/pcb-diff.js";
+import { diffRules } from "../src/diff/rules-diff.js";
+import { textBeforePatch } from "../src/sources.js";
+import { kicadFilesChanged } from "../src/desktop/pr-files.js";
+import GLib from "gi://GLib";
 
 let failures = 0;
 const check = (cond, msg) => {
@@ -47,6 +51,50 @@ const DEMO = kicadDemos("pic_programmer");
   check(added.changes.every((c) => c.kind === "added") && added.changes.length > 10, "new file → everything added");
 }
 
+// ---- schematic nets ----
+{
+  const text = readText(`${DEMO}/pic_programmer.kicad_sch`);
+  const a = parseSchematic(text);
+  const net = (b) => diffSchematic(a, b, renderSchematic(a), renderSchematic(b)).changes.filter((c) => c.type === "net");
+
+  // Redrawing a wire (split in two at a bend, same connections) is no net change.
+  const b1 = parseSchematic(text);
+  const w = b1.wires.find((x) => x.pts.length === 2 && Math.abs(x.pts[0].x - x.pts[1].x) > 5);
+  const mid = { x: (w.pts[0].x + w.pts[1].x) / 2, y: w.pts[0].y };
+  b1.wires = b1.wires.filter((x) => x !== w).concat({ ...w, pts: [w.pts[0], mid] }, { ...w, pts: [mid, w.pts[1]] });
+  check(net(b1).length === 0, `wire split in two → no net change (got ${net(b1).map((c) => c.label).join(", ")})`);
+
+  // Removing wires disconnects pins.
+  const b2 = parseSchematic(text);
+  b2.wires = b2.wires.slice(2);
+  const cut = net(b2);
+  check(cut.some((c) => c.kind === "modified" && c.pinsRemoved.length && c.boxesBefore.length), `removed wires → pins leave their nets (${cut.map((c) => `${c.label}: ${c.detail}`).join(" | ")})`);
+
+  // A renamed label moves its pins to the new net.
+  const b3 = parseSchematic(text);
+  const lab = b3.labels.find((l) => l.kind === "label" || l.kind === "global_label");
+  const old = lab.text;
+  lab.text = "RENAMED_NET";
+  const moved = net(b3);
+  const to = moved.find((c) => c.label === "RENAMED_NET");
+  check(to && to.pinsAdded.length > 0, `renamed label → pins join RENAMED_NET (${to?.detail})`);
+  check(moved.some((c) => c.label === old && c.pinsRemoved.length) || moved.some((c) => /renamed from/.test(c.detail)), `…and leave ${old}`);
+
+  // Renumbering a part is not a connectivity change (pins are matched by symbol UUID).
+  const b4 = parseSchematic(text);
+  const sym = b4.symbols.find((s) => !s.libId.includes("power") && s.instances?.length);
+  for (const inst of sym.instances) inst.reference = "R999";
+  const ref = sym.properties.find((p) => p.name === "Reference");
+  if (ref) ref.value = "R999";
+  check(net(b4).length === 0, "renumbered part → no net change");
+
+  // Pins of a removed symbol are reported by the symbol, not by every net it touched.
+  const b5 = parseSchematic(text);
+  const gone = b5.symbols.find((s) => !s.libId.includes("power"));
+  b5.symbols = b5.symbols.filter((s) => s !== gone);
+  check(net(b5).length === 0, "removed symbol → no net changes for its pins");
+}
+
 // ---- board ----
 {
   const text = readText(`${DEMO}/pic_programmer.kicad_pcb`);
@@ -75,6 +123,147 @@ const DEMO = kicadDemos("pic_programmer");
   check(find((c) => c.type === "routing" && c.label === net && c.kind === "removed" && c.tracksBefore.length === removedTracks), `removed routing of ${net} (${removedTracks} segments)`);
   check(find((c) => c.type === "vias" && c.kind === "removed"), "removed via");
   check(find((c) => c.label === "R3" && c.detail.includes(`${oldNet || "—"} → /NEW`)), "pad net change");
+}
+
+// ---- duplicate pad numbers and footprint texts ----
+{
+  const dir = kicadDemos("cm5_minima");
+  const text = readText(`${dir}/CM5_MINIMA_3.kicad_pcb`);
+  const a = parsePcb(text);
+  const fp = a.footprints.find((f) => f.pads.filter((p) => p.number === "MP").length > 1 && new Set(f.pads.filter((p) => p.number === "MP").map((p) => p.net)).size > 1);
+  check(!!fp, `footprint with several MP pads on different nets (${fp?.reference})`);
+  check(diffPcb(a, parsePcb(text)).changes.length === 0, "identical board with duplicate pad numbers → no changes");
+  for (const name of ["openair-max/One-Air-Max", "tiny_tapeout/tinytapeout-demo"]) {
+    const t = readText(`${kicadDemos(name.split("/")[0])}/${name.split("/")[1]}.kicad_pcb`);
+    check(diffPcb(parsePcb(t), parsePcb(t)).changes.length === 0, `identical ${name.split("/")[1]} (duplicate Fab texts) → no changes`);
+  }
+  // A real change on the second MP pad is still found.
+  const b = parsePcb(text);
+  const g = b.footprints.find((f) => f.uuid === fp.uuid);
+  g.pads.filter((p) => p.number === "MP")[1].net = "/NEW";
+  const c = diffPcb(a, b).changes.find((x) => x.label === fp.reference);
+  check(c && c.detail.includes("→ /NEW"), `second MP pad's net change (${c?.detail})`);
+}
+
+// ---- zones, teardrops and board setup ----
+{
+  const dir = kicadDemos("complex_hierarchy");
+  const text = readText(`${dir}/complex_hierarchy.kicad_pcb`);
+  const a = parsePcb(text);
+  check(diffPcb(a, parsePcb(text)).changes.length === 0, "identical board with zones → no changes");
+  const zone = a.zones.find((z) => !z.teardrop && !z.keepout && z.settings.clearance != null);
+  check(!!zone && a.zones.some((z) => z.teardrop), "zones and teardrops parsed");
+
+  const b = parsePcb(text);
+  const z = b.zones.find((x) => x.uuid === zone.uuid);
+  z.settings.clearance = zone.settings.clearance + 0.25;
+  z.settings.priority = zone.settings.priority + 1;
+  z.settings.pads = "solid";
+  z.outline[0][0] = { x: z.outline[0][0].x + 1, y: z.outline[0][0].y };
+  const tds = b.zones.filter((x) => x.teardrop);
+  b.zones = b.zones.filter((x) => !tds.slice(0, 5).includes(x));
+  b.setup.pad_to_mask_clearance = (a.setup.pad_to_mask_clearance ?? 0) + 0.05;
+  if (b.stackup.length) b.stackup[Math.floor(b.stackup.length / 2)].thickness += 0.1;
+
+  const d = diffPcb(a, b);
+  const zc = d.changes.filter((c) => c.type === "zone");
+  const zm = zc.find((c) => c.kind === "modified");
+  check(zc.length === 1 && zm, `edited zone → one modified zone, not removed + added (got ${zc.map((c) => c.kind).join(", ")})`);
+  check(zm && /outline changed/.test(zm.detail) && /clearance [\d.]+ mm → [\d.]+ mm/.test(zm.detail) && /priority/.test(zm.detail) && /pad connections .* → solid/.test(zm.detail), `zone settings listed: ${zm?.detail}`);
+  const td = d.changes.filter((c) => c.type === "teardrops");
+  check(td.length === 1 && td[0].detail === "−5", `teardrops grouped in one line (${td.map((c) => c.detail).join(", ")})`);
+  const board = d.changes.find((c) => c.type === "board");
+  check(board && /solder mask expansion/.test(board.detail), `board setup: mask expansion (${board?.detail})`);
+  check(!b.stackup.length || /stackup .*thickness/.test(board?.detail), "board setup: stackup thickness");
+}
+
+// ---- design rules (.kicad_pro, .kicad_dru) ----
+{
+  const dir = kicadDemos("jetson-agx-thor-baseboard");
+  const proText = readText(`${dir}/jetson-agx-thor-baseboard.kicad_pro`);
+  check(diffRules("x.kicad_pro", proText, proText).changes.length === 0, "identical project → no rule changes");
+  const pro = JSON.parse(proText);
+  pro.board.design_settings.rules.min_clearance += 0.05;
+  pro.board.design_settings.rule_severities.clearance = "ignore";
+  pro.board.design_settings.track_widths.push(0.42);
+  pro.net_settings.classes[0].clearance += 0.1;
+  pro.net_settings.classes.push({ ...pro.net_settings.classes[0], name: "HV", clearance: 1.5 });
+  const net = Object.keys(pro.net_settings.netclass_assignments)[0];
+  pro.net_settings.netclass_assignments[net] = ["HV"];
+  pro.meta = { filename: "noise.kicad_pro" }; // settings outside the design rules are ignored
+  const d = diffRules("x.kicad_pro", proText, JSON.stringify(pro));
+  const find = (pred) => d.changes.find(pred);
+  check(find((c) => c.type === "constraint" && c.label === "Min clearance" && / mm → /.test(c.detail)), "constraint change");
+  check(find((c) => c.type === "DRC check" && c.label === "Clearance" && c.detail === "error → ignore"), "DRC severity change");
+  check(find((c) => c.type === "size presets" && c.kind === "added" && /0\.42 mm/.test(c.detail)), "track width preset added");
+  check(find((c) => c.type === "netclass" && c.kind === "modified" && c.label === pro.net_settings.classes[0].name && /Clearance/.test(c.detail)), "netclass clearance change");
+  check(find((c) => c.type === "netclass" && c.kind === "added" && c.label === "HV" && c.rows.some((r) => r[0] === "Clearance" && r[2] === "1.5 mm")), "netclass added");
+  check(find((c) => c.type === "net assignment" && c.label === "HV" && c.rows.some((r) => r[0] === net)), "net moved to another netclass");
+  check(d.changes.length === 6, `nothing else reported (${d.changes.length} changes)`);
+
+  const dru = readText(`${dir}/jetson-agx-thor-baseboard.kicad_dru`);
+  check(diffRules("x.kicad_dru", dru, dru).changes.length === 0, "identical custom rules → no changes");
+  const edited = dru.replace("(constraint track_width (opt 0.15mm))", "(constraint track_width (opt 0.14mm))").replace(/\(rule "\(90_ohm_outer"[\s\S]*?\n\)\n/, "") + '\n# added\n(rule "hv" (condition "A.NetClass == \'HV\'") (constraint clearance (min 1.5mm)))\n';
+  const dd = diffRules("x.kicad_dru", dru, edited).changes;
+  check(dd.some((c) => c.kind === "modified" && c.label === "(85_ohm_inner" && c.rows.some((r) => r[0] === "constraint track_width" && r[1] === "(opt 0.15mm)" && r[2] === "(opt 0.14mm)")), "custom rule constraint change");
+  check(dd.some((c) => c.kind === "removed" && c.label === "(90_ohm_outer"), "custom rule removed");
+  check(dd.some((c) => c.kind === "added" && c.label === "hv" && /HV/.test(c.detail)), "custom rule added");
+  check(dd.length === 3, `nothing else reported (${dd.map((c) => c.label).join(", ")})`);
+}
+
+// ---- PR inbox badge: patches and which files count ----
+{
+  /** A unified diff like GitHub's `patch`, from diff -u (its ---/+++ header is skipped). */
+  const unified = (x, y) => {
+    const dir = GLib.dir_make_tmp("kivi-diff-XXXXXX");
+    GLib.file_set_contents(`${dir}/a`, x);
+    GLib.file_set_contents(`${dir}/b`, y);
+    const [, out] = GLib.spawn_command_line_sync(`diff -u ${dir}/a ${dir}/b`);
+    for (const f of ["a", "b"]) GLib.unlink(`${dir}/${f}`);
+    GLib.rmdir(dir);
+    return new TextDecoder().decode(out);
+  };
+  const pro = readText(`${kicadDemos("jetson-agx-thor-baseboard")}/jetson-agx-thor-baseboard.kicad_pro`);
+  const lines = pro.split("\n");
+  const edits = {
+    "changed line": (l) => l.map((x, i) => (i === 40 ? x + " " : x)),
+    "lines removed": (l) => l.filter((_, i) => i < 100 || i > 104),
+    "lines added": (l) => [...l.slice(0, 200), "  \"new\": 1,", ...l.slice(200)],
+    "first line": (l) => ["{ ", ...l.slice(1)],
+    "last lines": (l) => [...l.slice(0, -3), "}"],
+    "several hunks": (l) => l.map((x, i) => (i % 150 === 7 ? x + "x" : x)).filter((_, i) => i !== 333),
+  };
+  for (const [name, edit] of Object.entries(edits)) {
+    const after = edit(lines).join("\n");
+    check(textBeforePatch(after, unified(pro, after)) === pro, `text before a patch: ${name}`);
+  }
+
+  const proRules = JSON.parse(pro);
+  proRules.board.design_settings.rules.min_clearance = 0.2;
+  const ruled = JSON.stringify(proRules, null, 2), base = JSON.stringify(JSON.parse(pro), null, 2);
+  const cosmetic = base.replace('"meta": {', '"meta": {\n    "x_window": 1,');
+  const contents = (path) => `https://api.github.com/repos/o/r/contents/${path}?ref=${"c".repeat(40)}`;
+  const heads = { "a/rules.kicad_pro": ruled, "b/cosmetic.kicad_pro": cosmetic };
+  const files = [
+    { filename: "a/x.kicad_sch", status: "modified" },
+    { filename: "a/rules.kicad_pro", status: "modified", patch: unified(base, ruled), contents_url: contents("a/rules.kicad_pro") },
+    { filename: "b/cosmetic.kicad_pro", status: "modified", patch: unified(base, cosmetic), contents_url: contents("b/cosmetic.kicad_pro") },
+    { filename: "c/big.kicad_pro", status: "modified", contents_url: contents("c/big.kicad_pro") }, // no patch: too large
+    { filename: "d/broken.kicad_pro", status: "modified", patch: "@@ -1 +1 @@\n-a\n+b", contents_url: contents("d/broken.kicad_pro") },
+    { filename: "e/new.kicad_pro", status: "added" },
+    { filename: "a/rules.kicad_dru", status: "modified" },
+    { filename: "README.md", status: "modified" },
+  ];
+  const reads = [];
+  const read = async (path, ref) => {
+    reads.push([path, ref]);
+    if (!heads[path]) throw new Error("404");
+    return heads[path];
+  };
+  const counted = (await kicadFilesChanged(files, read)).map((f) => f.filename);
+  check(counted.join() === "a/x.kicad_sch,a/rules.kicad_pro,c/big.kicad_pro,d/broken.kicad_pro,e/new.kicad_pro,a/rules.kicad_dru", `PR files counted: ${counted.join(", ")}`);
+  check(!counted.includes("b/cosmetic.kicad_pro"), "a .kicad_pro without rule changes doesn't count");
+  check(reads.every(([, ref]) => ref === "c".repeat(40)) && reads.length === 3, `only the changed .kicad_pro files are read, at the PR head (${reads.length})`);
 }
 
 print(failures ? `\n${failures} failure(s)` : "\nall diff checks passed");

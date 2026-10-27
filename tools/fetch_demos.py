@@ -5,7 +5,7 @@
     python3 tools/fetch_demos.py --refresh 10.0.7   # rewrite the list for another KiCad tag
 
 tests/kicad-demos.txt (committed) pins a KiCad release tag and lists the design
-files the tests read (.kicad_pro/_sch/_pcb/_wks under 20 MB: no 3D models,
+files the tests read (.kicad_pro/_sch/_pcb/_wks/_dru under 20 MB: no 3D models,
 PDFs or Gerbers) with their git blob hash and size. Each file is fetched from
 raw.githubusercontent.com/KiCad/kicad-source-mirror/<tag>/demos/<path> (not
 subject to the API rate limit) into tests/kicad-demos/ (git-ignored) and
@@ -27,7 +27,7 @@ ROOT = Path(__file__).resolve().parent.parent
 LIST = ROOT / "tests" / "kicad-demos.txt"
 OUT = ROOT / "tests" / "kicad-demos"
 MIRROR = "KiCad/kicad-source-mirror"
-EXTENSIONS = (".kicad_pro", ".kicad_sch", ".kicad_pcb", ".kicad_wks")
+EXTENSIONS = (".kicad_pro", ".kicad_sch", ".kicad_pcb", ".kicad_wks", ".kicad_dru")
 MAX_SIZE = 20_000_000  # tests/run.js and nets.js skip bigger boards anyway
 
 

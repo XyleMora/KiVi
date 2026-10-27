@@ -154,8 +154,48 @@ export class GitHubSource {
 
 /** Files that the visual diff can show. */
 export const DIFFABLE = /\.kicad_(sch|pcb)$/i;
+/** Design rule files: the visual diff compares their rules (rules-diff.js) rather than drawing them. */
+export const RULE_FILES = /\.kicad_(pro|dru)$/i;
+const COMPARED = (path) => DIFFABLE.test(path) || RULE_FILES.test(path);
 
 const FULL_SHA = /^[0-9a-f]{40}$/i;
+
+/**
+ * A file's text before a change, rebuilt from its text after and the unified
+ * diff GitHub lists for it (the `patch` of /pulls/N/files), so the old
+ * version needs no request of its own.
+ * @param {string} after
+ * @param {string} patch
+ * @returns {string}
+ */
+export function textBeforePatch(after, patch) {
+  const afterNewline = after.endsWith("\n");
+  const lines = (afterNewline ? after.slice(0, -1) : after).split("\n");
+  const out = [];
+  let i = 0; // next line of `after`
+  let inHunk = false, prev = "";
+  // Whether the old text ends with a newline: as the new one, unless a
+  // "\ No newline at end of file" marker says otherwise.
+  let beforeNewline = afterNewline;
+  for (const line of patch.split("\n")) {
+    const m = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/.exec(line);
+    if (m) {
+      // "+c,0" (lines only removed) means after line c; otherwise the hunk starts at line c.
+      const start = m[2] === "0" ? Number(m[1]) : Number(m[1]) - 1;
+      while (i < start) out.push(lines[i++]);
+      inHunk = true;
+      continue;
+    }
+    if (!inHunk) continue;
+    if (line.startsWith("\\")) beforeNewline = prev === "+";
+    else if (line.startsWith("+")) i++;
+    else if (line.startsWith("-")) out.push(line.slice(1));
+    else if (line.startsWith(" ")) out.push(lines[i++]);
+    prev = line[0];
+  }
+  while (i < lines.length) out.push(lines[i++]);
+  return out.join("\n") + (beforeNewline ? "\n" : "");
+}
 
 /** Files that differ between two commits, from their trees (the compare API only measures from the merge base). */
 async function treeDiff(api, owner, repo, a, b) {
@@ -225,7 +265,7 @@ export async function resolveComparison(spec, token = null) {
     url = cmp.html_url;
   }
   files = files
-    .filter((f) => DIFFABLE.test(f.filename) || DIFFABLE.test(f.previous_filename ?? ""))
+    .filter((f) => COMPARED(f.filename) || COMPARED(f.previous_filename ?? ""))
     .map((f) => ({ path: f.filename, previous: f.previous_filename ?? f.filename, status: f.status }));
   return { base, head, files, title, url };
 }

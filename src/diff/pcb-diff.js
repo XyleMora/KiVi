@@ -86,18 +86,70 @@ export function diffPcb(a, b, ra, rb) {
   if (remV.length) changes.push({ kind: "removed", type: "vias", label: `${remV.length} via${remV.length > 1 ? "s" : ""}`, before: viaBox(remV), viasBefore: remV });
   if (addV.length) changes.push({ kind: "added", type: "vias", label: `${addV.length} via${addV.length > 1 ? "s" : ""}`, after: viaBox(addV), viasAfter: addV });
 
-  // ---- zones (outline / net / layers; fills are regenerated and too noisy) ----
-  const zk = (z) => `${z.net}|${z.layers.join(",")}|${z.keepout}|${z.outline.map((o) => o.map((p) => (p.arc ? pk(p.start) : pk(p))).join(";")).join("/")}`;
-  const za = new Map((a?.zones ?? []).map((z) => [zk(z), z]));
-  const zb = new Map((b?.zones ?? []).map((z) => [zk(z), z]));
+  // ---- zones (outline, net, layers, settings; fills are regenerated and too noisy) ----
+  const outlineKey = (z) => z.outline.map((o) => o.map((p) => (p.arc ? pk(p.start) : pk(p))).join(";")).join("/");
+  const zk = (z) => `${z.net}|${z.layers.join(",")}|${z.keepout}|${outlineKey(z)}`;
   const zoneBox = (z) => {
     const bb = new BBox();
     for (const o of z.outline) for (const p of o) p.arc ? bb.add(p.start.x, p.start.y) : bb.add(p.x, p.y);
     return bb;
   };
   const outline = (z) => z.outline.map((o) => o.map((p) => (p.arc ? p.start : p)));
-  for (const [k, z] of za) if (!zb.has(k)) changes.push({ kind: "removed", type: z.keepout ? "rule area" : "zone", label: z.net || z.name || "zone", detail: z.layers.join(", "), before: zoneBox(z), outlinesBefore: outline(z) });
-  for (const [k, z] of zb) if (!za.has(k)) changes.push({ kind: "added", type: z.keepout ? "rule area" : "zone", label: z.net || z.name || "zone", detail: z.layers.join(", "), after: zoneBox(z), outlinesAfter: outline(z) });
+  const zoneType = (z) => (z.keepout ? "rule area" : "zone");
+  const zoneLabel = (z) => (z.keepout ? z.name || "rule area" : z.net || z.name || "zone");
+  const zonesA = (a?.zones ?? []).filter((z) => !z.teardrop), zonesB = (b?.zones ?? []).filter((z) => !z.teardrop);
+  // Matched by UUID (KiCad 6+ keeps it while a zone is edited), else by net, layers and outline.
+  const zoneUuids = new Map(zonesB.filter((z) => z.uuid).map((z) => [z.uuid, z]));
+  const zonePairs = [];
+  const leftA = [], leftB = new Set(zonesB);
+  for (const z of zonesA) {
+    const w = z.uuid && zoneUuids.get(z.uuid);
+    if (w && leftB.has(w)) {
+      zonePairs.push([z, w]);
+      leftB.delete(w);
+    } else leftA.push(z);
+  }
+  const byKey = new Map([...leftB].map((z) => [zk(z), z]));
+  for (const z of leftA) {
+    const w = byKey.get(zk(z));
+    if (w && leftB.has(w)) {
+      zonePairs.push([z, w]);
+      leftB.delete(w);
+    } else changes.push({ kind: "removed", type: zoneType(z), label: zoneLabel(z), detail: z.layers.join(", "), before: zoneBox(z), outlinesBefore: outline(z) });
+  }
+  for (const w of leftB) changes.push({ kind: "added", type: zoneType(w), label: zoneLabel(w), detail: w.layers.join(", "), after: zoneBox(w), outlinesAfter: outline(w) });
+  for (const [z, w] of zonePairs) {
+    const d = [];
+    if (z.net !== w.net) d.push(`net ${z.net || "—"} → ${w.net || "—"}`);
+    if (z.layers.join(",") !== w.layers.join(",")) d.push(`layers ${z.layers.join(", ")} → ${w.layers.join(", ")}`);
+    if (z.keepout !== w.keepout) d.push(w.keepout ? "became a rule area" : "became a zone");
+    if (outlineKey(z) !== outlineKey(w)) d.push("outline changed");
+    d.push(...zoneSettingDiffs(z.settings, w.settings));
+    if (d.length) changes.push({ kind: "modified", type: zoneType(w), label: zoneLabel(w), detail: d.join("; "), fields: d, before: zoneBox(z), after: zoneBox(w), outlinesBefore: outline(z), outlinesAfter: outline(w) });
+  }
+  // Teardrops follow the routing; one line says they changed, without listing hundreds of them.
+  const tdKey = (z) => `${z.net}|${z.layers.join(",")}|${outlineKey(z)}`;
+  const tda = new Map((a?.zones ?? []).filter((z) => z.teardrop).map((z) => [tdKey(z), z]));
+  const tdb = new Map((b?.zones ?? []).filter((z) => z.teardrop).map((z) => [tdKey(z), z]));
+  const remTd = [...tda].filter(([k]) => !tdb.has(k)).map(([, z]) => z);
+  const addTd = [...tdb].filter(([k]) => !tda.has(k)).map(([, z]) => z);
+  if (remTd.length || addTd.length) {
+    const box = (list) => {
+      const bb = new BBox();
+      for (const z of list) bb.addBox(zoneBox(z));
+      return bb.grow(0.3);
+    };
+    changes.push({
+      kind: addTd.length && remTd.length ? "modified" : addTd.length ? "added" : "removed",
+      type: "teardrops",
+      label: "Teardrops",
+      detail: [addTd.length ? `+${addTd.length}` : "", remTd.length ? `−${remTd.length}` : ""].filter(Boolean).join(" / "),
+      before: remTd.length ? box(remTd) : null,
+      after: addTd.length ? box(addTd) : null,
+      outlinesBefore: remTd.flatMap(outline),
+      outlinesAfter: addTd.flatMap(outline),
+    });
+  }
 
   // ---- board graphics (outline, silkscreen, documentation), grouped per layer ----
   const gk = (g) => {
@@ -150,10 +202,80 @@ export function diffPcb(a, b, ra, rb) {
     if (a.thickness !== b.thickness) d.push(`thickness ${a.thickness} → ${b.thickness} mm`);
     const cuA = a.layers.filter((l) => l.name.endsWith(".Cu")).length, cuB = b.layers.filter((l) => l.name.endsWith(".Cu")).length;
     if (cuA !== cuB) d.push(`copper layers ${cuA} → ${cuB}`);
+    if ((a.finish ?? null) !== (b.finish ?? null)) d.push(`copper finish ${a.finish || "—"} → ${b.finish || "—"}`);
+    d.push(...stackupDiffs(a.stackup, b.stackup));
+    for (const [k, label, unit] of SETUP_FIELDS) {
+      const x = a.setup?.[k], y = b.setup?.[k];
+      if (x !== y && !(typeof x === "number" && typeof y === "number" && r3(x) === r3(y))) d.push(`${label} ${show(x, unit)} → ${show(y, unit)}`);
+    }
     if (d.length) changes.push({ kind: "modified", type: "board", label: "Board setup", detail: d.join("; "), fields: d });
   }
 
   return { changes, summary: summarize(changes) };
+}
+
+const SETUP_FIELDS = [
+  ["pad_to_mask_clearance", "solder mask expansion", "mm"],
+  ["solder_mask_min_width", "solder mask minimum web", "mm"],
+  ["pad_to_paste_clearance", "paste clearance", "mm"],
+  ["pad_to_paste_clearance_ratio", "paste clearance ratio", ""],
+  ["allow_soldermask_bridges_in_footprints", "solder mask bridges in footprints", ""],
+];
+
+const ZONE_FIELDS = [
+  ["priority", "priority", ""],
+  ["pads", "pad connections", ""],
+  ["clearance", "clearance", "mm"],
+  ["minWidth", "minimum width", "mm"],
+  ["fill", "fill", ""],
+  ["thermalGap", "thermal relief gap", "mm"],
+  ["spokeWidth", "thermal spoke width", "mm"],
+  ["islands", "remove islands", ""],
+  ["islandArea", "minimum island area", "mm²"],
+  ["hatchWidth", "hatch width", "mm"],
+  ["hatchGap", "hatch gap", "mm"],
+  ["smoothing", "corner smoothing", ""],
+  ["radius", "corner radius", "mm"],
+  ["keepout", "keep out", ""],
+];
+
+/** Changed zone settings, worded like KiCad's zone dialog. */
+function zoneSettingDiffs(s, t) {
+  const d = [];
+  if (!s || !t) return d;
+  for (const [k, label, unit] of ZONE_FIELDS) {
+    const x = s[k] ?? null, y = t[k] ?? null;
+    if (typeof x === "number" && typeof y === "number" ? r3(x) !== r3(y) : x !== y) d.push(`${label} ${show(x, unit)} → ${show(y, unit)}`);
+  }
+  return d;
+}
+
+/** Stackup layers added, removed or with another thickness, material or dielectric constant. */
+function stackupDiffs(sa, sb) {
+  const d = [];
+  if (!sa?.length || !sb?.length) return d; // boards without a stackup section use KiCad's defaults
+  const mb = new Map(sb.map((l) => [l.name, l]));
+  const ma = new Map(sa.map((l) => [l.name, l]));
+  for (const l of sa) {
+    const m = mb.get(l.name);
+    if (!m) {
+      d.push(`stackup: ${l.name} removed`);
+      continue;
+    }
+    const parts = [];
+    if (r3(l.thickness) !== r3(m.thickness)) parts.push(`thickness ${show(l.thickness, "mm")} → ${show(m.thickness, "mm")}`);
+    if ((l.material ?? null) !== (m.material ?? null)) parts.push(`material ${l.material || "—"} → ${m.material || "—"}`);
+    if ((l.epsilon ?? null) !== (m.epsilon ?? null)) parts.push(`εr ${l.epsilon ?? "—"} → ${m.epsilon ?? "—"}`);
+    if (parts.length) d.push(`stackup ${l.name}: ${parts.join(", ")}`);
+  }
+  for (const m of sb) if (!ma.has(m.name)) d.push(`stackup: ${m.name} added`);
+  return d;
+}
+
+function show(v, unit) {
+  if (v === null || v === undefined || v === "") return "—";
+  if (typeof v === "number") return unit ? `${r3(v)} ${unit}` : String(r3(v));
+  return String(v);
 }
 
 function footprintDiffs(f, g) {
@@ -169,13 +291,14 @@ function footprintDiffs(f, g) {
   const attrsA = f.attrs.filter((x) => x !== "dnp").join(","), attrsB = g.attrs.filter((x) => x !== "dnp").join(",");
   if (attrsA !== attrsB) d.push(`attributes ${attrsA || "—"} → ${attrsB || "—"}`);
   // Pad net changes (re-wiring in the schematic shows up here).
-  const pa = new Map(f.pads.map((p) => [p.number, p.net]));
+  const pa = byOccurrence(f.pads, (p) => p.number);
   let netChanges = 0;
   const examples = [];
-  for (const p of g.pads) {
-    if (pa.has(p.number) && pa.get(p.number) !== p.net) {
+  for (const [k, p] of byOccurrence(g.pads, (q) => q.number)) {
+    const q = pa.get(k);
+    if (q && q.net !== p.net) {
       netChanges++;
-      if (examples.length < 2) examples.push(`pad ${p.number}: ${pa.get(p.number) || "—"} → ${p.net || "—"}`);
+      if (examples.length < 2) examples.push(`pad ${p.number}: ${q.net || "—"} → ${p.net || "—"}`);
     }
   }
   if (netChanges) d.push(netChanges <= 2 ? examples.join("; ") : `${netChanges} pad nets changed`);
@@ -187,20 +310,36 @@ function footprintDiffs(f, g) {
   return d;
 }
 
+/**
+ * Items keyed by `key` plus their occurrence ("MP", "MP#2", …), so duplicates
+ * (several mounting pads numbered MP, two texts alike on a layer) pair up in
+ * file order instead of all meeting the last one.
+ */
+function byOccurrence(list, key) {
+  const seen = new Map(), out = new Map();
+  for (const x of list) {
+    const k = key(x);
+    const n = (seen.get(k) ?? 0) + 1;
+    seen.set(k, n);
+    out.set(n > 1 ? `${k}#${n}` : k, x);
+  }
+  return out;
+}
+
 function textDiffs(f, g) {
   const out = [];
   const visible = (fp) => fp.texts.filter((t) => !t.hide && t.text);
   const name = (t) => `${t.field ?? `"${t.text}"`} on ${t.layer}`;
   const ka = (t) => `${t.layer}|${t.field ?? t.text}`;
-  const tb = new Map(visible(g).map((t) => [ka(t), t]));
+  const tb = byOccurrence(visible(g), ka);
   const seen = new Set();
-  for (const t of visible(f)) {
-    const u = tb.get(ka(t));
+  for (const [k, t] of byOccurrence(visible(f), ka)) {
+    const u = tb.get(k);
     if (!u) {
       out.push(`${name(t)} removed`);
       continue;
     }
-    seen.add(ka(t));
+    seen.add(k);
     const parts = [];
     if (r3(t.effects.size) !== r3(u.effects.size) || r3(t.effects.width) !== r3(u.effects.width)) parts.push(`size ${r3(t.effects.size)} → ${r3(u.effects.size)} mm`);
     if (r3(t.effects.thickness) !== r3(u.effects.thickness)) parts.push(`thickness ${r3(t.effects.thickness)} → ${r3(u.effects.thickness)} mm`);

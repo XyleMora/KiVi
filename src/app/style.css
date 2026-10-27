@@ -245,6 +245,17 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.5); }
 .st-added { color: #6fa8ff; }
 .st-removed { color: #e8873a; }
 .st-modified, .st-renamed { color: #c9a6f0; }
+/* A design rule file (.kicad_pro, .kicad_dru) has a table instead of the canvases. */
+.rules-mode .split, .rules-mode #overlay-pane, .rules-mode .zoom-ctl { display: none !important; }
+.rules-view { flex: 1; overflow: auto; padding: 16px; }
+table.rules-table { border-collapse: collapse; width: 100%; max-width: 980px; font-size: 13px; }
+.rules-table th, .rules-table td { text-align: left; padding: 6px 12px; border-bottom: 1px solid var(--border-soft); vertical-align: top; }
+.rules-table thead th { position: sticky; top: 0; background: var(--surface); color: var(--muted); font-size: 12px; font-weight: 600; z-index: 1; }
+.rules-table td.mono { font-family: var(--mono); font-size: 12px; overflow-wrap: anywhere; }
+.rules-table .rules-head th { padding-top: 14px; font-weight: 600; cursor: pointer; }
+.rules-table .rules-head .ctype { color: var(--muted); font-weight: 400; font-size: 12px; margin-left: 4px; }
+.rules-table tbody { cursor: pointer; }
+.rules-table tbody[aria-current] td, .rules-table tbody[aria-current] th { background: #2a2213; }
 .cbody { display: flex; flex-direction: column; min-width: 0; }
 .clabel { overflow-wrap: anywhere; }
 .ctype { color: var(--faint); font-size: 11px; }
@@ -365,6 +376,8 @@ textarea.input { resize: vertical; font-size: 12px; white-space: pre; overflow-x
 .branch-menu-list { position: absolute; right: 0; top: calc(100% + 4px); z-index: 20; width: 280px; display: flex; flex-direction: column; padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 8px 24px rgb(0 0 0 / 0.45); }
 .branch-menu-list > a, .branch-menu-list > button, .branch-list button { display: flex; align-items: center; gap: 6px; background: none; border: 0; color: var(--text); font: inherit; font-size: 13px; text-align: left; padding: 6px 10px; border-radius: 4px; cursor: pointer; text-decoration: none; }
 .branch-menu-list > a:hover, .branch-menu-list > button:hover, .branch-list button:hover:not(:disabled) { background: var(--bg); }
+.branch-menu-list > button[aria-disabled="true"] { opacity: 0.45; cursor: default; }
+.branch-menu-list > button[aria-disabled="true"]:hover { background: none; }
 .branch-menu-list hr { border: 0; border-top: 1px solid var(--border); margin: 4px 2px; }
 .branch-head { padding: 6px 10px 4px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
 .branch-filter { margin: 0 6px 4px; width: calc(100% - 12px); font-size: 12px; }

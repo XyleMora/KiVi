@@ -2,7 +2,7 @@
 // (desktop app, diff.html#local=<folder>) a local git copy's working files with
 // the point where its branch left main.
 
-import { DIFFABLE, GitHubSource, resolveComparison } from "../sources.js";
+import { DIFFABLE, RULE_FILES, GitHubSource, resolveComparison } from "../sources.js";
 import { parseSchematic } from "../sch/model.js";
 import { renderSchematic } from "../sch/render.js";
 import { parsePcb } from "../pcb/model.js";
@@ -10,6 +10,7 @@ import { renderPcb } from "../pcb/render.js";
 import { trackPath, circlePath } from "../pcb/shapes.js";
 import { diffSchematic } from "../diff/sch-diff.js";
 import { diffPcb } from "../diff/pcb-diff.js";
+import { diffRules } from "../diff/rules-diff.js";
 import { BBox, f } from "../geom.js";
 import { dirname } from "../project.js";
 import { SvgView } from "./svgview.js";
@@ -26,7 +27,9 @@ const LAYER_PRESETS = {
 };
 
 const VIEW_SIDE = { before: "base", after: "head", overlay: "head" };
-const TYPE_ORDER = ["symbol", "footprint", "sheet", "label", "routing", "vias", "wire", "bus", "zone", "rule area", "outline", "graphics", "junction", "no-connect", "text", "title block", "board"];
+const TYPE_ORDER = ["symbol", "footprint", "sheet", "net", "label", "routing", "vias", "wire", "bus", "zone", "rule area", "teardrops", "outline", "graphics", "junction", "no-connect", "text", "title block", "board",
+  "constraint", "DRC check", "netclass", "netclass pattern", "net assignment", "size presets", "custom rule"];
+const COMPARED = (path) => DIFFABLE.test(path ?? "") || RULE_FILES.test(path ?? "");
 
 class DiffApp {
   constructor() {
@@ -70,7 +73,7 @@ class DiffApp {
   async localComparison(spec) {
     if (!this.localGit) throw new Error("Local changes can only be shown in the KiVi desktop app");
     const lc = await this.localGit.changes(spec.local, spec.base, spec.head);
-    const files = lc.files.filter((f) => DIFFABLE.test(f.path) || DIFFABLE.test(f.previous)).map((f) => ({ path: f.path, previous: f.previous, status: f.status }));
+    const files = lc.files.filter((f) => COMPARED(f.path) || COMPARED(f.previous)).map((f) => ({ path: f.path, previous: f.previous, status: f.status }));
     const branch = lc.branch ?? "working copy";
     const head = lc.head_sha
       ? { sha: lc.head_sha, ref: lc.head_ref, src: this.localGit.source(lc.root, lc.head_sha) }
@@ -171,6 +174,7 @@ class DiffApp {
       $("#after-ref").textContent = spec.pr ? (cmp.head.label ?? cmp.head.sha.slice(0, 7)) : "";
       this.mountPickers(spec, cmp);
       document.title = `${cmp.title} — KiVi diff`;
+      await this.dropUnchangedRules(cmp);
       if (!cmp.files.length) {
         // The panes stay, empty, so their labels can still pick other versions.
         this.file = null;
@@ -185,7 +189,7 @@ class DiffApp {
         this.busy(null);
         return;
       }
-      const order = (p) => (p.endsWith(".kicad_pcb") ? 1 : 0);
+      const order = (p) => (RULE_FILES.test(p) ? 2 : p.endsWith(".kicad_pcb") ? 1 : 0);
       cmp.files.sort((a, b) => order(a.path) - order(b.path) || a.path.localeCompare(b.path));
       this.renderFileList();
       if (spec.pr) {
@@ -200,6 +204,25 @@ class DiffApp {
     } finally {
       this.busy(null);
     }
+  }
+
+  /**
+   * KiCad rewrites the .kicad_pro on almost every save, so design rule files
+   * stay in the list only when their rules changed. One that can't be read stays.
+   */
+  async dropUnchangedRules(cmp) {
+    const rules = cmp.files.filter((fl) => RULE_FILES.test(fl.path) || RULE_FILES.test(fl.previous));
+    if (!rules.length) return;
+    const unchanged = new Set();
+    await Promise.all(
+      rules.map((fl) =>
+        this.computeFile(fl).then(
+          (res) => res.diff.changes.length || unchanged.add(fl),
+          (e) => console.warn(fl.path, e),
+        ),
+      ),
+    );
+    cmp.files = cmp.files.filter((fl) => !unchanged.has(fl));
   }
 
   /**
@@ -340,7 +363,9 @@ class DiffApp {
     this.busy("Comparing…");
     await new Promise((r) => setTimeout(r, 0));
     let res;
-    if (isPcb) {
+    if (RULE_FILES.test(fl.path)) {
+      res = { kind: "rules", diff: diffRules(fl.path, ta, tb), home: new BBox().add(0, 0).add(100, 100) };
+    } else if (isPcb) {
       const a = ta ? parsePcb(ta, fl.previous) : null, b = tb ? parsePcb(tb, fl.path) : null;
       const ra = a ? renderPcb(a, {}) : null, rb = b ? renderPcb(b, {}) : null;
       const d = diffPcb(a, b, ra, rb);
@@ -355,7 +380,7 @@ class DiffApp {
       const d = diffSchematic(a, b, ra, rb);
       const home = new BBox();
       for (const s of [a, b]) if (s) home.add(0, 0).add(s.paper.width, s.paper.height);
-      res = { kind: "sch", a, b, ra, rb, diff: d, home };
+      res = { kind: "sch", a, b, ra, rb, diff: d, home, connA: d.connA, connB: d.connB };
     }
     // Sort changes for the list.
     res.diff.changes.sort((x, y) => TYPE_ORDER.indexOf(x.type) - TYPE_ORDER.indexOf(y.type) || refCompare(x.label, y.label));
@@ -376,6 +401,9 @@ class DiffApp {
       this.selected = -1;
       for (const b of document.querySelectorAll("#file-list button")) b.toggleAttribute("aria-current", this.cmp.files[Number(b.dataset.file)] === fl);
       $("#layer-preset").hidden = res.kind !== "pcb";
+      $("#diff-main").classList.toggle("rules-mode", res.kind === "rules");
+      $("#rules-view").hidden = res.kind !== "rules";
+      if (res.kind === "rules") this.renderRules(res);
       const home = { x0: res.home.x0, y0: res.home.y0, x1: res.home.x1, y1: res.home.y1 };
       const empty = (msg) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${home.x0} ${home.y0} ${home.x1 - home.x0} ${home.y1 - home.y0}"><text x="${(home.x0 + home.x1) / 2}" y="${(home.y0 + home.y1) / 2}" text-anchor="middle" font-size="${(home.x1 - home.x0) / 40}" fill="#6e7681" font-family="sans-serif">${msg}</text></svg>`;
       this.before.setSvg(res.ra?.svg ?? empty("File does not exist in this version"), home);
@@ -391,8 +419,8 @@ class DiffApp {
       this.review.refresh();
       // A local copy opens its working files (the folder, with the project of this file), or the compared commit.
       const viewerHash = this.cmp.root
-        ? new URLSearchParams({ folder: this.cmp.root, project: fl.path.replace(/\.kicad_(sch|pcb)$/i, ".kicad_pro"), ...(this.cmp.head.sha && { commit: this.cmp.head.sha }) })
-        : new URLSearchParams({ gh: `${this.cmp.head.owner}/${this.cmp.head.repo}@${this.cmp.head.sha}${dirname(fl.path) ? `:${dirname(fl.path)}` : ""}`, tab: res.kind === "pcb" ? "pcb" : "sch", file: fl.path });
+        ? new URLSearchParams({ folder: this.cmp.root, project: fl.path.replace(/\.kicad_(sch|pcb|dru)$/i, ".kicad_pro"), ...(this.cmp.head.sha && { commit: this.cmp.head.sha }) })
+        : new URLSearchParams({ gh: `${this.cmp.head.owner}/${this.cmp.head.repo}@${this.cmp.head.sha}${dirname(fl.path) ? `:${dirname(fl.path)}` : ""}`, tab: res.kind === "sch" ? "sch" : "pcb", ...(res.kind !== "rules" && { file: fl.path }) });
       if (this.spec.pr) viewerHash.set("pr", `${this.spec.owner}/${this.spec.repo}#${this.spec.pr}`);
       $("#open-viewer").href = `index.html#${viewerHash}`;
       this.writeHash();
@@ -402,6 +430,25 @@ class DiffApp {
     } finally {
       this.busy(null);
     }
+  }
+
+  /** A design rule file: its changes as a Setting / Before / After table, one group per change. */
+  renderRules(res) {
+    const ch = res.diff.changes;
+    const sign = { added: "+", removed: "−", modified: "~" };
+    $("#rules-view").innerHTML = ch.length
+      ? `<table class="rules-table"><thead><tr><th>Setting</th><th>Before</th><th>After</th></tr></thead>` +
+        ch
+          .map(
+            (c, i) =>
+              `<tbody data-i="${i}"><tr class="rules-head"><th colspan="3"><span class="st st-${c.kind}">${sign[c.kind]}</span> ${escapeHtml(c.label)} <span class="ctype">${escapeHtml(c.type)}</span></th></tr>` +
+              (c.rows ?? []).map(([k, x, y]) => `<tr><td>${escapeHtml(k)}</td><td class="mono">${escapeHtml(x)}</td><td class="mono">${escapeHtml(y)}</td></tr>`).join("") +
+              `</tbody>`,
+          )
+          .join("") +
+        `</table>`
+      : `<p class="muted">No design rule changes in this file.</p>`;
+    for (const tb of document.querySelectorAll("#rules-view tbody[data-i]")) tb.addEventListener("click", () => this.select(Number(tb.dataset.i)));
   }
 
   /** Both versions stacked in one SVG (nested viewports keep coordinates aligned). */
@@ -467,6 +514,11 @@ class DiffApp {
     this.selected = i;
     for (const b of document.querySelectorAll("#change-list button")) b.toggleAttribute("aria-current", Number(b.dataset.i) === i);
     document.querySelector(`#change-list button[data-i="${i}"]`)?.scrollIntoView({ block: "nearest" });
+    if (this.res?.kind === "rules") {
+      for (const tb of document.querySelectorAll("#rules-view tbody[data-i]")) tb.toggleAttribute("aria-current", Number(tb.dataset.i) === i);
+      document.querySelector(`#rules-view tbody[data-i="${i}"]`)?.scrollIntoView({ block: "nearest" });
+      return;
+    }
     this.drawMarks();
     const c = this.res.diff.changes[i];
     if (c && zoom) {
@@ -532,12 +584,12 @@ class DiffApp {
 
   locateAnchor(anchor, side) {
     const d = this.sideDoc(side);
-    if (!d.doc) return { x: anchor.x, y: anchor.y, found: false, mark: null };
+    if (!d.doc || this.res.kind === "rules") return { x: anchor.x, y: anchor.y, found: false, mark: null };
     return this.res.kind === "pcb" ? locatePcb(d.doc, d.render, anchor) : locateSch(d.doc, d.render, d.conn, anchor);
   }
 
   commentTarget(p, view) {
-    if (!this.res) return null;
+    if (!this.res || this.res.kind === "rules") return null;
     const side = VIEW_SIDE[view], d = this.sideDoc(side);
     if (!d.doc) return null;
     const scale = this[view].scale || 1;
@@ -616,8 +668,9 @@ class DiffApp {
         const outlines = side === "before" ? c.outlinesBefore : c.outlinesAfter;
         if (outlines?.length) out += `<path class="${cls} mk-outline" d="${outlines.map((pts) => pts.map((p, k) => `${k ? "L" : "M"}${f(p.x)} ${f(p.y)}`).join("") + "Z").join("")}"/>`;
         if (c.paths?.length) out += `<path class="${cls} mk-path" d="${c.paths.map((pts) => pts.map((p, k) => `${k ? "L" : "M"}${f(p.x)} ${f(p.y)}`).join("")).join("")}" style="stroke-width:0.5px"/>`;
-        if (c.boxes?.length) for (const b of c.boxes) out += `<rect class="${cls}" x="${f(b.x0)}" y="${f(b.y0)}" width="${f(b.w)}" height="${f(b.h)}"/>`;
-        if (!tracks?.length && !vias?.length && !c.paths?.length && !c.boxes?.length && !outlines?.length) out += `<rect class="${cls}" x="${f(box.x0)}" y="${f(box.y0)}" width="${f(box.w)}" height="${f(box.h)}" rx="0.4"/>`;
+        const boxes = (side === "before" ? c.boxesBefore : c.boxesAfter) ?? c.boxes;
+        if (boxes?.length) for (const b of boxes) out += `<rect class="${cls}" x="${f(b.x0)}" y="${f(b.y0)}" width="${f(b.w)}" height="${f(b.h)}"/>`;
+        if (!tracks?.length && !vias?.length && !c.paths?.length && !boxes?.length && !outlines?.length) out += `<rect class="${cls}" x="${f(box.x0)}" y="${f(box.y0)}" width="${f(box.w)}" height="${f(box.h)}" rx="0.4"/>`;
         else if (i === this.selected) out += `<rect class="mk mk-${c.kind} sel" x="${f(box.x0)}" y="${f(box.y0)}" width="${f(box.w)}" height="${f(box.h)}" rx="0.4" fill="none"/>`;
       });
       return out;

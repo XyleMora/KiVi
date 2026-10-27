@@ -63,19 +63,25 @@ export class Board3D {
       if (!this._running) return;
       this.controls.update();
       this.renderer.render(this.scene, this.camera);
+      this.tool?.frame();
       this._raf = requestAnimationFrame(loop);
     };
     loop();
     this.modelCache = new Map();
 
-    // Click (without dragging) picks a component.
+    // Click (without dragging) picks a component. An active tool (measure3d.js)
+    // gets clicks and hovers first: tool.pick(e) / tool.hover(e) return true
+    // when they used them.
+    this.tool = null;
     this.raycaster = new THREE.Raycaster();
     const el = this.renderer.domElement;
     el.addEventListener("pointerdown", (e) => (this._down = { x: e.clientX, y: e.clientY }));
+    el.addEventListener("pointermove", (e) => !this._down && this.tool?.hover(e));
     el.addEventListener("pointerup", (e) => {
       const d = this._down;
       this._down = null;
       if (!d || e.button !== 0 || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 4) return;
+      if (this.tool?.pick(e)) return;
       const { fp, net } = this.pick(e);
       this.select(fp?.reference ?? null);
       this.highlightNet(net ?? null);
@@ -530,6 +536,7 @@ export class Board3D {
   }
 
   dispose() {
+    this.tool?.dispose();
     this._running = false;
     cancelAnimationFrame(this._raf);
     this.resizeObserver.disconnect();

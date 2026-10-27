@@ -19,6 +19,11 @@ export class SvgView {
     this.view = null;
     this.home = null;
     this.overlay = null;
+    // An active tool (measure.js) gets clicks and hovers first: tool.pick(p, e)
+    // and tool.hover(p, e) return true when they used them; tool.redraw() after
+    // new content or a zoom.
+    this.tool = null;
+    this.toolLayer = null;
 
     this.el.classList.add("svgview");
     this.el.tabIndex = 0;
@@ -45,11 +50,15 @@ export class SvgView {
     this.overlay = document.createElementNS("http://www.w3.org/2000/svg", "g");
     this.overlay.setAttribute("class", "overlay");
     this.svg.appendChild(this.overlay);
+    this.toolLayer = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    this.toolLayer.setAttribute("class", "tool-layer");
+    this.svg.appendChild(this.toolLayer);
     const vb = this.svg.viewBox.baseVal;
     this.home = home ?? { x0: vb.x, y0: vb.y, x1: vb.x + vb.width, y1: vb.y + vb.height };
     if (keepView && prev) this.view = prev;
     else this.fit();
     this.apply();
+    this.tool?.redraw();
   }
 
   fit(box = this.home, pad = 0.03) {
@@ -88,6 +97,7 @@ export class SvgView {
     this.svg.setAttribute("viewBox", `${v.x} ${v.y} ${v.w} ${v.h}`);
     this.scale = r.width ? r.width / v.w : 1; // px per mm
     this.el.style.setProperty("--px", String(1 / this.scale));
+    if (this.toolLayer) this.tool?.redraw();
     if (!this._syncing) this.onViewChange?.(this.view);
   }
 
@@ -166,7 +176,9 @@ export class SvgView {
       }
       return;
     }
-    this.onHover?.(this.toDoc(e));
+    const p = this.toDoc(e);
+    if (this.tool?.hover(p, e)) return;
+    this.onHover?.(p);
   }
 
   up(e) {
@@ -177,6 +189,7 @@ export class SvgView {
     this.el.classList.remove("panning");
     if (d && !d.moved && d.button === 0) {
       const p = this.toDoc(e);
+      if (this.tool?.pick(p, e)) return;
       this.onPick?.(p, e);
       this.tap(e, p);
     }

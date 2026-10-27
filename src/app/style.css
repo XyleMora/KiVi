@@ -140,6 +140,22 @@ main { flex: 1; min-height: 0; display: flex; }
 .crumbs .sep { color: var(--faint); }
 .net-chip { position: absolute; left: 12px; top: 12px; z-index: 2; background: rgba(21, 24, 28, 0.94); border: 1px solid var(--border); border-radius: var(--radius); padding: 6px 10px; font-size: 13px; display: flex; gap: 8px; align-items: center; }
 .net-chip .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
+/* Measuring tool (measure.js): readout chip, crosshair, drawing on the tool layer. */
+.measure-chip { position: absolute; left: 12px; bottom: 12px; z-index: 2; background: rgba(21, 24, 28, 0.94); border: 1px solid var(--border); border-radius: var(--radius); padding: 6px 10px; font-size: 13px; max-width: calc(100% - 80px); }
+.measure-chip b { font-variant-numeric: tabular-nums; }
+.measure-chip .ms-snapped { color: var(--ms); margin-left: 4px; }
+.svgview.measuring, .svgview.measuring *, .v3d.measuring canvas { cursor: crosshair; }
+.m3d-chip { left: auto; right: 12px; }
+.m3d-label { position: absolute; z-index: 2; pointer-events: none; transform: translateY(-100%); background: rgba(21, 24, 28, 0.92); border: 1px solid var(--ms); border-radius: 3px; padding: 4px 6px; font: 12px/1.35 var(--mono); color: #f2f3f5; white-space: pre; }
+.v3d:focus { outline: none; }
+:root { --ms: #ff5fd2; }
+.svgview .tool-layer { pointer-events: none; }
+.svgview .tool-layer .ms-line { stroke: var(--ms); stroke-width: 2px; vector-effect: non-scaling-stroke; }
+.svgview .tool-layer .ms-leg { fill: none; stroke: var(--ms); stroke-opacity: 0.6; stroke-width: 1px; stroke-dasharray: 4 3; vector-effect: non-scaling-stroke; }
+.svgview .tool-layer .ms-end { fill: var(--ms); }
+.svgview .tool-layer .ms-snap { fill: none; stroke: var(--ms); stroke-width: 1.5px; vector-effect: non-scaling-stroke; }
+.svgview .tool-layer .ms-label rect { fill: rgba(21, 24, 28, 0.92); stroke: var(--ms); stroke-width: 1px; vector-effect: non-scaling-stroke; }
+.svgview .tool-layer .ms-label text { fill: #f2f3f5; font-family: var(--mono); white-space: pre; }
 
 /* ---- sidebars ---- */
 .sheet-list, .layer-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
@@ -173,6 +189,7 @@ main { flex: 1; min-height: 0; display: flex; }
 /* ---- 3D ---- */
 .toolbar3d { position: absolute; left: 12px; top: 12px; display: flex; gap: 8px; flex-wrap: wrap; z-index: 2; }
 .toolbar3d .seg { background: rgba(21, 24, 28, 0.92); }
+.toolbar3d .btn { background: rgba(21, 24, 28, 0.92); }
 .pill { background: rgba(21, 24, 28, 0.92); border: 1px solid var(--border); border-radius: var(--radius); padding: 3px 10px; }
 .status3d { position: absolute; left: 12px; bottom: 12px; font-size: 12px; color: var(--muted); background: rgba(21, 24, 28, 0.92); border: 1px solid var(--border); border-radius: var(--radius); padding: 4px 10px; }
 .status3d:empty { display: none; }

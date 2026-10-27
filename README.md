@@ -26,6 +26,14 @@ pin with its net. **Show on PCB** and **Show in 3D** jump to the same part (cros
 **PCB.** Layers can be switched one by one (or *Copper*, *Default*, *All*),
 the board flipped to the bottom, and footprints, pads and tracks inspected.
 
+**Measuring.** The ruler (under the PCB view's zoom buttons, in the 3D
+toolbar, or **M**) measures on the board: click two points to read the distance
+in mm and mil with Δx and Δy (and the angle on the PCB, Δz in 3D, e.g. a part's
+height above the board). Points snap to pads, vias, track ends, footprint
+origins and board outline corners on the layers shown, and in 3D also to the
+corners of part models; hold Shift to measure freely. Esc clears the
+measurement, a second Esc leaves the tool.
+
 ![PCB view with the HDMI connector J501 selected](docs/screenshots/viewer-pcb.png)
 
 

@@ -3,9 +3,11 @@
 import { renderPcb, DEFAULT_VISIBLE, boardBBox } from "../pcb/render.js";
 import { PCB_THEMES } from "../pcb/theme.js";
 import { hitTest } from "../pcb/hit.js";
+import { snapPoints } from "../pcb/snap.js";
 import { arcFrom3 } from "../geom.js";
 import { unescapeKiCad } from "../text.js";
 import { SvgView } from "./svgview.js";
+import { MeasureTool } from "./measure.js";
 import { ReviewPanel } from "./review-ui.js";
 import { pickPcb, locatePcb } from "../diff/anchors.js";
 import { $, escapeHtml, refCompare, toast } from "./ui.js";
@@ -34,6 +36,7 @@ export class PcbTab {
       flipX: null,
     });
     this.review = new ReviewPanel(app.store, this.reviewHost(), { container: $("#tab-pcb .panel.left"), wrap: $("#pcb-canvas").parentElement, collapsed: true });
+    this.measure = new MeasureTool(this.view, { button: $("#pcb-measure"), chip: $("#pcb-measure-chip"), points: () => this.measurePoints() });
     for (const b of document.querySelectorAll("#tab-pcb [data-side]")) b.addEventListener("click", () => this.setSide(b.dataset.side));
     $("#layers-all").addEventListener("click", () => this.setVisible(() => true));
     $("#layers-cu").addEventListener("click", () => this.setVisible((l) => l.endsWith(".Cu") || l === "Edge.Cuts" || l === "Vias" || l === "Holes"));
@@ -61,6 +64,8 @@ export class PcbTab {
     this.selectedRef = null;
     this.net = null;
     this.side = "front";
+    this.measure.invalidate();
+    this.measure.reset();
     if (!this.pcb) return;
     this.boardInfo();
     this.inspect(null);
@@ -76,6 +81,7 @@ export class PcbTab {
     this.result = r;
     this.hovered = null; // hovered on the other side: its box would stay until the mouse moves
     this.side = side;
+    this.measure.invalidate(); // footprint origins of the other side
     const cx = r.center;
     this.view.flipX = side === "back" ? (x) => 2 * cx - x : null;
     this.view.setSvg(r.svg, { x0: r.bbox.x0, y0: r.bbox.y0, x1: r.bbox.x1, y1: r.bbox.y1 }, keepView);
@@ -125,6 +131,7 @@ export class PcbTab {
   }
 
   applyVisibility() {
+    this.measure.invalidate();
     for (const g of this.view.svg.querySelectorAll("g[data-layer]")) {
       if (this.visible.has(g.dataset.layer)) g.removeAttribute("display");
       else g.setAttribute("display", "none");
@@ -144,6 +151,13 @@ export class PcbTab {
       <dt>Nets</dt><dd>${nets.size}</dd>
       <dt>Tracks</dt><dd>${pcb.tracks.length}</dd>
       <dt>Vias</dt><dd>${pcb.vias.length}</dd>`;
+  }
+
+  // ---- measuring ----
+
+  /** Points the measuring tool snaps to, on the layers shown. */
+  measurePoints() {
+    return this.pcb ? snapPoints(this.pcb, this.visible ?? new Set(), this.side) : [];
   }
 
   // ---- picking ----
@@ -322,7 +336,7 @@ export class PcbTab {
   inspect(item, pad = null) {
     const el = $("#pcb-inspector");
     if (!item) {
-      if (!this.net) el.innerHTML = `<p class="empty">Click a footprint, pad or track. Scroll to zoom, drag to pan, double-click or Esc to clear.</p>`;
+      if (!this.net) el.innerHTML = `<p class="empty">Click a footprint, pad or track. Scroll to zoom, drag to pan, double-click or Esc to clear. M (or the ruler) measures.</p>`;
       return;
     }
     const fp = item.fp;

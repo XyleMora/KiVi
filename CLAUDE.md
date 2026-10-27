@@ -27,6 +27,21 @@ README doesn't: conventions, environment and pitfalls.
   under gjs and in workers (`src/desktop/thumb-worker.js`); keep it that way.
 - Code style: small modules, JSDoc on exported functions, comments explain *why*,
   British-ish UI wording ("colour"), sentence-case UI text.
+- Measuring (PCB and 3D only; not the schematic, the user's choice: sheet
+  distances mean nothing physically). PCB: `src/app/measure.js`
+  (`MeasureTool`, ruler in the zoom column, key M) works through
+  `SvgView.tool` (gets picks and hovers first, so selection and comment
+  picking stay out of the way) and draws on `SvgView.toolLayer` (not wiped by
+  selection redraws; labels sized in screen pixels, redrawn on zoom). Points
+  are board coordinates; the bottom view only changes where they're drawn
+  (`flipX`). 3D: `src/pcb/measure3d.js` (`Measure3D`, ruler in `.toolbar3d`)
+  through `Board3D.tool` (pick/hover, `frame()` each rendered frame keeps the
+  HTML label on its point); snaps to model vertices of the part hit, or on the
+  board face to the same points as the PCB; a ray through a drill hole (no
+  geometry) falls back to the face plane, and face points are put on the face
+  itself (the face meshes sit 0.002 mm off). Both get snap points from
+  `src/pcb/snap.js` (`snapPoints`; `r` = pad/via/track size so clicking the
+  copper snaps).
 - `src/desktop/` holds the Tauri integration; it's a no-op when
   `window.__TAURI__` is missing (`isDesktop`), which is what lets the pages run
   in a plain headless browser for tests.

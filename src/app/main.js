@@ -246,6 +246,8 @@ class App {
         },
         onModelsLoaded: () => this.render3dInfo(this.project.pcb.footprints.find((f) => f.reference === this.view3d?.selectedRef) ?? null),
       });
+      const { Measure3D } = await import("../pcb/measure3d.js");
+      new Measure3D(this.view3d, { button: $("#m3d-measure"), chip: $("#m3d-chip"), label: $("#m3d-label") });
       await this.view3d.load(this.project.pcb);
       this.render3dInfo();
       for (const b of document.querySelectorAll("[data-view]")) {

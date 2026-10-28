@@ -99,8 +99,10 @@ img.brand-mark.plain { visibility: visible; }
 }
 .tabs button[aria-selected="true"] { color: var(--text); background: var(--bg); border-color: var(--border); border-bottom: 1px solid var(--bg); font-weight: 600; }
 .proj-actions { margin-left: auto; display: flex; gap: 8px; padding: 8px 0; }
-/* Viewer bar: name and branch on the left, PR chip and tabs centred, actions on the right. */
-#projbar:not([hidden]) { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); column-gap: 16px; }
+/* Viewer bar: name on the left, PR chip and tabs centred, actions on the right.
+   The actions column never shrinks below its buttons: when they need more than
+   half the free width the tabs move left, and on narrower windows the bar wraps. */
+#projbar:not([hidden]) { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(max-content, 1fr); column-gap: 16px; }
 #projbar .proj-actions { justify-self: end; }
 .proj-nav { display: flex; align-items: flex-end; gap: 16px; }
 .proj-nav .pr-chip { align-self: center; }
@@ -224,8 +226,10 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.5); }
 .settings h2 { margin: 0 0 6px; font-size: 18px; }
 
 /* ---- narrow screens ---- */
-@media (max-width: 900px) {
+@media (max-width: 1180px) {
   #projbar:not([hidden]) { display: flex; }
+}
+@media (max-width: 900px) {
   .panel.left { width: 200px; }
   .panel.right { display: none; }
   .panel.right.open { display: flex; position: absolute; right: 0; top: 0; bottom: 0; z-index: 5; box-shadow: -8px 0 24px rgba(0, 0, 0, 0.4); }

@@ -34,7 +34,7 @@ README doesn't: conventions, environment and pitfalls.
   picking stay out of the way) and draws on `SvgView.toolLayer` (not wiped by
   selection redraws; labels sized in screen pixels, redrawn on zoom). Points
   are board coordinates; the bottom view only changes where they're drawn
-  (`flipX`). 3D: `src/pcb/measure3d.js` (`Measure3D`, ruler in `.toolbar3d`)
+  (`flipX`). 3D: `src/pcb/measure3d.js` (`Measure3D`, ruler in the 3D zoom column, which also has +, − and fit (`Board3D.zoom`, `fit`); the camera presets and Components sit left of it, on the right like the PCB's)
   through `Board3D.tool` (pick/hover, `frame()` each rendered frame keeps the
   HTML label on its point); snaps to model vertices of the part hit, or on the
   board face to the same points as the PCB; a ray through a drill hole (no

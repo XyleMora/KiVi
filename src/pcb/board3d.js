@@ -493,21 +493,39 @@ export class Board3D {
   }
 
   frame(view = "iso") {
-    const bb = this.bbox;
-    if (!bb) return;
-    const c = new THREE.Vector3((bb.x0 + bb.x1) / 2, -(bb.y0 + bb.y1) / 2, this.thickness / 2);
-    const r = Math.max(bb.w, bb.h);
-    const dist = r * 1.35;
     const dirs = {
       iso: new THREE.Vector3(0.0, -0.9, 1.1),
       top: new THREE.Vector3(0, -0.0001, 1),
       bottom: new THREE.Vector3(0, 0.0001, -1),
       front: new THREE.Vector3(0, -1, 0.15),
     };
-    const dir = (dirs[view] ?? dirs.iso).clone().normalize();
     // Free rotation tilts the camera's up vector; preset views start upright again.
     this.camera.up.set(0, 0, 1);
-    this.camera.position.copy(c).addScaledVector(dir, dist);
+    this.placeCamera((dirs[view] ?? dirs.iso).clone().normalize());
+  }
+
+  /** Show the whole board again from the current viewing direction (the zoom column's ⤢). */
+  fit() {
+    this.placeCamera(this.camera.position.clone().sub(this.controls.target).normalize());
+  }
+
+  /** Move the camera towards (k < 1) or away from (k > 1) the point it looks at. */
+  zoom(k) {
+    const t = this.controls.target;
+    const d = this.camera.position.clone().sub(t).multiplyScalar(k);
+    // Same limits as wheel zooming would reach in practice: not into the target, not past the far plane.
+    if (d.length() < this.camera.near * 2 || d.length() > this.camera.far * 0.8) return;
+    this.camera.position.copy(t).add(d);
+    this.controls.update();
+  }
+
+  /** Look at the board's centre from `dir` (unit vector), far enough to see all of it. */
+  placeCamera(dir) {
+    const bb = this.bbox;
+    if (!bb) return;
+    const c = new THREE.Vector3((bb.x0 + bb.x1) / 2, -(bb.y0 + bb.y1) / 2, this.thickness / 2);
+    const r = Math.max(bb.w, bb.h);
+    this.camera.position.copy(c).addScaledVector(dir, r * 1.35);
     this.camera.near = r / 200;
     this.camera.far = r * 20;
     this.camera.updateProjectionMatrix();

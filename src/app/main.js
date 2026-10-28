@@ -257,6 +257,9 @@ class App {
         };
       }
       $("#show-components").onchange = (e) => this.view3d.setComponentsVisible(e.target.checked);
+      for (const b of document.querySelectorAll("[data-zoom3d]")) {
+        b.onclick = () => (b.dataset.zoom3d === "fit" ? this.view3d.fit() : this.view3d.zoom(b.dataset.zoom3d === "in" ? 0.7 : 1.4));
+      }
       return this.view3d;
     } catch (e) {
       console.error(e);

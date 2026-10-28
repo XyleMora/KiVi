@@ -293,6 +293,8 @@ pub fn run() {
             git::git_fetch,
             git::git_commit,
             git::git_push,
+            git::git_pull,
+            git::git_move_commits,
             git::git_remote_state,
             git::git_branches,
             git::git_switch_branch,

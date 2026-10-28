@@ -1,5 +1,5 @@
 //! Local git copies of GitHub projects: clone, link check, status, new branch,
-//! local changes for the visual diff, commit and push. libgit2 is built in
+//! local changes for the visual diff, commit, push and pull. libgit2 is built in
 //! (git2, "vendored-libgit2"), so no Git installation is needed; HTTPS goes
 //! through git_http.rs. GitHub is always reached at
 //! https://github.com/<owner>/<repo>.git with the sign-in token, whatever URL
@@ -119,6 +119,8 @@ pub struct RepoInfo {
     changes: usize,
     /// Commits on the branch that GitHub doesn't have yet; None if never pushed.
     ahead: Option<usize>,
+    /// Commits on GitHub's branch that this copy doesn't have, as last fetched; None if never pushed.
+    behind: Option<usize>,
 }
 
 fn info(repo: &Repository) -> Result<RepoInfo, String> {
@@ -132,7 +134,7 @@ fn info(repo: &Repository) -> Result<RepoInfo, String> {
         let upstream = repo.find_branch(b, BranchType::Local).ok()?.upstream().ok().and_then(|u| u.get().target());
         upstream.or_else(|| repo.refname_to_id(&format!("refs/remotes/{remote}/{b}")).ok())
     });
-    let ahead = head.zip(pushed).and_then(|(local, up)| repo.graph_ahead_behind(local, up).ok()).map(|(a, _)| a);
+    let counts = head.zip(pushed).and_then(|(local, up)| repo.graph_ahead_behind(local, up).ok());
     Ok(RepoInfo {
         root: root.to_string_lossy().into_owned(),
         owner: gh.as_ref().map(|g| g.1.clone()),
@@ -141,7 +143,8 @@ fn info(repo: &Repository) -> Result<RepoInfo, String> {
         branch,
         head: head.map(|h| h.to_string()),
         changes: status(repo)?.len(),
-        ahead,
+        ahead: counts.map(|c| c.0),
+        behind: counts.map(|c| c.1),
     })
 }
 
@@ -337,7 +340,7 @@ fn switch_branch(repo: &Repository, name: &str) -> Result<String, String> {
     co.safe();
     repo.checkout_tree(tree.as_object(), Some(&mut co)).map_err(|e| {
         if e.code() == git2::ErrorCode::Conflict {
-            format!("uncommitted changes would be overwritten by \"{name}\": commit them first (Commit and push…), or switch with git")
+            format!("uncommitted changes would be overwritten by \"{name}\": commit them first (Commit…), or switch with git")
         } else {
             e.message().to_string()
         }
@@ -649,7 +652,7 @@ fn push_to(repo: &Repository, url: &str, remote: &str) -> Result<String, String>
     let branch = current_branch(repo).ok_or("not on a branch: create one first")?;
     let head = repo.head().ok().and_then(|h| h.target()).ok_or("nothing committed yet")?;
     let rejected_msg = |why: &str| {
-        format!("GitHub rejected the push ({why}): the branch there has commits this copy doesn't, or is protected; push to a new branch instead")
+        format!("GitHub rejected the push ({why}): the branch there has commits this copy doesn't (Pull… brings them in), or it's protected (push to a new branch instead)")
     };
     let mut rejected: Option<String> = None;
     {
@@ -695,6 +698,142 @@ pub async fn git_push(path: String, owner: String, repo: String, token: Option<S
         push_to(&r, &auth_url(&owner, &repo, &token), &remote).map_err(|e| clean(e, &token))
     })
     .await
+}
+
+// ---- pull -----------------------------------------------------------------------
+
+#[derive(Serialize, Debug)]
+pub struct PullResult {
+    /// up_to_date | fast_forward (took GitHub's commits) | merged (both had
+    /// commits on different files: a merge commit) | diverged (both changed
+    /// the same files: nothing done, see `files`).
+    outcome: String,
+    /// Commits that came from GitHub (or are waiting there, when diverged).
+    commits: usize,
+    /// fast_forward / merged: files GitHub's commits changed; diverged: files
+    /// changed on both sides.
+    files: Vec<String>,
+}
+
+/// Paths that differ between two trees (both sides of a rename).
+fn changed_paths(repo: &Repository, from: Oid, to: Oid) -> Result<Vec<String>, String> {
+    let tree = |id: Oid| repo.find_commit(id).and_then(|c| c.tree()).map_err(|e| e.message().to_string());
+    let diff = repo.diff_tree_to_tree(Some(&tree(from)?), Some(&tree(to)?), None).map_err(|e| e.message().to_string())?;
+    let mut out: Vec<String> = Vec::new();
+    for d in diff.deltas() {
+        for f in [d.old_file(), d.new_file()] {
+            if let Some(p) = f.path().map(|p| p.to_string_lossy().replace('\\', "/")) {
+                if !out.contains(&p) {
+                    out.push(p);
+                }
+            }
+        }
+    }
+    Ok(out)
+}
+
+/// Check out `tree` like `git switch` does: uncommitted edits stay unless
+/// `tree` changes the same files, then nothing is touched.
+fn checkout_safely(repo: &Repository, tree: &git2::Tree) -> Result<(), String> {
+    let mut co = CheckoutBuilder::new();
+    co.safe();
+    repo.checkout_tree(tree.as_object(), Some(&mut co)).map_err(|e| {
+        if e.code() == git2::ErrorCode::Conflict {
+            "uncommitted changes to files GitHub also changed would be overwritten: commit them first (Commit…), then pull again".to_string()
+        } else {
+            e.message().to_string()
+        }
+    })
+}
+
+/// Bring GitHub's commits on the current branch into the copy. KiCad files
+/// don't merge reliably as text, so a file changed on both sides is never
+/// merged: the result is "diverged" and the copy stays as it was.
+fn pull_from(repo: &Repository, url: &str, remote: &str, fallback: (&str, &str)) -> Result<PullResult, String> {
+    let branch = current_branch(repo).ok_or("not on a branch: switch to one first")?;
+    fetch_from(repo, url, remote).map_err(|e| e.message().to_string())?;
+    let theirs = repo
+        .refname_to_id(&format!("refs/remotes/{remote}/{branch}"))
+        .map_err(|_| format!("\"{branch}\" isn't on GitHub yet, so there's nothing to pull (Push… creates it)"))?;
+    let local_ref = format!("refs/heads/{branch}");
+    let theirs_commit = repo.find_commit(theirs).map_err(|e| e.message().to_string())?;
+    let theirs_tree = theirs_commit.tree().map_err(|e| e.message().to_string())?;
+    let result = |outcome: &str, commits: usize, files: Vec<String>| PullResult { outcome: outcome.into(), commits, files };
+
+    let Some(ours) = repo.head().ok().and_then(|h| h.target()) else {
+        // Nothing committed here yet: start from GitHub's branch.
+        checkout_safely(repo, &theirs_tree)?;
+        repo.reference(&local_ref, theirs, true, "pull").map_err(|e| e.message().to_string())?;
+        let n = repo.revwalk().and_then(|mut w| w.push(theirs).map(|_| w.count())).unwrap_or(0);
+        return Ok(result("fast_forward", n, Vec::new()));
+    };
+    let (ahead, behind) = repo.graph_ahead_behind(ours, theirs).map_err(|e| e.message().to_string())?;
+    if behind == 0 {
+        return Ok(result("up_to_date", 0, Vec::new()));
+    }
+    // No common commit: a folder linked to a repository that already had its own history.
+    let base = repo
+        .merge_base(ours, theirs)
+        .map_err(|_| format!("this copy's history and GitHub's \"{branch}\" have nothing in common (the folder was linked to a repository that already had commits), so KiVi can't combine them: push to a new branch instead"))?;
+    let incoming = changed_paths(repo, base, theirs)?;
+    if ahead == 0 {
+        checkout_safely(repo, &theirs_tree)?;
+        repo.reference(&local_ref, theirs, true, "pull: fast-forward").map_err(|e| e.message().to_string())?;
+        if let Ok(mut b) = repo.find_branch(&branch, BranchType::Local) {
+            let _ = b.set_upstream(Some(&format!("{remote}/{branch}")));
+        }
+        return Ok(result("fast_forward", behind, incoming));
+    }
+    // Both sides have commits: combine them only when no file changed on both.
+    let mine = changed_paths(repo, base, ours)?;
+    let both: Vec<String> = incoming.iter().filter(|p| mine.contains(p)).cloned().collect();
+    if !both.is_empty() {
+        return Ok(result("diverged", behind, both));
+    }
+    let ours_commit = repo.find_commit(ours).map_err(|e| e.message().to_string())?;
+    let mut index = repo.merge_commits(&ours_commit, &theirs_commit, None).map_err(|e| e.message().to_string())?;
+    if index.has_conflicts() {
+        return Ok(result("diverged", behind, mine)); // not expected with disjoint files
+    }
+    let tree = repo.find_tree(index.write_tree_to(repo).map_err(|e| e.message().to_string())?).map_err(|e| e.message().to_string())?;
+    checkout_safely(repo, &tree)?;
+    let sig = repo.signature().or_else(|_| Signature::now(fallback.0, fallback.1)).map_err(|e| e.message().to_string())?;
+    repo.commit(Some("HEAD"), &sig, &sig, &format!("Merge GitHub's {branch} into {branch}"), &tree, &[&ours_commit, &theirs_commit])
+        .map_err(|e| e.message().to_string())?;
+    Ok(result("merged", behind, incoming))
+}
+
+/// Pull GitHub's commits on the current branch (fast-forward, or a merge
+/// commit when both sides changed different files). `name`/`email` sign a
+/// merge commit when the copy has no git identity.
+#[tauri::command]
+pub async fn git_pull(path: String, owner: String, repo: String, token: Option<String>, name: String, email: String) -> Result<PullResult, String> {
+    blocking(move || {
+        git_http::register();
+        let r = open(&path)?;
+        let remote = remote_for(&r, &owner, &repo).unwrap_or_else(|| "origin".into());
+        pull_from(&r, &auth_url(&owner, &repo, &token), &remote, (&name, &email)).map_err(|e| clean(e, &token))
+    })
+    .await
+}
+
+/// After a diverged pull: keep this copy's commits (and uncommitted edits) on
+/// a new branch, checked out, and set the old branch to GitHub's. Nothing is
+/// lost and no files change; the new branch can be pushed for a pull request.
+fn move_commits(repo: &Repository, name: &str) -> Result<String, String> {
+    let branch = current_branch(repo).ok_or("not on a branch")?;
+    let remote = github_remote(repo).map(|g| g.0).unwrap_or_else(|| "origin".into());
+    let theirs = repo
+        .refname_to_id(&format!("refs/remotes/{remote}/{branch}"))
+        .map_err(|_| format!("\"{branch}\" isn't on GitHub"))?;
+    create_branch(repo, name)?;
+    repo.reference(&format!("refs/heads/{branch}"), theirs, true, "match GitHub").map_err(|e| e.message().to_string())?;
+    Ok(name.to_string())
+}
+
+#[tauri::command]
+pub async fn git_move_commits(path: String, name: String) -> Result<String, String> {
+    blocking(move || move_commits(&open(&path)?, name.trim())).await
 }
 
 #[derive(Serialize, Debug)]
@@ -985,6 +1124,125 @@ mod tests {
         commit(&repo, &["board/board.kicad_sch".into()], "ours", ("T", "t@example.com")).unwrap();
         let err = push_to(&repo, &url, "origin").unwrap_err();
         assert!(err.contains("rejected") || err.contains("fast-forward"), "{err}");
+        std::fs::remove_dir_all(base).unwrap();
+    }
+
+    /// Someone else's commit on main, pushed to the hub.
+    fn push_theirs(base: &Path, url: &str, file: &str, text: &str) -> Oid {
+        let other = clone_from(url, &base.join(format!("other-{}", file.replace('/', "-"))), |_| {}).unwrap();
+        write(&workdir(&other).unwrap(), file, text);
+        commit(&other, &[file.into()], "theirs", ("O", "o@example.com")).unwrap();
+        push_to(&other, url, "origin").unwrap();
+        let id = other.head().unwrap().target().unwrap();
+        id
+    }
+
+    fn read_file(repo: &Repository, file: &str) -> String {
+        std::fs::read_to_string(workdir(repo).unwrap().join(file)).unwrap()
+    }
+
+    const SIG: (&str, &str) = ("T", "t@example.com");
+
+    #[test]
+    fn pull_fast_forwards_and_keeps_unrelated_edits() {
+        let (base, bare, repo) = fixture("pull-ff");
+        let url = bare.to_str().unwrap().to_string();
+        let theirs = push_theirs(&base, &url, "board/board.kicad_sch", "(kicad_sch theirs)");
+        write(&workdir(&repo).unwrap(), "board/board.kicad_pcb", "(kicad_pcb my edit)"); // uncommitted, another file
+        let r = pull_from(&repo, &url, "origin", SIG).unwrap();
+        assert_eq!((r.outcome.as_str(), r.commits), ("fast_forward", 1));
+        assert_eq!(r.files, vec!["board/board.kicad_sch".to_string()]);
+        assert_eq!(repo.head().unwrap().target().unwrap(), theirs);
+        assert_eq!(read_file(&repo, "board/board.kicad_sch"), "(kicad_sch theirs)");
+        assert_eq!(read_file(&repo, "board/board.kicad_pcb"), "(kicad_pcb my edit)");
+        assert_eq!(info(&repo).unwrap().behind, Some(0));
+        // Nothing new the second time.
+        assert_eq!(pull_from(&repo, &url, "origin", SIG).unwrap().outcome, "up_to_date");
+        std::fs::remove_dir_all(base).unwrap();
+    }
+
+    #[test]
+    fn pull_never_overwrites_uncommitted_edits() {
+        let (base, bare, repo) = fixture("pull-dirty");
+        let url = bare.to_str().unwrap().to_string();
+        let before = repo.head().unwrap().target().unwrap();
+        push_theirs(&base, &url, "board/board.kicad_sch", "(kicad_sch theirs)");
+        write(&workdir(&repo).unwrap(), "board/board.kicad_sch", "(kicad_sch my edit)");
+        let err = pull_from(&repo, &url, "origin", SIG).unwrap_err();
+        assert!(err.contains("commit them first"), "{err}");
+        assert_eq!(repo.head().unwrap().target().unwrap(), before);
+        assert_eq!(read_file(&repo, "board/board.kicad_sch"), "(kicad_sch my edit)");
+        std::fs::remove_dir_all(base).unwrap();
+    }
+
+    #[test]
+    fn pull_merges_commits_on_different_files_then_pushes() {
+        let (base, bare, repo) = fixture("pull-merge");
+        let url = bare.to_str().unwrap().to_string();
+        let theirs = push_theirs(&base, &url, "board/board.kicad_sch", "(kicad_sch theirs)");
+        write(&workdir(&repo).unwrap(), "board/board.kicad_pcb", "(kicad_pcb mine)");
+        commit(&repo, &["board/board.kicad_pcb".into()], "mine", SIG).unwrap();
+        let ours = repo.head().unwrap().target().unwrap();
+        let r = pull_from(&repo, &url, "origin", SIG).unwrap();
+        assert_eq!((r.outcome.as_str(), r.commits), ("merged", 1));
+        let merge = repo.head().unwrap().peel_to_commit().unwrap();
+        assert_eq!(merge.parent_ids().collect::<Vec<_>>(), vec![ours, theirs]);
+        assert_eq!(read_file(&repo, "board/board.kicad_sch"), "(kicad_sch theirs)");
+        assert_eq!(read_file(&repo, "board/board.kicad_pcb"), "(kicad_pcb mine)");
+        assert!(status(&repo).unwrap().is_empty(), "{:?}", status(&repo).unwrap());
+        assert_eq!(push_to(&repo, &url, "origin").unwrap(), "main"); // the push that was refused before
+        std::fs::remove_dir_all(base).unwrap();
+    }
+
+    #[test]
+    fn pull_leaves_files_changed_on_both_sides_and_moves_commits_aside() {
+        let (base, bare, repo) = fixture("pull-diverged");
+        let url = bare.to_str().unwrap().to_string();
+        let theirs = push_theirs(&base, &url, "board/board.kicad_sch", "(kicad_sch theirs)");
+        write(&workdir(&repo).unwrap(), "board/board.kicad_sch", "(kicad_sch mine)");
+        commit(&repo, &["board/board.kicad_sch".into()], "mine", SIG).unwrap();
+        let ours = repo.head().unwrap().target().unwrap();
+        write(&workdir(&repo).unwrap(), "notes.txt", "uncommitted"); // comes along too
+        let r = pull_from(&repo, &url, "origin", SIG).unwrap();
+        assert_eq!(r.outcome, "diverged");
+        assert_eq!(r.files, vec!["board/board.kicad_sch".to_string()]);
+        assert_eq!(repo.head().unwrap().target().unwrap(), ours, "nothing changes");
+        assert_eq!(read_file(&repo, "board/board.kicad_sch"), "(kicad_sch mine)");
+        // My work goes to its own branch; main matches GitHub.
+        assert_eq!(move_commits(&repo, "main-mine").unwrap(), "main-mine");
+        assert_eq!(current_branch(&repo).as_deref(), Some("main-mine"));
+        assert_eq!(repo.head().unwrap().target().unwrap(), ours);
+        assert_eq!(repo.refname_to_id("refs/heads/main").unwrap(), theirs);
+        assert_eq!(read_file(&repo, "board/board.kicad_sch"), "(kicad_sch mine)");
+        assert_eq!(read_file(&repo, "notes.txt"), "uncommitted");
+        assert_eq!(push_to(&repo, &url, "origin").unwrap(), "main-mine");
+        assert!(move_commits(&repo, "bad name").is_err());
+        std::fs::remove_dir_all(base).unwrap();
+    }
+
+    #[test]
+    fn pull_explains_unrelated_histories() {
+        let (base, bare, _repo) = fixture("pull-unrelated");
+        let url = bare.to_str().unwrap().to_string();
+        // A folder with its own first commit, linked to a repository that already had one.
+        let own = Repository::init(base.join("own")).unwrap();
+        write(&workdir(&own).unwrap(), "x.kicad_sch", "(kicad_sch own)");
+        commit(&own, &["x.kicad_sch".into()], "own", SIG).unwrap();
+        let head = own.head().unwrap().target().unwrap();
+        own.reference("refs/heads/main", head, true, "main").unwrap();
+        own.set_head("refs/heads/main").unwrap();
+        let err = pull_from(&own, &url, "origin", SIG).unwrap_err();
+        assert!(err.contains("nothing in common"), "{err}");
+        std::fs::remove_dir_all(base).unwrap();
+    }
+
+    #[test]
+    fn pull_explains_a_branch_github_doesnt_have() {
+        let (base, bare, repo) = fixture("pull-new");
+        let url = bare.to_str().unwrap().to_string();
+        create_branch(&repo, "feature/new").unwrap();
+        let err = pull_from(&repo, &url, "origin", SIG).unwrap_err();
+        assert!(err.contains("isn't on GitHub yet"), "{err}");
         std::fs::remove_dir_all(base).unwrap();
     }
 

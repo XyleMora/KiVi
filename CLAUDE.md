@@ -189,7 +189,11 @@ README doesn't: conventions, environment and pitfalls.
   (emits `git-progress`), `git_create_branch`, `git_local_changes` (merge base
   with origin/HEAD, main or master ↔ working files incl. untracked, renames),
   `git_read` / `git_list` (rev "" = working files), `git_fetch`, `git_commit`,
-  `git_push`, `git_remote_state`, `git_branches`, `git_switch_branch`,
+  `git_push`, `git_pull` (fetch, then fast-forward with a safe checkout; both
+  sides with commits on disjoint files → merge commit; any file changed on
+  both → outcome "diverged", nothing touched), `git_move_commits` (after a
+  diverged pull: new branch at HEAD, checked out, old branch set to GitHub's),
+  `git_remote_state`, `git_branches`, `git_switch_branch`,
   `git_link_github`, `git_init`, `git_log`; all run
   on a blocking thread.
 - Branch menu `#branch-menu` (`src/app/branch-menu.js`, shared, the user's
@@ -198,7 +202,8 @@ README doesn't: conventions, environment and pitfalls.
   ref so `restoreFromHash` reopens the project, same tab) and local copies
   (git.js `mountGitMenu`: `git_branches` after a best-effort fetch,
   `git_switch_branch` = safe checkout like `git switch`, plus New branch…,
-  Commit… and Push… on top (separate items and dialogs, the user's request;
+  Commit…, Push… and Pull… on top (separate items and dialogs, the user's request;
+  Pull… runs at once and shows the outcome, a refused push offers it;
   greyed out via `aria-disabled` with the reason as title/toast when there's
   nothing to do); a folder without a GitHub remote gets no Push (no sign-in
   needed; the user's request), and before its first
@@ -482,5 +487,6 @@ unchanged for 10 s" condition, not the first "loaded" text.
 ## Not done yet
 
 - Tokens are in localStorage, not the OS keychain.
-- No pull or merge into a local copy.
+- No text merge of a file changed on both sides (on purpose: KiCad files
+  don't merge reliably); Pull offers moving the commits to a new branch instead.
 - No auto-update, code signing or file associations.

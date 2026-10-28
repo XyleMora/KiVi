@@ -123,8 +123,8 @@ export function syncState(nwo, folder = localCopy(nwo)) {
       if (st.changes) notes.push(`${st.changes} uncommitted file${st.changes > 1 ? "s" : ""}`);
       const why = {
         ahead: "commits not pushed yet",
-        behind: "GitHub has newer commits",
-        diverged: "both GitHub and this copy have new commits",
+        behind: "GitHub has newer commits (Pull… in the branch menu brings them in)",
+        diverged: "both GitHub and this copy have new commits (Pull… in the branch menu)",
         unpushed: `the branch ${st.branch} isn't on GitHub`,
         unknown: st.branch ? `GitHub not reachable${st.error ? `: ${st.error}` : ""}` : "not on a branch",
       }[st.relation];
@@ -206,20 +206,25 @@ export function mountGitMenu(folder, history) {
     const item = (act, label, why) => `<button type="button" data-act="${act}"${why ? ` aria-disabled="true" title="${escapeHtml(why)}"` : ""}>${label}</button>`;
     const commitItem = item("commit", "Commit…", n ? "" : "No uncommitted changes");
     const pushItem = !info.owner
-      ? `<span class="muted branch-note">Not linked to GitHub: no push</span>`
+      ? `<span class="muted branch-note">Not linked to GitHub: no push or pull</span>`
       : item("push", info.ahead ? `Push ${info.ahead} commit${info.ahead > 1 ? "s" : ""}…` : "Push…", !info.head ? "Nothing committed yet" : info.ahead === 0 ? "Everything is pushed" : "");
+    // The count is as last fetched, so "nothing to pull" is never certain: only a branch GitHub doesn't have is greyed out.
+    const pullItem = !info.owner
+      ? ""
+      : item("pull", info.behind ? `Pull ${info.behind} commit${info.behind > 1 ? "s" : ""}…` : "Pull…", info.head && info.behind == null ? `${info.branch ?? "This branch"} isn't on GitHub yet: Push… creates it` : "");
     mountBranchMenu({
       kind: "local",
       branch: info.branch,
       count: n,
       title: `${info.root}\n${n} changed file${n === 1 ? "" : "s"}${ahead}`,
       itemsHtml: `<button type="button" data-act="branch">New branch…</button>
-        ${commitItem}${pushItem}`,
+        ${commitItem}${pushItem}${pullItem}`,
       onAct: async (act) => {
         try {
           if (act === "branch") await newBranchDialog(info);
           if (act === "commit") await commitDialog(info);
-          if (act === "push") await pushDialog(info);
+          if (act === "push" && (await pushDialog(info)) === "pull") await pullDialog(info);
+          if (act === "pull") await pullDialog(info);
         } finally {
           refresh();
         }
@@ -403,7 +408,7 @@ async function pushDialog(info) {
     const result = dlg.querySelector(".git-result");
     const buttons = [...dlg.querySelectorAll("button")];
     dlg.querySelector("form").addEventListener("submit", async (e) => {
-      if (e.submitter?.value === "cancel") return;
+      if (e.submitter?.value === "cancel" || e.submitter?.value === "pull") return; // closes; Pull… opens next
       e.preventDefault(); // stay open to show the result
       buttons.forEach((b) => (b.disabled = true));
       try {
@@ -416,12 +421,74 @@ async function pushDialog(info) {
         result.innerHTML = `Pushed <b>${escapeHtml(branch)}</b> to GitHub. ${onMain ? "" : `<a href="${escapeHtml(compare)}" target="_blank" rel="noopener">Open a pull request</a>`}`;
         dlg.querySelector("button[value=push]")?.remove();
       } catch (err) {
-        result.textContent = String(err.message ?? err);
+        const msg = String(err.message ?? err);
+        result.textContent = msg;
         result.classList.add("git-error");
+        // GitHub has commits this copy doesn't: bring them in from here.
+        if (/Pull…/.test(msg) && !dlg.querySelector("button[value=pull]")) {
+          dlg.querySelector("button[value=push]").insertAdjacentHTML("beforebegin", `<button value="pull" class="btn">Pull…</button>`);
+          buttons.push(dlg.querySelector("button[value=pull]"));
+        }
       } finally {
         buttons.forEach((b) => (b.disabled = false));
       }
     });
-    dlg.addEventListener("close", () => resolve());
+    dlg.addEventListener("close", () => resolve(dlg.returnValue));
   });
+}
+
+/**
+ * Bring GitHub's commits on the checked-out branch into the copy, right away
+ * (nothing is overwritten or lost; see git_pull in git.rs), and say what
+ * happened. When both sides changed the same files, offer to move this copy's
+ * commits to a new branch so the old one can match GitHub.
+ */
+async function pullDialog(info) {
+  const branch = info.branch ?? "this branch";
+  const dlg = dialog(`<form method="dialog" class="settings git-commit">
+    <h2>Pull</h2>
+    <p class="muted settings-hint">GitHub's commits on <b>${escapeHtml(branch)}</b> from github.com/${escapeHtml(`${info.owner}/${info.repo}`)}.</p>
+    <div class="git-pull-body"><progress class="git-progress"></progress><p class="muted">Bringing in GitHub's commits…</p></div>
+    <div class="row end gap"><button value="cancel" class="btn" formnovalidate>Close</button></div>
+  </form>`);
+  const body = dlg.querySelector(".git-pull-body");
+  const files = (list) => `<ul class="git-files">${list.slice(0, 12).map((f) => `<li class="mono">${escapeHtml(f)}</li>`).join("")}${list.length > 12 ? `<li class="muted">and ${list.length - 12} more</li>` : ""}</ul>`;
+  const commits = (n) => `${n} commit${n > 1 ? "s" : ""}`;
+  const closed = new Promise((resolve) => dlg.addEventListener("close", resolve));
+  try {
+    const author = await fallbackAuthor();
+    const r = await invoke("git_pull", { path: info.root, owner: info.owner, repo: info.repo, token: await ensureFreshToken(), name: author.name, email: author.email });
+    if (r.outcome === "up_to_date") body.innerHTML = `<p class="git-result"><b>${escapeHtml(branch)}</b> is up to date with GitHub.</p>`;
+    else if (r.outcome === "fast_forward") body.innerHTML = `<p class="git-result">Brought in ${commits(r.commits)} from GitHub${r.files.length ? `, changing:` : "."}</p>${r.files.length ? files(r.files) : ""}`;
+    else if (r.outcome === "merged")
+      body.innerHTML = `<p class="git-result">Brought in ${commits(r.commits)} from GitHub. Your commits changed other files, so both were combined in a merge commit: <b>Push…</b> sends it to GitHub.</p>${files(r.files)}`;
+    else {
+      // Diverged on the same files: nothing was changed.
+      body.innerHTML = `<p class="git-warn">GitHub (${commits(r.commits)}) and this copy both changed:</p>${files(r.files)}
+        <p class="git-result">KiCad files can't be merged safely, so nothing was changed. Move your commits to a new branch: push it and open a pull request, and <b>${escapeHtml(branch)}</b> then matches GitHub. Uncommitted edits come along.</p>
+        <label class="field-label" for="git-move-name">New branch for your commits</label>
+        <input id="git-move-name" class="input mono" spellcheck="false" value="${escapeHtml(`${branch}-mine`)}">
+        <p class="git-result git-move-result" hidden></p>`;
+      dlg.querySelector("button[value=cancel]").insertAdjacentHTML("afterend", `<button value="move" class="btn primary">Move my commits</button>`);
+      dlg.querySelector("form").addEventListener("submit", async (e) => {
+        if (e.submitter?.value !== "move") return;
+        e.preventDefault();
+        const out = dlg.querySelector(".git-move-result");
+        out.hidden = false;
+        try {
+          const name = await invoke("git_move_commits", { path: info.root, name: dlg.querySelector("#git-move-name").value });
+          out.classList.remove("git-error");
+          out.innerHTML = `Your work is on <b>${escapeHtml(name)}</b> (checked out) and <b>${escapeHtml(branch)}</b> matches GitHub. <b>Push…</b> sends <b>${escapeHtml(name)}</b> to GitHub for a pull request.`;
+          dlg.querySelector("button[value=move]").remove();
+          dlg.querySelector("#git-move-name").disabled = true;
+        } catch (err) {
+          out.textContent = String(err.message ?? err);
+          out.classList.add("git-error");
+        }
+      });
+    }
+  } catch (err) {
+    body.innerHTML = `<p class="git-result git-error">${escapeHtml(String(err.message ?? err))}</p>`;
+  }
+  return closed;
 }

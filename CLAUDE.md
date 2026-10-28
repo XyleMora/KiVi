@@ -42,6 +42,11 @@ README doesn't: conventions, environment and pitfalls.
   itself (the face meshes sit 0.002 mm off). Both get snap points from
   `src/pcb/snap.js` (`snapPoints`; `r` = pad/via/track size so clicking the
   copper snaps).
+- Cross-probing shows the side the part or net is on: the PCB switches to
+  the part's side, or for a net to `netSide` (pcb/model.js: the outer side
+  with more of its pads and track pieces; even = stay), and the 3D view
+  glides to the Top or Bottom preset around it (`Board3D.focusOn(box, side)`,
+  `onView` presses the preset button). Clicks inside a view never move it.
 - `src/desktop/` holds the Tauri integration; it's a no-op when
   `window.__TAURI__` is missing (`isDesktop`), which is what lets the pages run
   in a plain headless browser for tests.

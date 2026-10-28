@@ -539,3 +539,21 @@ export function viaLayers(pcb, via) {
   if (i0 < 0 || i1 < 0) return order;
   return order.slice(Math.min(i0, i1), Math.max(i0, i1) + 1);
 }
+
+/**
+ * The outer side most of a net's copper is on, for cross-probing: pads and
+ * track pieces on F.Cu count for the front, on B.Cu for the back (through-hole
+ * pads and inner layers for neither). Null when it's even, or there's none.
+ * @returns {"front" | "back" | null}
+ */
+export function netSide(pcb, net) {
+  let front = 0, back = 0;
+  const count = (layers) => {
+    const f = layers.includes("F.Cu"), b = layers.includes("B.Cu");
+    if (f && !b) front++;
+    else if (b && !f) back++;
+  };
+  for (const fp of pcb.footprints) for (const p of fp.pads) if (p.net === net) count(p.layers);
+  for (const t of pcb.tracks) if (t.net === net) count([t.layer]);
+  return front > back ? "front" : back > front ? "back" : null;
+}

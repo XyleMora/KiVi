@@ -1,9 +1,11 @@
-// The desktop app's home page, with two views switched by the header icons (as
-// on github.com): Projects (a grid of every KiCad project in the user's
-// repositories, see projects.js) and Pull requests (open PRs waiting for the
+// The desktop app's home page, with three views switched by the header icons
+// (as on github.com): Projects (a grid of every KiCad project in the user's
+// repositories, see projects.js), Pull requests (open PRs waiting for the
 // user's review, their own, and those of remote projects, only in
 // repositories with KiCad projects, marked with the KiCad files they change,
-// opening in the visual diff or the hardware viewer).
+// opening in the visual diff or the hardware viewer) and Issues (open
+// hardware change requests, the "kivi" issues of ../issues.js, opening in the
+// viewer on their pin).
 // The avatar opens the shared account menu (account.js).
 // "+" adds projects to the gallery: a local folder or a GitHub repository.
 // Reload lists every repository again, bringing back those removed from projects.
@@ -12,7 +14,10 @@ import { $, escapeHtml, settings, saveSettings } from "../app/ui.js";
 import { GitHubSource } from "../sources.js";
 import { initHeader } from "./account.js";
 import { ICONS } from "./icons.js";
-import { initProjects, repoHasProjects } from "./projects.js";
+import { galleryRepos, initProjects, repoHasProjects } from "./projects.js";
+import { localCopy } from "./git.js";
+import { decodeBody, anchorLabel } from "../review.js";
+import { ISSUE_LABEL } from "../issues.js";
 import { kicadFilesChanged } from "./pr-files.js";
 import { ensureFreshToken, invoke, isDesktop, onDrop, routeExternalLinks } from "./tauri.js";
 
@@ -125,10 +130,89 @@ async function renderLists() {
   }
 }
 
-// ---- projects / pull requests switch -----------------------------------------------
+// ---- issues ------------------------------------------------------------------------
+
+const ISSUE_Q = `is:issue is:open archived:false label:${ISSUE_LABEL}`;
+const MAX_Q = 250; // GitHub's search rejects queries over 256 characters
+
+/** Search queries for open KiVi issues in these repositories, as few as fit. */
+function repoQueries(repos) {
+  const out = [];
+  let q = ISSUE_Q;
+  for (const r of repos) {
+    if (q !== ISSUE_Q && q.length + r.length + 6 > MAX_Q) {
+      out.push(q);
+      q = ISSUE_Q;
+    }
+    q += ` repo:${r}`;
+  }
+  if (q !== ISSUE_Q) out.push(q);
+  return out;
+}
+
+/** Where an issue opens: on its pin in the local copy if there is one, else on GitHub's default branch. */
+function issueViewUrl(nwo, number, anchor) {
+  const at = anchor?.file ? { file: anchor.file, tab: anchor.file.endsWith(".kicad_pcb") ? "pcb" : "sch", thread: String(number) } : {};
+  const copy = localCopy(nwo);
+  return `index.html#${new URLSearchParams(copy ? { folder: copy, ...at } : { gh: nwo, ...at })}`;
+}
+
+function issueRow(it) {
+  const [owner, repo] = it.repository_url.split("/").slice(-2);
+  const nwo = `${owner}/${repo}`;
+  const { anchor } = decodeBody(it.body);
+  const pin = anchor?.file ? `📍 <span class="mono">${escapeHtml(anchorLabel(anchor))}</span> in <span class="mono">${escapeHtml(anchor.file.split("/").pop())}</span>` : "not pinned";
+  const hw = issueViewUrl(nwo, it.number, anchor);
+  return `<li class="pr-row issue-row">
+    <img class="avatar" src="${escapeHtml(it.user.avatar_url)}&s=48" alt="" title="${escapeHtml(it.user.login)}">
+    <div class="pr-body">
+      <div class="pr-title"><a href="${escapeHtml(hw)}">${escapeHtml(it.title)}</a></div>
+      <div class="pr-meta muted"><span class="mono">${escapeHtml(nwo)}#${it.number}</span> · ${escapeHtml(it.user.login)} · updated ${ago(it.updated_at)} · ${pin}${it.comments ? ` · ${it.comments} comment${it.comments > 1 ? "s" : ""}` : ""}</div>
+    </div>
+    <div class="pr-actions">
+      <a class="btn small primary" href="${escapeHtml(hw)}"${localCopy(nwo) ? ` title="Opens the local copy"` : ""}>Hardware</a>
+      <a class="btn small" href="${escapeHtml(it.html_url)}" title="Open on github.com">GitHub ↗</a>
+    </div>
+  </li>`;
+}
+
+async function renderIssues() {
+  const lists = $("#issue-lists");
+  const removed = hidden();
+  const repos = galleryRepos();
+  const secs = [];
+  if (token()) {
+    secs.push({ title: "Assigned to you", qs: [`${ISSUE_Q} assignee:@me`] });
+    secs.push({ title: "Opened by you", qs: [`${ISSUE_Q} author:@me`] });
+  }
+  if (repos.length) secs.push({ title: "In your projects", qs: repoQueries(repos) });
+  if (!secs.length) {
+    lists.innerHTML = `<p class="inbox-note">Nothing to show yet: sign in, or add a remote project with + in Projects.</p>`;
+    return;
+  }
+  lists.innerHTML = secs.map((s, i) => `<h2>${escapeHtml(s.title)}</h2><ul class="pr-list" id="isec-${i}"><li class="muted">Loading…</li></ul>`).join("");
+  const seen = new Set();
+  for (const [i, s] of secs.entries()) {
+    const ul = $(`#isec-${i}`);
+    try {
+      const found = [];
+      for (const q of s.qs) found.push(...(await api(`/search/issues?${new URLSearchParams({ q, sort: "updated", per_page: "50" })}`)).items);
+      const items = found
+        .filter((it) => !seen.has(it.html_url) && !removed.has(it.repository_url.split("/").slice(-2).join("/").toLowerCase()))
+        .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+        .slice(0, 50);
+      for (const it of items) seen.add(it.html_url);
+      ul.innerHTML = items.length ? items.map(issueRow).join("") : `<li class="muted">None</li>`;
+    } catch (e) {
+      ul.innerHTML = `<li class="muted">${escapeHtml(e.message)}</li>`;
+    }
+  }
+}
+
+// ---- projects / pull requests / issues switch -------------------------------------
 
 const TAB_KEY = "kivi.homeTab";
-const TITLES = { projects: "Projects", prs: "Pull requests" };
+const TITLES = { projects: "Projects", prs: "Pull requests", issues: "Issues" };
 // Signing in or out reloads the lists here rather than the whole page.
 const header = isDesktop ? initHeader({ homeLinks: false, onAccountChange: () => refresh() }) : null;
 const projects = initProjects({
@@ -138,7 +222,7 @@ const projects = initProjects({
   add: isDesktop ? $("#add-project") : null,
   onWatched: (added) => {
     if (added) refreshTabs();
-    else loaded.delete("prs"); // the pull request list drops it on its next showing
+    else (loaded.delete("prs"), loaded.delete("issues")); // the lists drop it on their next showing
   },
 });
 const loaded = new Set(); // tabs fetched since the last refresh
@@ -151,6 +235,7 @@ function showHomeTab(name) {
   history.replaceState(null, "", `#${name}`);
   $("#home-projects").hidden = name !== "projects";
   $("#home-prs").hidden = name !== "prs";
+  $("#home-issues").hidden = name !== "issues";
   try {
     localStorage.setItem(TAB_KEY, name);
   } catch {
@@ -160,6 +245,7 @@ function showHomeTab(name) {
   if (!loaded.has(name)) {
     loaded.add(name);
     if (name === "projects") projects.refresh();
+    else if (name === "issues") renderIssues();
     else renderLists();
   }
 }
@@ -194,7 +280,7 @@ if (isDesktop) {
   onDrop({ drop: (folder, project) => (location.href = `index.html#${new URLSearchParams({ folder, ...(project && { project }) })}`) });
 }
 for (const b of document.querySelectorAll("[data-home]")) {
-  b.innerHTML = b.dataset.home === "projects" ? ICONS.repo : ICONS.pullRequest;
+  b.innerHTML = { projects: ICONS.repo, prs: ICONS.pullRequest, issues: ICONS.issue }[b.dataset.home];
   b.addEventListener("click", () => showHomeTab(b.dataset.home));
 }
 // Start on the view named in the link (the viewer's header icons link to inbox.html#prs), else the last one used.

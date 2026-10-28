@@ -100,6 +100,7 @@ export class ReviewComments {
     this.fetch = fetchFn ?? ((...a) => globalThis.fetch(...a));
     this.threads = [];
     this.viewer = null;
+    this.writeWhat = "pull requests"; // what a refused write needs access to
   }
 
   get canWrite() {
@@ -113,7 +114,7 @@ export class ReviewComments {
     const r = await this.fetch(`https://api.github.com${path}`, { method, headers, body: body ? JSON.stringify(body) : undefined });
     if (r.status === 204) return null;
     const data = await r.json().catch(() => ({}));
-    if (!r.ok) throw githubError(r.status, data, r.headers);
+    if (!r.ok) throw githubError(r.status, data, r.headers, this.writeWhat);
     return data;
   }
 
@@ -212,18 +213,57 @@ export class ReviewComments {
   async remove(commentId) {
     await this.request("DELETE", `/repos/${this.owner}/${this.repo}/pulls/comments/${commentId}`);
   }
+
+  /**
+   * Issues of this repository the pull request closes when merged: GitHub's
+   * own list signed in (keywords and manual links), else the closing keywords
+   * of its description ("Fixes #12").
+   * @returns {Promise<Set<number>>}
+   */
+  async closingIssues() {
+    if (this.token) {
+      const d = await this.graphql(CLOSING_QUERY, { owner: this.owner, repo: this.repo, pr: this.pr });
+      const nwo = `${this.owner}/${this.repo}`.toLowerCase();
+      const nodes = d.repository?.pullRequest?.closingIssuesReferences?.nodes ?? [];
+      return new Set(nodes.filter((n) => n.repository?.nameWithOwner?.toLowerCase() === nwo).map((n) => n.number));
+    }
+    const pr = await this.request("GET", `/repos/${this.owner}/${this.repo}/pulls/${this.pr}`);
+    return closingNumbers(pr.body);
+  }
+
+  /** Make the pull request close issue `n` when merged: "Fixes #n" at the end of its description. */
+  async addClosingIssue(n) {
+    const pr = await this.request("GET", `/repos/${this.owner}/${this.repo}/pulls/${this.pr}`); // the description as it is now
+    const body = String(pr.body ?? "").trimEnd();
+    if (closingNumbers(body).has(n)) return;
+    await this.request("PATCH", `/repos/${this.owner}/${this.repo}/pulls/${this.pr}`, { body: `${body ? `${body}\n\n` : ""}Fixes #${n}` });
+  }
 }
 
-function comment(id, body, author, avatar, createdAt, url, mine) {
+const CLOSING_QUERY = `query($owner: String!, $repo: String!, $pr: Int!) {
+  repository(owner: $owner, name: $repo) {
+    pullRequest(number: $pr) { closingIssuesReferences(first: 50) { nodes { number repository { nameWithOwner } } } }
+  }
+}`;
+
+/** Issue numbers after GitHub's closing keywords in a description ("Fixes #12, closes #3"). */
+export function closingNumbers(text) {
+  const out = new Set();
+  for (const m of String(text ?? "").matchAll(/\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?):?\s+#(\d+)\b/gi)) out.add(Number(m[1]));
+  return out;
+}
+
+/** One comment of a thread, with its text and anchor decoded. */
+export function comment(id, body, author, avatar, createdAt, url, mine) {
   const { text, anchor } = decodeBody(body);
   return { id, text, anchor, author: author ?? "ghost", avatar: avatar ?? null, createdAt, url, mine: !!mine };
 }
 
-function githubError(status, data, headers) {
+function githubError(status, data, headers, what = "pull requests") {
   let msg = data?.message || `HTTP ${status}`;
   if (status === 403 && headers?.get?.("x-ratelimit-remaining") === "0") msg = "API rate limit reached — sign in with GitHub for a higher limit";
   else if (status === 401) msg = "GitHub ended the sign-in; sign in again";
-  else if (status === 403 || status === 404) msg += " — the token needs write access to pull requests";
+  else if (status === 403 || status === 404) msg += ` — the token needs write access to ${what}`;
   else if (status === 422 && data?.errors?.length) msg += `: ${data.errors.map((e) => e.message ?? e).join("; ")}`;
   const err = new Error(`GitHub ${status}: ${msg}`);
   err.status = status;

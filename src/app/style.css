@@ -323,6 +323,7 @@ table.rules-table { border-collapse: collapse; width: 100%; max-width: 980px; fo
 .collapse-meta, .collapse-head .cm-count { color: var(--faint); font-size: 12px; margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .cm-section.collapsible .row.between { gap: 6px; }
 .cm-section.collapsible .cm-head-btn .cm-count { margin-left: 4px; }
+.cm-head-btn .cm-title-text { white-space: nowrap; flex: none; } /* "Comments & issues" stays on one line; the count gives way */
 .cm-count { text-transform: none; letter-spacing: 0; color: var(--faint); margin-left: 4px; }
 .cm-refresh { width: 26px; min-height: 26px; height: 26px; background: transparent; border-color: transparent; color: var(--muted); }
 .cm-refresh:hover { color: var(--text); background: var(--surface-2); }
@@ -345,6 +346,10 @@ table.rules-table { border-collapse: collapse; width: 100%; max-width: 980px; fo
 .svgview .overlay .cm-body > * { fill: var(--accent); stroke: none; }
 .svgview .overlay .cm-pin text { fill: var(--accent-ink); font: 700 11px var(--font); pointer-events: none; }
 .svgview .overlay .cm-pin.sel .cm-halo > * { stroke-width: 6px; fill: var(--cyan); stroke: var(--cyan); }
+/* Issues (change requests) in GitHub's open-issue green, so they stand apart from review comments. */
+.svgview .overlay .cm-pin.issue .cm-body > * { fill: #3fb950; }
+.svgview .overlay .cm-pin.issue text { fill: #0d1117; }
+.cm-num.issue { background: #3fb950; color: #0d1117; }
 .svgview .overlay .cm-pin.resolved .cm-body > * { fill: #6e7681; }
 .svgview .overlay .cm-pin.resolved text { fill: #fff; }
 .svgview .overlay .cm-pin.lost .cm-body > * { fill: #8a6a3a; }
@@ -382,7 +387,9 @@ table.rules-table { border-collapse: collapse; width: 100%; max-width: 980px; fo
 .cm-text .mention { color: var(--cyan); }
 .cm-input { width: 100%; resize: vertical; min-height: 54px; font: inherit; padding: 6px 8px; box-sizing: border-box; }
 .cm-actions { display: flex; gap: 8px; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
-.cm-hint { font-size: 11px; margin-right: auto; }
+/* The hint gives way (wrapping its own text) so the buttons stay side by side on one row. */
+.cm-hint { font-size: 11px; margin-right: auto; flex: 1 1 0; min-width: 0; }
+.cm-actions .btn { flex: none; }
 .cm-gh { margin-right: auto; font-size: 12px; }
 .settings-hint { font-size: 12px; margin: 6px 0 0; }
 textarea.input { resize: vertical; font-size: 12px; white-space: pre; overflow-x: auto; }
@@ -423,3 +430,6 @@ textarea.input { resize: vertical; font-size: 12px; white-space: pre; overflow-x
 .history-old summary { color: var(--accent); border-color: var(--accent); }
 .branch-list .history-more { justify-content: center; color: var(--muted); }
 .base-summary { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+/* Issues (hardware change requests): the title above the comments, and its box in the composer. */
+.cm-issue-title { font-weight: 600; font-size: 14px; margin: 2px 0 6px; overflow-wrap: anywhere; }
+.cm-issue-title-input { width: 100%; margin-bottom: 6px; }

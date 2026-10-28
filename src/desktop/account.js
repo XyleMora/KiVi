@@ -63,7 +63,7 @@ function accountMenu(face, head, items) {
 /**
  * Put the shared header controls into the page's `.top-actions`.
  * @param {object} [opts]
- * @param {boolean} [opts.homeLinks]  add the projects / pull requests icons (the home page has its own)
+ * @param {boolean} [opts.homeLinks]  add the projects / pull requests / issues icons (the home page has its own)
  * @param {() => void} [opts.onAccountChange]  after signing in or out (default: reload the page)
  * @returns {{renderAccount(): Promise<void>, signIn(): Promise<void>}}
  */
@@ -75,7 +75,8 @@ export function initHeader({ homeLinks = true, onAccountChange = () => location.
     nav.setAttribute("aria-label", "Home");
     nav.innerHTML =
       `<a class="btn icon" href="inbox.html#projects" title="Projects" aria-label="Projects">${ICONS.repo}</a>` +
-      `<a class="btn icon" href="inbox.html#prs" title="Pull requests" aria-label="Pull requests">${ICONS.pullRequest}</a>`;
+      `<a class="btn icon" href="inbox.html#prs" title="Pull requests" aria-label="Pull requests">${ICONS.pullRequest}</a>` +
+      `<a class="btn icon" href="inbox.html#issues" title="Issues" aria-label="Issues">${ICONS.issue}</a>`;
     actions.appendChild(nav);
   }
   let el = $("#account");

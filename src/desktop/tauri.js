@@ -39,6 +39,13 @@ export class TauriSource {
   }
 }
 
+/** Where `path` sits inside the git copy at `root`: "" at its top, else "hardware/" (repository path style). */
+export function folderPrefix(path, root) {
+  const trim = (p) => p.replace(/[\\/]+$/, "");
+  const inside = trim(path).slice(trim(root).length + 1);
+  return trim(path).startsWith(trim(root)) && inside ? `${inside.replace(/\\/g, "/")}/` : "";
+}
+
 /**
  * A project folder in a git copy as it was at a commit (the viewer's history
  * menu), read from git; file paths are relative to the folder, as in TauriSource.
@@ -55,9 +62,7 @@ export class GitRevSource {
   /** The folder `path` at commit `rev`. */
   static async open(path, rev) {
     const { root } = await invoke("git_info", { path });
-    const trim = (p) => p.replace(/[\\/]+$/, "");
-    const inside = trim(path).slice(trim(root).length + 1);
-    const prefix = trim(path).startsWith(trim(root)) && inside ? `${inside.replace(/\\/g, "/")}/` : "";
+    const prefix = folderPrefix(path, root);
     const all = await invoke("git_list", { path, rev });
     return new GitRevSource(path, rev, prefix, all.filter((f) => f.startsWith(prefix)).map((f) => f.slice(prefix.length)));
   }

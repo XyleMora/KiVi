@@ -1,10 +1,11 @@
 // Review comments on pull requests, in the visual diff and in the viewer's
 // schematic and PCB tabs: comment pins on a canvas, a composer and thread
-// popover, and the list of threads in a side panel.
+// popover, and the list of threads in a side panel. Outside a pull request the
+// same pins are GitHub issues (hardware change requests, ../issues.js).
 //
 // Threads live on GitHub (see ../review.js). A ReviewStore holds the threads
-// of one pull request; each canvas gets a ReviewPanel with a small "host"
-// adapter that knows its documents:
+// of one pull request, or the issues of one repository; each canvas gets a
+// ReviewPanel with a small "host" adapter that knows its documents:
 //
 //   host.enabled()               comments possible here (optional)
 //   host.active()                the canvas is on screen (keyboard shortcuts)
@@ -24,6 +25,7 @@
 //   host.writeHash()             (optional)
 
 import { ReviewComments, anchorLabel, anchorKind, renderCommentText } from "../review.js";
+import { IssueComments, ISSUE_LABEL } from "../issues.js";
 import { trackPath, circlePath } from "../pcb/shapes.js";
 import { f } from "../geom.js";
 import { $, toast, settings, collapsible } from "./ui.js";
@@ -34,12 +36,27 @@ const BUBBLE = { dx: 12, dy: -14, r: 10 }; // pin bubble centre and radius in sc
 export const COMMENT_ICON =
   '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2.5 3.5h11v7h-6l-3 2.5v-2.5h-2z" stroke-linejoin="round"/></svg>';
 
-/** Threads of one pull request, shared by every panel showing it. */
+// What the panel calls things: review comments in a pull request, issues elsewhere.
+const WORDS = {
+  pr: { title: "Comments", button: "Comment", what: "comment", resolved: "Resolved", resolve: "Resolve", unresolve: "Unresolve", posted: "Posted to the pull request", item: "comments" },
+  issues: { title: "Issues", button: "Request change", what: "change request", resolved: "Closed", resolve: "Close issue", unresolve: "Reopen", posted: "Opens a GitHub issue", item: "issues" },
+};
+
+/**
+ * Threads of one pull request (or the issues of one repository), shared by
+ * every panel showing them. A pull request also shows its repository's KiVi
+ * issues, since it may be what fixes them; new pins there are review comments.
+ * Threads are found by `key`: a review comment's id, or "i12" for issue #12.
+ */
 export class ReviewStore {
   constructor() {
-    this.api = null;
+    this.api = null; // where new threads go: the pull request's comments, or issues
+    this.issueApi = null; // the repository's issues (also in a pull request)
     this.pr = null;
+    this.issues = null; // {owner, repo, prefix, commit} when showing issues
+    this.kind = "pr";
     this.threads = [];
+    this.closing = new Set(); // issue numbers the pull request closes when merged
     this.listeners = new Set();
     // Pick up comments added or resolved on GitHub while this tab was in the background.
     document.addEventListener("visibilitychange", () => {
@@ -55,6 +72,20 @@ export class ReviewStore {
     return !!this.api?.canWrite;
   }
 
+  get words() {
+    return WORDS[this.kind];
+  }
+
+  /** Wording for one thread: an issue reads as an issue in a pull request too. */
+  wordsFor(t) {
+    return t?.issue ? WORDS.issues : WORDS.pr;
+  }
+
+  /** The API a thread's replies, resolving and deleting go to. */
+  apiFor(t) {
+    return t.issue ? this.issueApi : this.api;
+  }
+
   onChange(fn) {
     this.listeners.add(fn);
   }
@@ -65,33 +96,82 @@ export class ReviewStore {
 
   /** @param {{owner: string, repo: string, number: number, headSha: string}} pr */
   async open(pr) {
+    const token = settings().token ?? null;
     this.pr = pr;
+    this.issues = null;
+    this.kind = "pr";
     this.threads = [];
+    this.closing = new Set();
     this.loadedAt = 0;
-    this.error = null;
-    this.api = new ReviewComments({ owner: pr.owner, repo: pr.repo, pr: pr.number, token: settings().token ?? null });
+    this.error = this.issueError = null;
+    this.api = new ReviewComments({ owner: pr.owner, repo: pr.repo, pr: pr.number, token });
+    this.issueApi = new IssueComments({ owner: pr.owner, repo: pr.repo, token });
+    this.emit();
+    await this.reload();
+  }
+
+  /**
+   * Show a repository's KiVi issues. `prefix` is where the shown folder sits in
+   * the repository ("" at its root, "hw/" below it): threads carry paths
+   * relative to the folder, like the documents. `commit` is what new issues
+   * are made on. Opening the same repository again only updates the commit.
+   * @param {{owner: string, repo: string, prefix?: string, commit?: string|null}} target
+   */
+  async openIssues({ owner, repo, prefix = "", commit = null }) {
+    const same = this.kind === "issues" && this.api && this.issues.owner === owner && this.issues.repo === repo && this.issues.prefix === prefix;
+    this.issues = { owner, repo, prefix, commit };
+    if (same) return;
+    this.pr = null;
+    this.kind = "issues";
+    this.threads = [];
+    this.closing = new Set();
+    this.loadedAt = 0;
+    this.error = this.issueError = null;
+    this.api = this.issueApi = new IssueComments({ owner, repo, token: settings().token ?? null });
     this.emit();
     await this.reload();
   }
 
   close() {
-    this.api = null;
+    this.api = this.issueApi = null;
     this.pr = null;
+    this.issues = null;
     this.threads = [];
     this.emit();
   }
 
   async reload() {
-    const api = this.api;
+    const api = this.api, issueApi = this.issueApi;
     if (!api) return;
     this.loading = true;
     this.emit();
     try {
-      await api.load();
+      let threads;
+      if (this.kind === "issues") threads = await api.load();
+      else {
+        // The pull request's comments must load; its issues are extra, so their failure
+        // (e.g. a GitHub App without the Issues permission) only leaves a note.
+        this.issueError = null;
+        const [comments, issues, closing] = await Promise.all([
+          api.load(),
+          issueApi.load().catch((e) => (console.warn(e), (this.issueError = e.message), [])),
+          api.closingIssues().catch((e) => (console.warn(e), new Set())),
+        ]);
+        if (api !== this.api) return;
+        this.closing = closing;
+        threads = [...comments, ...issues];
+      }
       if (api !== this.api) return;
-      // Numbered across the pull request, so a pin reads the same in every view.
-      this.threads = api.threads.slice().sort((a, b) => a.comments[0].createdAt.localeCompare(b.comments[0].createdAt));
-      this.threads.forEach((t, i) => (t.number = i + 1));
+      // Review threads are numbered across the pull request, so a pin reads the same in every view;
+      // issues keep their own number.
+      this.threads = threads.slice().sort((a, b) => a.comments[0].createdAt.localeCompare(b.comments[0].createdAt));
+      let n = 0;
+      for (const t of this.threads) {
+        if (!t.issue) t.number = ++n;
+        t.key ??= String(t.rootId);
+      }
+      const pre = this.issues?.prefix ?? "";
+      for (const t of this.threads) if (t.issue) t.path = t.path?.startsWith(pre) ? t.path.slice(pre.length) : null;
       this.loadedAt = Date.now();
       this.error = null;
     } catch (e) {
@@ -103,20 +183,53 @@ export class ReviewStore {
     if (api === this.api) this.emit();
   }
 
-  byRoot(id) {
-    return this.threads.find((t) => t.rootId === Number(id)) ?? null;
+  /** A thread by key; a bare number is also an issue's number when showing issues (links from the home page). */
+  byRoot(key) {
+    const k = String(key);
+    return this.threads.find((t) => t.key === k) ?? (this.kind === "issues" && /^\d+$/.test(k) ? this.threads.find((t) => t.key === `i${k}`) : null) ?? null;
   }
 
-  /** Start a thread on the pull request's head commit. */
-  async post(path, anchor, text) {
-    return this.api.create({ path, commitId: this.pr.headSha, anchor, text });
+  /**
+   * Start a thread on the pull request's head commit, or open an issue (with
+   * `title`) on the shown commit. Returns what GitHub made, with its `key`.
+   */
+  async post(path, anchor, text, title) {
+    if (this.kind === "issues") {
+      const created = await this.api.create({ path: this.issues.prefix + path, commitId: this.issues.commit, anchor, text, title });
+      return { ...created, key: `i${created.id}` };
+    }
+    const created = await this.api.create({ path, commitId: this.pr.headSha, anchor, text });
+    return { ...created, key: String(created.id) };
+  }
+
+  /** Have the pull request close issue thread `t` when it's merged ("Fixes #N" in its description). */
+  async linkToPr(t) {
+    await this.api.addClosingIssue(t.number);
+    this.closing = new Set([...this.closing, t.number]);
+    this.emit();
+  }
+
+  /** Comments of an issue read without signing in, fetched when it's opened. */
+  async loadReplies(t) {
+    const api = this.apiFor(t);
+    if (!t.repliesPending || t.loadingReplies || !api?.loadReplies) return;
+    t.loadingReplies = true;
+    try {
+      await api.loadReplies(t);
+    } catch (e) {
+      t.repliesError = e.message;
+      t.repliesPending = false; // not again on every redraw; Reload tries again
+    } finally {
+      t.loadingReplies = false;
+    }
+    this.emit();
   }
 }
 
-/** Open (unresolved) threads per repository path, for file list badges. */
+/** Open (unresolved) review threads per repository path, for file list badges (issues aren't counted). */
 export function openCounts(threads) {
   const m = new Map();
-  for (const t of threads) if (t.isResolved !== true) m.set(t.path, (m.get(t.path) ?? 0) + 1);
+  for (const t of threads) if (t.isResolved !== true && !t.issue) m.set(t.path, (m.get(t.path) ?? 0) + 1);
   return m;
 }
 
@@ -144,13 +257,13 @@ export class ReviewPanel {
     this.root.hidden = true;
     this.root.innerHTML = `
       <div class="row between">
-        ${collapsed ? `<button class="cm-head-btn" aria-label="Comments"><span class="panel-title">Comments</span><span class="cm-count"></span></button>` : `<div class="panel-title">Comments <span class="cm-count"></span></div>`}
-        <button class="btn icon cm-refresh" aria-label="Reload comments" title="Reload comments from GitHub"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M13 8a5 5 0 1 1-1.6-3.7M13 2.5v3h-3"/></svg></button>
+        ${collapsed ? `<button class="cm-head-btn" aria-label="Comments"><span class="panel-title cm-title-text">Comments</span><span class="cm-count"></span></button>` : `<div class="panel-title"><span class="cm-title-text">Comments</span> <span class="cm-count"></span></div>`}
+        <button class="btn icon cm-refresh" aria-label="Reload" title="Reload from GitHub"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M13 8a5 5 0 1 1-1.6-3.7M13 2.5v3h-3"/></svg></button>
       </div>
       <div class="cm-body">
         <div class="seg cm-filter" role="group" aria-label="Show comments">
           <button data-cm-filter="open" aria-pressed="true">Open</button>
-          <button data-cm-filter="resolved" aria-pressed="false">Resolved</button>
+          <button data-cm-filter="resolved" aria-pressed="false" class="cm-resolved-label">Resolved</button>
           <button data-cm-filter="all" aria-pressed="false">All</button>
         </div>
         <div class="cm-status muted"></div>
@@ -176,7 +289,6 @@ export class ReviewPanel {
       wrap.appendChild(modeButton);
     }
     this.modeButton = modeButton;
-    modeButton.title = "Comment on a part, pad, net or spot (C)";
     modeButton.setAttribute("aria-pressed", "false");
     modeButton.hidden = true;
 
@@ -227,6 +339,7 @@ export class ReviewPanel {
     const on = this.enabled;
     this.root.hidden = !on;
     this.modeButton.hidden = !on;
+    this.applyWords();
     if (!on && this.mode) this.setMode(false);
     this.placed = new Map();
     if (on) {
@@ -237,7 +350,7 @@ export class ReviewPanel {
     }
     const a = this.active;
     if (a?.kind === "thread") {
-      const t = this.store.byRoot(a.thread.rootId);
+      const t = this.store.byRoot(a.thread.key);
       if (t && this.placed.has(t)) a.thread = t;
       else this.close(false);
     } else if (a?.kind === "draft" && (!on || a.doc !== this.host.docKey())) this.close(false);
@@ -245,6 +358,20 @@ export class ReviewPanel {
     this.host.refreshOverlay();
     if (this.active) this.renderPopover();
     this.applyFocus();
+  }
+
+  /** Labels that differ between pull request comments and issues. */
+  applyWords() {
+    const w = this.store.words;
+    const title = this.store.kind === "pr" && this.store.threads.some((t) => t.issue) ? "Comments & issues" : w.title;
+    if (this.wordsKind === title) return;
+    this.wordsKind = title;
+    this.q(".cm-title-text").textContent = title;
+    this.q(".cm-resolved-label").textContent = w.resolved;
+    this.q(".cm-head-btn")?.setAttribute("aria-label", title);
+    this.modeButton.title = `${w.button === "Comment" ? "Comment on" : "Request a change to"} a part, pad, net or spot (C)`;
+    const label = this.modeButton.querySelector("span");
+    if (label) label.textContent = w.button;
   }
 
   visible(t) {
@@ -344,7 +471,7 @@ export class ReviewPanel {
     for (const pin of this.pinsIn(name)) {
       const t = pin.thread, sel = a?.kind === "thread" && a.thread === t;
       if (sel) marks += markSvg(pin.mark, "cm-sel");
-      const cls = `cm-pin${t.isResolved ? " resolved" : ""}${pin.found ? "" : " lost"}${sel ? " sel" : ""}`;
+      const cls = `cm-pin${t.issue ? " issue" : ""}${t.isResolved ? " resolved" : ""}${pin.found ? "" : " lost"}${sel ? " sel" : ""}`;
       pins += pinSvg(this.toSvgX(name, pin.x), pin.y, t.isResolved ? "✓" : String(t.number), cls);
     }
     return (marks && tf ? `<g transform="${tf}">${marks}</g>` : marks) + pins;
@@ -356,7 +483,7 @@ export class ReviewPanel {
   openThread(thread, { view = null, zoom = false } = {}) {
     if (!this.placed.has(thread)) {
       if (this.host.goto?.(thread) !== true) return false;
-      thread = this.store.byRoot(thread.rootId) ?? thread;
+      thread = this.store.byRoot(thread.key) ?? thread;
       if (!this.placed.has(thread)) return false;
     }
     const pl = this.placed.get(thread);
@@ -391,7 +518,7 @@ export class ReviewPanel {
   }
 
   get activeThreadId() {
-    return this.active?.kind === "thread" ? this.active.thread.rootId : null;
+    return this.active?.kind === "thread" ? this.active.thread.key : null;
   }
 
   renderPopover() {
@@ -400,21 +527,30 @@ export class ReviewPanel {
     const canWrite = this.store.canWrite;
     const tokenNote = (what) => `<div class="cm-note"><button class="link" data-act="signin">Sign in with GitHub</button> to ${what}.</div>`;
     let html;
+    const w = this.store.words, issues = this.store.kind === "issues";
     if (a.kind === "draft") {
+      const what = a.anchor.type === "point" ? "this spot" : anchorLabel(a.anchor);
       html = `${this.head(a.anchor, null)}
         ${
           canWrite
-            ? `<textarea class="input cm-input" rows="3" placeholder="Comment on ${esc(a.anchor.type === "point" ? "this spot" : anchorLabel(a.anchor))}…" aria-label="Comment"></textarea>
-               <div class="cm-actions"><span class="muted cm-hint">Posted to the pull request · Ctrl+Enter</span><button class="btn" data-act="cancel">Cancel</button><button class="btn primary" data-act="submit" disabled>Comment</button></div>`
-            : tokenNote("comment")
+            ? `${issues ? `<input class="input cm-issue-title-input" placeholder="Title: what should change on ${esc(what)}" aria-label="Issue title">` : ""}
+               <textarea class="input cm-input" rows="3" placeholder="${issues ? "Details (optional)…" : `Comment on ${esc(what)}…`}" aria-label="${issues ? "Details" : "Comment"}"></textarea>
+               <div class="cm-actions"><span class="muted cm-hint">${esc(w.posted)} · Ctrl+Enter</span><button class="btn" data-act="cancel">Cancel</button><button class="btn primary" data-act="submit" disabled>${issues ? "Open issue" : "Comment"}</button></div>`
+            : tokenNote(issues ? "request changes" : "comment")
         }`;
     } else {
-      const t = a.thread, pl = this.placed.get(t);
+      const t = a.thread, pl = this.placed.get(t), tw = this.store.wordsFor(t), inPr = t.issue && this.store.kind === "pr";
+      const closes = inPr && this.store.closing.has(t.number);
+      if (t.repliesPending) this.store.loadReplies(t); // signed out: an issue's comments come when it's opened
       const notes = [];
       if (pl?.note) notes.push(pl.note);
-      else if (pl?.side && !pl.found) notes.push("Not found in this version of the file — shown where it was.");
+      else if (pl?.side && !pl.found) notes.push(`Not found in this version of the file — shown where it was${t.commit ? ` (requested at <span class="mono">${esc(t.commit.slice(0, 7))}</span>)` : ""}.`);
+      if (t.loadingReplies || t.repliesPending) notes.push("Loading comments…");
+      if (t.repliesError) notes.push(`Comments couldn't be loaded: ${esc(t.repliesError)}`);
+      if (closes) notes.push(t.isResolved ? "Linked to this pull request." : "Closes when this pull request is merged.");
       if (!t.anchor && t.line) notes.push(`Comment on line ${t.line} of <span class="mono">${esc(t.path.split("/").pop())}</span>.`);
       html = `${this.head(t.anchor, t)}
+        ${t.title ? `<div class="cm-issue-title">${esc(t.title)}</div>` : ""}
         ${notes.map((n) => `<div class="cm-note">${n}</div>`).join("")}
         <ol class="cm-comments">${t.comments
           .map(
@@ -423,26 +559,32 @@ export class ReviewPanel {
               <div class="cm-text">${renderCommentText(c.text) || '<span class="muted">(empty)</span>'}</div></div></li>`,
           )
           .join("")}</ol>
-        ${canWrite && t.canReply !== false ? `<textarea class="input cm-input" rows="2" placeholder="Reply…" aria-label="Reply"></textarea>` : canWrite ? "" : tokenNote("reply and resolve")}
+        ${canWrite && t.canReply !== false ? `<textarea class="input cm-input" rows="2" placeholder="${t.issue ? "Comment…" : "Reply…"}" aria-label="${t.issue ? "Comment" : "Reply"}"></textarea>` : canWrite ? "" : tokenNote(t.issue ? "comment and close" : "reply and resolve")}
         <div class="cm-actions">
           <a href="${esc(t.comments.at(-1).url)}" target="_blank" rel="noopener" class="cm-gh">View on GitHub</a>
-          ${t.isResolved ? (t.canUnresolve ? `<button class="btn" data-act="unresolve">Unresolve</button>` : "") : t.canResolve ? `<button class="btn" data-act="resolve">Resolve</button>` : ""}
-          ${canWrite && t.canReply !== false ? `<button class="btn primary" data-act="reply" disabled>Reply</button>` : ""}
+          ${inPr && !closes && !t.isResolved && canWrite ? `<button class="btn" data-act="link" title="Add “Fixes #${t.number}” to the pull request's description: GitHub closes the issue when it's merged">Close with this PR</button>` : ""}
+          ${t.isResolved ? (t.canUnresolve ? `<button class="btn" data-act="unresolve">${tw.unresolve}</button>` : "") : t.canResolve ? `<button class="btn" data-act="resolve">${tw.resolve}</button>` : ""}
+          ${canWrite && t.canReply !== false ? `<button class="btn primary" data-act="reply" disabled>${t.issue ? "Comment" : "Reply"}</button>` : ""}
         </div>`;
     }
     const keep = this.pop.querySelector("textarea")?.value ?? "";
-    const key = a.kind === "draft" ? `d:${a.anchor.x},${a.anchor.y}` : `t:${a.thread.rootId}`;
+    const keepTitle = this.pop.querySelector(".cm-issue-title-input")?.value ?? "";
+    const key = a.kind === "draft" ? `d:${a.anchor.x},${a.anchor.y}` : `t:${a.thread.key}`;
     const same = this.popKey === key;
     this.pop.innerHTML = html;
     this.pop.hidden = false;
     this.popKey = key;
     const ta = this.pop.querySelector("textarea");
+    const title = this.pop.querySelector(".cm-issue-title-input");
     const submit = this.pop.querySelector("[data-act=submit], [data-act=reply]");
+    // An issue needs a title (the details are optional); a comment needs text.
+    const ready = () => submit && (submit.disabled = !(title ? title.value : ta.value).trim());
     if (ta) {
       if (same) ta.value = keep;
-      ta.addEventListener("input", () => submit && (submit.disabled = !ta.value.trim()));
-      if (submit) submit.disabled = !ta.value.trim();
-      if (a.kind === "draft" || same) requestAnimationFrame(() => ta.focus());
+      if (title && same) title.value = keepTitle;
+      for (const el of [ta, title]) el?.addEventListener("input", ready);
+      ready();
+      if (a.kind === "draft" || same) requestAnimationFrame(() => (title && !title.value ? title : ta).focus());
     }
     for (const b of this.pop.querySelectorAll("[data-act]")) b.addEventListener("click", () => this.act(b.dataset.act, b));
     this.position();
@@ -451,8 +593,8 @@ export class ReviewPanel {
   head(anchor, thread) {
     const kind = thread && !anchor ? (thread.line ? "line" : "file") : anchorKind(anchor);
     const label = anchor ? anchorLabel(anchor) : thread.path.split("/").pop();
-    const status = thread ? (thread.isResolved ? `<span class="cm-badge done">Resolved${thread.resolvedBy ? ` by ${esc(thread.resolvedBy)}` : ""}</span>` : thread.isResolved === false ? `<span class="cm-badge">Open</span>` : "") : `<span class="cm-badge new">New</span>`;
-    return `<div class="cm-head">${thread ? `<span class="cm-num">${thread.number}</span>` : ""}<span class="cm-title"><span class="mono">${esc(label)}</span> <span class="ctype">${esc(kind)}${anchor?.side === "base" ? " · before" : ""}</span></span>${status}<button class="btn icon cm-x" data-act="cancel" aria-label="Close">×</button></div>`;
+    const status = thread ? (thread.isResolved ? `<span class="cm-badge done">${this.store.wordsFor(thread).resolved}${thread.resolvedBy ? ` by ${esc(thread.resolvedBy)}` : ""}</span>` : thread.isResolved === false ? `<span class="cm-badge">Open</span>` : "") : `<span class="cm-badge new">New</span>`;
+    return `<div class="cm-head">${thread ? `<span class="cm-num${thread.issue ? " issue" : ""}">${thread.issue ? "#" : ""}${thread.number}</span>` : ""}<span class="cm-title"><span class="mono">${esc(label)}</span> <span class="ctype">${esc(kind)}${anchor?.side === "base" ? " · before" : ""}</span></span>${status}<button class="btn icon cm-x" data-act="cancel" aria-label="Close">×</button></div>`;
   }
 
   /** Keep the popover next to its pin while panning and zooming. */
@@ -493,23 +635,30 @@ export class ReviewPanel {
     busy(true);
     try {
       if (what === "submit") {
-        const created = await this.store.post(this.host.commentPath(a), { ...a.anchor, side: a.side }, ta.value);
+        const title = this.pop.querySelector(".cm-issue-title-input")?.value ?? "";
+        const created = await this.store.post(this.host.commentPath(a), { ...a.anchor, side: a.side }, ta.value, title);
         this.close(false);
         await this.store.reload();
-        const t = this.store.byRoot(created.id);
+        const t = this.store.byRoot(created.key);
         if (!t || !this.openThread(t, { view: a.view })) this.close();
-        toast("Comment posted to the pull request");
+        if (this.store.kind !== "issues") toast("Comment posted to the pull request");
+        // Without write access GitHub drops the label, and KiVi lists only labelled issues.
+        else if (created.labelled === false) toast(`Issue #${created.id} opened, but GitHub didn't add the "${ISSUE_LABEL}" label (that needs write access), so it won't show here: ask a maintainer to add it`, true);
+        else toast(`Issue #${created.id} opened`);
       } else if (what === "reply") {
-        await this.store.api.reply(a.thread, ta.value);
+        await this.store.apiFor(a.thread).reply(a.thread, ta.value);
         ta.value = "";
         this.popKey = null;
         await this.store.reload();
       } else if (what === "resolve" || what === "unresolve") {
-        await this.store.api.setResolved(a.thread, what === "resolve");
+        await this.store.apiFor(a.thread).setResolved(a.thread, what === "resolve");
         await this.store.reload();
+      } else if (what === "link") {
+        await this.store.linkToPr(a.thread);
+        toast(`This pull request now closes issue #${a.thread.number} when it's merged`);
       } else if (what === "delete") {
         if (!confirm("Delete this comment on GitHub?")) return busy(false);
-        await this.store.api.remove(Number(el.dataset.id));
+        await this.store.apiFor(a.thread).remove(Number(el.dataset.id));
         await this.store.reload();
       }
     } catch (e) {
@@ -528,18 +677,21 @@ export class ReviewPanel {
     const shown = entries.filter((e) => this.visible(e.thread));
     const open = entries.filter((e) => e.thread.isResolved !== true).length;
     const resolved = entries.length - open;
-    this.q(".cm-count").textContent = entries.length ? `${open} open${resolved ? ` · ${resolved} resolved` : ""}` : "";
+    const w = this.store.words;
+    this.q(".cm-count").textContent = entries.length ? `${open} open${resolved ? ` · ${resolved} ${w.resolved.toLowerCase()}` : ""}` : "";
     status.innerHTML = this.store.error
       ? `<span class="err">${esc(this.store.error)}</span>`
+      : this.store.issueError
+        ? `Issues couldn't be loaded: ${esc(this.store.issueError)}`
       : this.store.loading && !this.store.loadedAt
         ? "Loading…"
         : this.store.enabled && !this.store.canWrite
-          ? `Read-only. <button class="link" data-act="signin">Sign in with GitHub</button> to comment and resolve.`
+          ? `Read-only. <button class="link" data-act="signin">Sign in with GitHub</button> to ${this.store.kind === "issues" ? "request changes" : "comment and resolve"}.`
           : "";
     status.querySelector("[data-act=signin]")?.addEventListener("click", () => this.act("signin"));
     if (!shown.length) {
-      const what = this.filter === "resolved" ? "No resolved comments here." : this.filter === "open" && entries.length ? "No open comments here." : "No comments here yet.";
-      list.innerHTML = `<li class="muted cm-empty">${what}${this.store.canWrite ? " Press <kbd>C</kbd> or use <b>Comment</b>, then click a part, pad, net or spot." : ""}</li>`;
+      const what = this.filter === "resolved" ? `No ${w.resolved.toLowerCase()} ${w.item} here.` : this.filter === "open" && entries.length ? `No open ${w.item} here.` : `No ${w.item} here yet.`;
+      list.innerHTML = `<li class="muted cm-empty">${what}${this.store.canWrite ? ` Press <kbd>C</kbd> or use <b>${w.button}</b>, then click a part, pad, net or spot.` : ""}</li>`;
       return;
     }
     list.innerHTML = shown
@@ -549,19 +701,21 @@ export class ReviewPanel {
         const kind = t.anchor ? anchorKind(t.anchor) : t.line ? `line ${t.line}` : "file";
         const label = t.anchor ? anchorLabel(t.anchor) : "";
         const replies = t.comments.length - 1;
+        const num = `${t.issue ? "#" : ""}${t.number}`;
+        const inPr = t.issue && this.store.kind === "pr";
         const cur = this.active?.kind === "thread" && this.active.thread === t;
-        const extra = [t.anchor?.side === "base" ? "before" : "", where && !here ? where : "", pl?.side && !pl.found ? "not in this version" : ""].filter(Boolean).join(" · ");
-        return `<li><button data-root="${t.rootId}" class="cm-item${t.isResolved ? " resolved" : ""}"${cur ? " aria-current" : ""}>
-          <span class="cm-num">${t.isResolved ? "✓" : t.number}</span>
+        const extra = [inPr ? (this.store.closing.has(t.number) ? "issue · closes with this PR" : "issue") : "", t.anchor?.side === "base" ? "before" : "", where && !here ? where : "", pl?.side && !pl.found ? "not in this version" : ""].filter(Boolean).join(" · ");
+        return `<li><button data-root="${esc(t.key)}" class="cm-item${t.isResolved ? " resolved" : ""}"${cur ? " aria-current" : ""}>
+          <span class="cm-num${t.issue ? " issue" : ""}">${t.isResolved ? "✓" : num}</span>
           <span class="cbody"><span class="clabel">${label ? `<span class="mono">${esc(label)}</span> ` : ""}<span class="ctype">${esc(kind)}${extra ? ` · ${esc(extra)}` : ""}</span></span>
-          <span class="cdetail">${esc(excerpt(first.text))}</span>
+          <span class="cdetail">${esc(t.title ?? excerpt(first.text))}</span>
           <span class="cm-by">${esc(first.author)} · ${ago(first.createdAt)}${replies ? ` · ${replies} repl${replies > 1 ? "ies" : "y"}` : ""}</span></span></button></li>`;
       })
       .join("");
     for (const b of list.querySelectorAll("button[data-root]")) {
       b.addEventListener("click", () => {
         const t = this.store.byRoot(b.dataset.root);
-        if (t && !this.openThread(t, { zoom: true })) this.setFocus({ thread: t.rootId });
+        if (t && !this.openThread(t, { zoom: true })) this.setFocus({ thread: t.key });
       });
     }
   }

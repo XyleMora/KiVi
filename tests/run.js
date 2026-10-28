@@ -10,6 +10,7 @@ import { renderSchematic } from "../src/sch/render.js";
 import { renderPcb } from "../src/pcb/render.js";
 import { multiply, rotate, scale, translate, apply } from "../src/geom.js";
 import { libSymbolFor } from "../src/sch/model.js";
+import { netSide } from "../src/pcb/model.js";
 
 let failures = 0;
 const check = (cond, msg) => {
@@ -20,6 +21,19 @@ const check = (cond, msg) => {
 };
 
 // ---- unit checks ----
+
+{
+  // Cross-probing a net shows the side most of its copper is on.
+  const pad = (net, layers) => ({ net, layers });
+  const board = {
+    footprints: [{ pads: [pad("A", ["F.Cu", "F.Mask"]), pad("A", ["*.Cu"]), pad("B", ["B.Cu"]), pad("C", ["*.Cu"])] }],
+    tracks: [{ net: "A", layer: "B.Cu" }, { net: "A", layer: "F.Cu" }, { net: "B", layer: "In1.Cu" }, { net: "C", layer: "In2.Cu" }],
+  };
+  check(netSide(board, "A") === "front", "netSide: SMD pad and track on F.Cu outweigh one B.Cu track");
+  check(netSide(board, "B") === "back", "netSide: B.Cu pad, inner track ignored");
+  check(netSide(board, "C") === null, "netSide: through-hole and inner layers only → no side");
+  check(netSide(board, "D") === null, "netSide: unknown net → no side");
+}
 {
   const t = parse('(a 1 -2.5 "3" b (c "x\\"y") (d))');
   check(t[0] === "a" && t[1] === 1 && t[2] === -2.5 && t[3] === "3" && t[4] === "b", "sexpr atoms");

@@ -244,6 +244,9 @@ class App {
           setTimeout(() => this.render3dInfo(fp), 0);
           this.writeHash();
         },
+        onView: (view) => {
+          for (const o of document.querySelectorAll("[data-view]")) o.setAttribute("aria-pressed", String(o.dataset.view === view));
+        },
         onModelsLoaded: () => this.render3dInfo(this.project.pcb.footprints.find((f) => f.reference === this.view3d?.selectedRef) ?? null),
       });
       const { Measure3D } = await import("../pcb/measure3d.js");

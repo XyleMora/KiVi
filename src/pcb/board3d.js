@@ -8,10 +8,20 @@ import { boardOutline } from "./outline.js";
 import { boardFaceSvg, netOverlaySvg } from "./texture.js";
 import { hitTest } from "./hit.js";
 import { boardBBox } from "./render.js";
+import { netSide } from "./model.js";
 
 /** Default mirror of KiCad's standard 3D library (VRML files, CORS-enabled). */
 export const DEFAULT_MODEL_BASE = "https://raw.githubusercontent.com/KiCad/kicad-packages3D/master/";
 const VRML_UNIT = 2.54; // KiCad VRML models are in 0.1 inch units
+
+// Camera directions of the preset views (from the point looked at). Top and
+// bottom lean a hair towards −y/+y so "up" stays defined.
+const VIEWS = {
+  iso: new THREE.Vector3(0.0, -0.9, 1.1),
+  top: new THREE.Vector3(0, -0.0001, 1),
+  bottom: new THREE.Vector3(0, 0.0001, -1),
+  front: new THREE.Vector3(0, -1, 0.15),
+};
 
 export class Board3D {
   /**
@@ -19,6 +29,7 @@ export class Board3D {
    * @param {object} [opts]
    * @param {(path: string) => AsyncIterable<{url: string, format: "wrl"|"step"}>|Promise<{url: string, format: "wrl"|"step"}|null>} [opts.resolveModel]
    * @param {(msg: string) => void} [opts.onStatus]
+   * @param {(view: string) => void} [opts.onView]  a probe moved the camera to this preset ("top", "bottom")
    */
   constructor(container, opts = {}) {
     this.container = container;
@@ -161,7 +172,7 @@ export class Board3D {
     a.renderOrder = b.renderOrder = 5;
     this.netMeshes = [a, b];
     this.boardGroup.add(a, b);
-    if (focus) this.focusOn(this.netBox3(net));
+    if (focus) this.focusOn(this.netBox3(net), netSide(this.pcb, net));
     return true;
   }
 
@@ -191,7 +202,7 @@ export class Board3D {
     }
     for (const g of this.componentGroup.children) if (g.userData.footprint === fp) this.tint(g, true);
     this.updateSelectionBox();
-    if (focus) this.focusOn(this.selectionBox3());
+    if (focus) this.focusOn(this.selectionBox3(), fp.side === "back" ? "back" : "front");
     return true;
   }
 
@@ -262,28 +273,32 @@ export class Board3D {
     this.scene.add(this.selBox);
   }
 
-  /** Glide the camera to `box`, keeping the current viewing direction. */
-  focusOn(box) {
+  /**
+   * Glide the camera to `box`, looking at it straight from the top or bottom
+   * view (`side`), like a probe in KiCad shows the side the part or net is on.
+   * Without a side (a net on both), the camera stays on the side it's on.
+   */
+  focusOn(box, side = null) {
     if (!box || box.isEmpty()) return;
+    side ??= this.camera.position.z < this.controls.target.z ? "back" : "front";
+    const view = side === "back" ? "bottom" : "top";
     const center = box.getCenter(new THREE.Vector3());
     const size = Math.max(box.getSize(new THREE.Vector3()).length(), 12);
-    const dir = this.camera.position.clone().sub(this.controls.target).normalize();
-    // Look at bottom-side parts from below.
-    const fp = this.pcb.footprints.find((f) => f.reference === this.selectedRef);
-    if (fp?.side === "back" && dir.z > 0) dir.z = -dir.z;
-    if (fp?.side !== "back" && dir.z < 0) dir.z = -dir.z;
-    const to = center.clone().addScaledVector(dir, size * 2.2);
-    const fromPos = this.camera.position.clone(), fromTarget = this.controls.target.clone();
+    const to = center.clone().addScaledVector(VIEWS[view].clone().normalize(), size * 2.2);
+    const fromPos = this.camera.position.clone(), fromTarget = this.controls.target.clone(), fromUp = this.camera.up.clone();
+    const up = new THREE.Vector3(0, 0, 1); // as the preset views: free rotation may have tilted it
     const t0 = performance.now(), dur = 450;
     const step = () => {
       const k = Math.min(1, (performance.now() - t0) / dur);
       const e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
       this.camera.position.lerpVectors(fromPos, to, e);
       this.controls.target.lerpVectors(fromTarget, center, e);
+      this.camera.up.lerpVectors(fromUp, up, e).normalize();
       this.controls.update();
       if (k < 1) requestAnimationFrame(step);
     };
     step();
+    this.opts.onView?.(view);
   }
 
   /** Called when a component is added to the scene (models load asynchronously). */
@@ -493,15 +508,9 @@ export class Board3D {
   }
 
   frame(view = "iso") {
-    const dirs = {
-      iso: new THREE.Vector3(0.0, -0.9, 1.1),
-      top: new THREE.Vector3(0, -0.0001, 1),
-      bottom: new THREE.Vector3(0, 0.0001, -1),
-      front: new THREE.Vector3(0, -1, 0.15),
-    };
     // Free rotation tilts the camera's up vector; preset views start upright again.
     this.camera.up.set(0, 0, 1);
-    this.placeCamera((dirs[view] ?? dirs.iso).clone().normalize());
+    this.placeCamera((VIEWS[view] ?? VIEWS.iso).clone().normalize());
   }
 
   /** Show the whole board again from the current viewing direction (the zoom column's ⤢). */

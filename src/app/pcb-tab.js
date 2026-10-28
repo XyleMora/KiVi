@@ -4,6 +4,7 @@ import { renderPcb, DEFAULT_VISIBLE, boardBBox } from "../pcb/render.js";
 import { PCB_THEMES } from "../pcb/theme.js";
 import { hitTest } from "../pcb/hit.js";
 import { snapPoints } from "../pcb/snap.js";
+import { netSide } from "../pcb/model.js";
 import { arcFrom3 } from "../geom.js";
 import { unescapeKiCad } from "../text.js";
 import { SvgView } from "./svgview.js";
@@ -299,6 +300,12 @@ export class PcbTab {
   highlightNet(name, zoom = false) {
     if (!this.result && this.pcb) this.renderSide(this.side);
     name = this.resolveNet(name);
+    // Probing a net shows the side most of its copper is on.
+    const side = zoom && name && netSide(this.pcb, name);
+    if (side && side !== this.side) {
+      this.net = null; // renderSide would highlight it, then this does again
+      this.renderSide(side, true);
+    }
     this.net = name || null;
     const canvas = $("#pcb-canvas");
     const svg = this.view.svg;
@@ -322,9 +329,10 @@ export class PcbTab {
     chip.innerHTML = `<span class="dot"></span>Net <span class="mono">${escapeHtml(name)}</span><button class="btn small" id="net-clear" aria-label="Clear highlight">✕</button>`;
     $("#net-clear").addEventListener("click", () => this.highlightNet(null));
     if (zoom) {
-      const pads = this.pcb.footprints.flatMap((f) => f.pads).filter((p) => p.net === name);
-      if (pads.length) {
-        const xs = pads.map((p) => p.x), ys = pads.map((p) => p.y);
+      const pts = this.pcb.footprints.flatMap((f) => f.pads).filter((p) => p.net === name);
+      for (const t of this.pcb.tracks) if (t.net === name) pts.push(t.start, t.end);
+      if (pts.length) {
+        const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
         this.zoomToBoard({ x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) }, 10);
       }
       this.inspectNet(name);

@@ -602,7 +602,18 @@ pub async fn git_remote_state(path: String, owner: String, repo: String, token: 
 
 fn fetch_from(repo: &Repository, url: &str, remote: &str) -> Result<(), git2::Error> {
     let mut anon = repo.remote_anonymous(url)?;
-    anon.fetch(&[format!("+refs/heads/*:refs/remotes/{remote}/*")], None, None)
+    anon.fetch(&[format!("+refs/heads/*:refs/remotes/{remote}/*")], None, None)?;
+    // Like `git fetch --prune`: branches deleted on GitHub leave the branch menu.
+    // The list GitHub sent stays readable after the fetch disconnects.
+    let theirs: Vec<String> = anon.list()?.iter().filter_map(|h| h.name().strip_prefix("refs/heads/").map(String::from)).collect();
+    let prefix = format!("refs/remotes/{remote}/");
+    for mut r in repo.references_glob(&format!("{prefix}*"))?.flatten() {
+        let gone = r.name().and_then(|n| n.strip_prefix(&prefix)).is_some_and(|b| b != "HEAD" && !theirs.iter().any(|t| t == b));
+        if gone {
+            r.delete()?;
+        }
+    }
+    Ok(())
 }
 
 /// Update the remote branches from GitHub (so "main" in the visual diff is current).
@@ -1071,6 +1082,12 @@ mod tests {
         // The gallery's sync check asks GitHub for its branch tips without downloading.
         let st = remote_state(&repo, "https://github.com/octocat/Hello-World.git", "origin").unwrap();
         assert_eq!((st.relation.as_str(), st.changes, st.error.is_none()), ("same", 0, true), "{st:?}");
+        // Pruning reads GitHub's branch list through this transport too: a stale branch goes, the rest stay.
+        let tip = repo.head().unwrap().target().unwrap();
+        repo.reference("refs/remotes/origin/deleted-upstream", tip, true, "test").unwrap();
+        fetch_from(&repo, "https://github.com/octocat/Hello-World.git", "origin").unwrap();
+        assert!(repo.find_reference("refs/remotes/origin/deleted-upstream").is_err());
+        assert!(repo.find_reference("refs/remotes/origin/master").is_ok());
         // A wrong token is refused with an explanation, not a raw error.
         let err = fetch_from(&repo, "https://x-access-token:wrong@github.com/octocat/Hello-World.git", "origin");
         assert!(err.is_ok() || err.unwrap_err().message().contains("GitHub"));
@@ -1107,6 +1124,24 @@ mod tests {
         assert_eq!(current_branch(&repo).as_deref(), Some("other"));
         assert_eq!(std::fs::read_to_string(work.join("board/board.kicad_sch")).unwrap(), "(kicad_sch edited)");
         assert!(switch_branch(&repo, "nope").is_err());
+        std::fs::remove_dir_all(base).unwrap();
+    }
+
+    #[test]
+    fn fetch_forgets_branches_deleted_on_github() {
+        let (base, bare, repo) = fixture("prune");
+        let url = bare.to_str().unwrap().to_string();
+        let other = clone_from(&url, &base.join("other"), |_| {}).unwrap();
+        create_branch(&other, "gone").unwrap();
+        push_to(&other, &url, "origin").unwrap();
+        fetch_from(&repo, &url, "origin").unwrap();
+        let names = |r: &Repository| branches(r).unwrap().into_iter().map(|b| b.name).collect::<Vec<_>>();
+        assert_eq!(names(&repo), vec!["main".to_string(), "gone".to_string()]);
+
+        Repository::open_bare(&bare).unwrap().find_reference("refs/heads/gone").unwrap().delete().unwrap();
+        fetch_from(&repo, &url, "origin").unwrap();
+        assert_eq!(names(&repo), vec!["main".to_string()]);
+        assert!(repo.find_reference("refs/remotes/origin/main").is_ok(), "branches still on GitHub stay");
         std::fs::remove_dir_all(base).unwrap();
     }
 

@@ -231,7 +231,7 @@ README doesn't: conventions, environment and pitfalls.
   the clone's remote says. Commands: `git_info`, `git_status`, `git_clone`
   (emits `git-progress`), `git_create_branch`, `git_local_changes` (merge base
   with origin/HEAD, main or master ↔ working files incl. untracked, renames),
-  `git_read` / `git_list` (rev "" = working files), `git_fetch`, `git_commit`,
+  `git_read` / `git_list` (rev "" = working files), `git_fetch` (prunes branches deleted on GitHub, like `--prune`; pull fetches the same way), `git_commit`,
   `git_push`, `git_pull` (fetch, then fast-forward with a safe checkout; both
   sides with commits on disjoint files → merge commit; any file changed on
   both → outcome "diverged", nothing touched), `git_move_commits` (after a

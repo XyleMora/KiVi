@@ -99,6 +99,19 @@ async function scanRepo(r) {
 const KICAD_REPOS_KEY = "kivi.kicadRepos"; // {"owner/repo": {pushed, branch, has}}
 
 /**
+ * Repositories in the gallery with KiCad projects, as last scanned (the
+ * project index), plus remote projects, less those removed from projects. No
+ * requests: the Issues view searches these.
+ */
+export function galleryRepos() {
+  const hidden = new Set((settings().hiddenRepos ?? []).map((h) => h.toLowerCase()));
+  const out = new Map();
+  for (const [nwo, e] of Object.entries(loadIndex())) if (e?.projects?.length || e?.truncated) out.set(nwo.toLowerCase(), nwo);
+  for (const nwo of settings().watchRepos ?? []) if (!out.has(nwo.toLowerCase())) out.set(nwo.toLowerCase(), nwo);
+  return [...out].filter(([k]) => !hidden.has(k)).map(([, nwo]) => nwo);
+}
+
+/**
  * Whether a repository has KiCad projects (as the gallery counts them), for
  * showing only its pull requests. The gallery's index answers without a
  * request; other repositories cost one request (two when pushed to since the

@@ -1,8 +1,9 @@
-// Review comment tests (gjs): anchor encoding, the GitHub API layer against a
-// mocked API, and anchor picking/relocation on demo files.   gjs -m tests/review.js
+// Review comment tests (gjs): anchor encoding, the GitHub API layers (review
+// comments and KiVi issues) against a mocked API, and anchor picking/relocation on demo files.   gjs -m tests/review.js
 
 import { readText, kicadDemos } from "./gjs-fs.js";
-import { encodeBody, decodeBody, anchorLabel, renderCommentText, ReviewComments } from "../src/review.js";
+import { encodeBody, decodeBody, anchorLabel, renderCommentText, ReviewComments, closingNumbers } from "../src/review.js";
+import { IssueComments } from "../src/issues.js";
 import { pickPcb, locatePcb, pickSch, locateSch } from "../src/diff/anchors.js";
 import { parsePcb } from "../src/pcb/model.js";
 import { renderPcb } from "../src/pcb/render.js";
@@ -105,6 +106,105 @@ const DEMO = kicadDemos("pic_programmer");
   const t21 = rest.find((t) => t.rootId === 21);
   check(t21.comments.length === 2 && t21.isResolved === null && t21.anchor?.type === "footprint", "REST thread: replies, unknown resolve state, anchor");
   check(rest.find((t) => t.rootId === 23).line === 40, "line comments keep their line");
+}
+
+// ---- issues (hardware change requests) against a mock ----
+{
+  const calls = [];
+  const reply = (status, data) => ({ ok: status < 300, status, json: async () => data, headers: { get: () => null } });
+  const pinned = encodeBody("LED too bright", { type: "footprint", ref: "R12", uuid: "u-12", x: 5, y: 6, side: "head", file: "hw/board.kicad_pcb", commit: "c0ffee" });
+  const fetchMock = async (url, init = {}) => {
+    const body = init.body ? JSON.parse(init.body) : null;
+    calls.push({ url, method: init.method ?? "GET", body });
+    if (url.endsWith("/graphql")) {
+      return reply(200, {
+        data: {
+          viewer: { login: "me" },
+          repository: {
+            issues: {
+              pageInfo: { hasNextPage: false, endCursor: null },
+              nodes: [
+                {
+                  id: "I_1", number: 12, title: "R12 should be 10 k", body: pinned, state: "OPEN", createdAt: "2026-10-20T10:00:00Z", url: "i12", locked: false, viewerCanUpdate: true, viewerDidAuthor: true, author: { login: "me", avatarUrl: "a" },
+                  comments: { nodes: [{ databaseId: 501, body: "Agreed", createdAt: "2026-10-20T11:00:00Z", url: "c501", viewerDidAuthor: true, author: { login: "me", avatarUrl: "a" } }] },
+                },
+                { id: "I_2", number: 13, title: "Closed one", body: "no marker", state: "CLOSED", createdAt: "2026-10-21T10:00:00Z", url: "i13", locked: true, viewerCanUpdate: false, viewerDidAuthor: false, author: null, comments: { nodes: [] } },
+              ],
+            },
+          },
+        },
+      });
+    }
+    if (url.includes("/issues?labels=kivi")) {
+      return reply(200, [
+        { number: 12, title: "R12 should be 10 k", body: pinned, state: "open", comments: 1, user: { login: "me" }, created_at: "2026-10-20T10:00:00Z", html_url: "i12" },
+        { number: 14, title: "a PR", body: "", state: "open", comments: 0, pull_request: {}, user: { login: "x" }, created_at: "2026-10-22T10:00:00Z", html_url: "p14" },
+      ]);
+    }
+    if (url.includes("/issues/12/comments?")) return reply(200, [{ id: 501, body: "Agreed", user: { login: "me" }, created_at: "2026-10-20T11:00:00Z", html_url: "c501" }]);
+    if (url.endsWith("/labels")) return reply(422, { message: "Validation Failed" }); // already there
+    if (url.endsWith("/repos/o/r/issues") && init.method === "POST") return reply(201, { number: 15, html_url: "i15", labels: body.labels.map((name) => ({ name })) });
+    if (url.endsWith("/issues/12") && init.method === "PATCH") return reply(200, { number: 12, state: body.state });
+    if (init.method === "POST") return reply(201, { id: 600 });
+    if (init.method === "DELETE") return { ok: true, status: 204, json: async () => null, headers: { get: () => null } };
+    return reply(404, { message: "Not Found" });
+  };
+
+  const api = new IssueComments({ owner: "o", repo: "r", token: "t0k", fetch: fetchMock });
+  const threads = await api.load();
+  const t12 = threads.find((t) => t.rootId === 12), t13 = threads.find((t) => t.rootId === 13);
+  check(threads.length === 2 && calls[0].body.variables.label === "kivi", "issues labelled kivi loaded through GraphQL");
+  check(t12.number === 12 && t12.title === "R12 should be 10 k" && t12.path === "hw/board.kicad_pcb" && t12.commit === "c0ffee" && t12.anchor.ref === "R12", "issue → thread: number, title, file and commit from the marker");
+  check(t12.comments.length === 2 && t12.comments[0].text === "LED too bright" && !t12.comments[0].mine && t12.comments[1].mine, "issue body is the first comment (never deletable), comments follow");
+  check(t12.canResolve && !t12.canUnresolve && t12.canReply && t12.isResolved === false, "open issue: can close and comment");
+  check(t13.isResolved === true && !t13.canUnresolve && !t13.canReply && t13.path === null && t13.anchor === null, "closed, locked, unpinned issue");
+
+  const created = await api.create({ path: "hw/board.kicad_pcb", commitId: "beef", anchor: { type: "net", net: "GND", x: 1, y: 2, side: "head" }, text: "", title: " Widen GND " });
+  const post = calls.find((c) => c.url.endsWith("/repos/o/r/issues") && c.method === "POST");
+  const back = decodeBody(post.body.body);
+  check(calls.some((c) => c.url.endsWith("/labels") && c.body.name === "kivi") && post.body.labels[0] === "kivi" && post.body.title === "Widen GND", "create makes sure of the label, then opens a labelled issue");
+  check(back.anchor.file === "hw/board.kicad_pcb" && back.anchor.commit === "beef" && back.anchor.net === "GND" && created.id === 15 && created.labelled, "new issue carries file, commit and anchor");
+
+  await api.reply(t12, " done ");
+  check(calls.at(-1).url.endsWith("/issues/12/comments") && calls.at(-1).body.body === "done", "comment on an issue");
+  await api.setResolved(t12, true);
+  check(calls.at(-1).method === "PATCH" && calls.at(-1).body.state === "closed" && calls.at(-1).body.state_reason === "completed" && t12.isResolved, "resolve closes the issue as completed");
+  await api.setResolved(t12, false);
+  check(calls.at(-1).body.state === "open" && !t12.isResolved, "unresolve reopens it");
+  await api.remove(501);
+  check(calls.at(-1).url.endsWith("/issues/comments/501") && calls.at(-1).method === "DELETE", "delete an issue comment");
+
+  const anon = new IssueComments({ owner: "o", repo: "r", fetch: fetchMock });
+  const rest = await anon.load();
+  check(rest.length === 1 && rest[0].rootId === 12 && rest[0].repliesPending && rest[0].comments.length === 1 && !rest[0].canReply, "signed out: REST issues without pull requests, comments pending");
+  await anon.loadReplies(rest[0]);
+  check(rest[0].comments.length === 2 && rest[0].comments[1].text === "Agreed" && !rest[0].repliesPending, "comments fetched when the issue is opened");
+}
+
+// ---- issues a pull request closes ----
+{
+  const n = closingNumbers("Swaps R12.\n\nFixes #12, closes #3 and Resolved: #40. See #7, prefix#8 and fixes#9");
+  check([...n].sort((a, b) => a - b).join() === "3,12,40", `closing keywords in a description (got ${[...n]})`);
+  const calls = [];
+  let body = "Swaps R12 for 10 k.\n";
+  const reply = (status, data) => ({ ok: status < 300, status, json: async () => data, headers: { get: () => null } });
+  const fetchMock = async (url, init = {}) => {
+    const b = init.body ? JSON.parse(init.body) : null;
+    calls.push({ url, method: init.method ?? "GET", body: b });
+    if (url.endsWith("/graphql")) return reply(200, { data: { repository: { pullRequest: { closingIssuesReferences: { nodes: [{ number: 12, repository: { nameWithOwner: "O/R" } }, { number: 5, repository: { nameWithOwner: "other/repo" } }] } } } } });
+    if (url.endsWith("/pulls/7") && init.method === "PATCH") return reply(200, { body: (body = b.body) });
+    if (url.endsWith("/pulls/7")) return reply(200, { body });
+    return reply(404, {});
+  };
+  const signedIn = new ReviewComments({ owner: "o", repo: "r", pr: 7, token: "t", fetch: fetchMock });
+  check([...(await signedIn.closingIssues())].join() === "12", "signed in: GitHub's closing references, this repository's only");
+  await signedIn.addClosingIssue(13);
+  check(calls.at(-1).method === "PATCH" && body === "Swaps R12 for 10 k.\n\nFixes #13", `"Fixes #13" added to the description (got ${JSON.stringify(body)})`);
+  const before = calls.length;
+  await signedIn.addClosingIssue(13);
+  check(calls.length === before + 1 && calls.at(-1).method === "GET", "already closing: the description is left alone");
+  const anon = new ReviewComments({ owner: "o", repo: "r", pr: 7, fetch: fetchMock });
+  check([...(await anon.closingIssues())].join() === "13", "signed out: read from the description's keywords");
 }
 
 // ---- board anchors ----

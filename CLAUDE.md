@@ -53,10 +53,10 @@ README doesn't: conventions, environment and pitfalls.
 
 ## Desktop parts
 
-- `inbox.html` + `src/desktop/inbox.js`: the home window, with two views
+- `inbox.html` + `src/desktop/inbox.js`: the home window, with three views
   switched by GitHub-style icon buttons in the header (`data-home`,
-  `aria-pressed`, reachable as `inbox.html#projects` / `#prs`; each loads on
-  first show, since both cost API requests). There's no Watched drawer or
+  `aria-pressed`, reachable as `inbox.html#projects` / `#prs` / `#issues`;
+  each loads on first show, since they cost API requests). There's no Watched drawer or
   recent folders list any more (the user's choice): repositories are added
   with "+" → Remote project… (`watchRepos`). **Reload** (`#reload`) clears
   `hiddenRepos` and lists every repository again, so removed GitHub
@@ -180,6 +180,44 @@ README doesn't: conventions, environment and pitfalls.
   footer; `src/review.js` encodes and decodes both (`tests/review.js`).
 - New comments carry no link in their footer (just "📍 KiVi · <what>");
   `encodeBody` still accepts one.
+
+## Change requests (GitHub issues)
+
+- The user's design: issues pinned like review comments, outside PRs, listed
+  in a home view; only issues labelled `kivi` (`ISSUE_LABEL`, the user's
+  choice over listing every issue).
+- `src/issues.js` `IssueComments` extends `ReviewComments` (same request and
+  error code) and turns issues into the same thread shape: `rootId` = issue
+  number (so `thread=12` is issue #12), resolved = closed, the body is the
+  first comment (never deletable). The marker carries `file` (repository path)
+  and `commit`. Signed in: one GraphQL query (issues + comments); signed out:
+  REST, comments fetched when a thread opens (`repliesPending`,
+  `store.loadReplies`). `create` first POSTs the label (422 = exists) and
+  reports `labelled: false` when GitHub dropped it (no write access).
+- `ReviewStore.openIssues({owner, repo, prefix, commit})` (review-ui.js):
+  `kind` "pr" | "issues" switches the panel's wording (`WORDS`) and the
+  composer (title input, "Open issue"). `prefix` maps repository paths to the
+  open folder's (a local copy below the repository's root); re-opening the
+  same repository only updates `commit`, so live reload costs no requests.
+- In PR mode the store holds both (`api` = review comments, `issueApi` =
+  issues; `apiFor(t)`, `wordsFor(t)`), keys keep them apart (`t.key`: comment
+  id, or "i12"), only review threads are numbered 1…n, issue pins are green
+  (`.cm-pin.issue`), `openCounts` skips issues. `closingIssues()` (review.js:
+  GraphQL `closingIssuesReferences` signed in, else `closingNumbers` of the
+  description) marks the ones the PR closes; **Close with this PR**
+  (`addClosingIssue`) appends "Fixes #N" to the description, re-read first. An
+  issue load failure only leaves a note (`issueError`), comments still load.
+- main.js `showIssues()`: GitHub sources outside PR mode; local folders once
+  git.js `mountGitMenu` calls `kivi.setLocalIssues` with `git_info`'s owner
+  (`folderPrefix`, tauri.js). `file=` without `project=` picks the project
+  holding that file (`projectOfFile`).
+- Home view Issues: search API, "Assigned to you", "Opened by you" (signed
+  in) and "In your projects" (`galleryRepos()` from the project index plus
+  remote projects, chunked into queries under GitHub's 256-character limit).
+  Rows link to the local copy when linked (`localCopy`), else `gh=`.
+- Tested: `tests/review.js` (mocked API) and headless with a fetch mock;
+  never against GitHub. The GitHub App needs *Issues: Read and write*; ask the
+  user whether it was added before assuming writes work.
 
 ## Local copies and git
 

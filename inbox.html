@@ -19,6 +19,7 @@
     <nav class="home-switch" aria-label="Home">
       <button type="button" class="btn icon" data-home="projects" aria-label="Projects" title="Projects"></button>
       <button type="button" class="btn icon" data-home="prs" aria-label="Pull requests" title="Pull requests"></button>
+      <button type="button" class="btn icon" data-home="issues" aria-label="Issues" title="Issues"></button>
     </nav>
     <div id="account" class="account"></div>
   </div>
@@ -48,6 +49,11 @@
     <div id="home-prs" hidden>
       <p id="signed-out" class="inbox-note" hidden>Sign in to see pull requests waiting for your review and your own pull requests. Remote projects in public repositories work without signing in.</p>
       <div id="lists"></div>
+    </div>
+
+    <div id="home-issues" hidden>
+      <p class="inbox-note">Hardware change requests: GitHub issues labelled <span class="mono">kivi</span>, pinned to a part, pad, net or spot. Open one in a project with <b>Request change</b> (key C).</p>
+      <div id="issue-lists"></div>
     </div>
   </section>
 

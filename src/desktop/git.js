@@ -7,7 +7,7 @@
 
 import { $, escapeHtml, settings, saveSettings, toast } from "../app/ui.js";
 import { GitHubSource } from "../sources.js";
-import { ensureFreshToken, invoke, listen, pickFolder } from "./tauri.js";
+import { ensureFreshToken, folderPrefix, invoke, listen, pickFolder } from "./tauri.js";
 import { mountBranchMenu } from "../app/branch-menu.js";
 import { mountHistoryMenu } from "../app/history-menu.js";
 import { setDiffButton } from "../app/diff-button.js";
@@ -190,6 +190,8 @@ export function mountGitMenu(folder, history) {
       // not a git copy
     }
     if (window.kivi?.source?.path !== folder) return; // another project was opened meanwhile
+    // Its GitHub repository's issues are pinned in the viewer, like on GitHub projects.
+    window.kivi?.setLocalIssues?.(info?.owner ? { folder, owner: info.owner, repo: info.repo, prefix: folderPrefix(folder, info.root), commit: history.viewing() ?? info.head ?? null } : null);
     if (!info?.root) {
       setDiffButton({ title: "Visual diff needs a git repository: add the folder with + → Local project… to make it one" });
       return removeOurs();

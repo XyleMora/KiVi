@@ -60,6 +60,13 @@ open it in KiVi.
 ![Pull requests: the watched test repository's open PR, which changes 9 KiCad files](docs/screenshots/pull-requests.png)
 
 
+**Issues.** The third icon lists open hardware change requests (GitHub issues
+made in KiVi, see [Change requests as issues](#change-requests-as-issues)): those assigned to you
+and opened by you once you sign in, and those in your projects. Each names the
+part, pad or net it's pinned to; **Hardware** opens it there, in the local copy
+when there is one.
+
+
 **Visual diff.** A pull request, commit or branch comparison, side by side or
 overlaid, of a GitHub repository or a local git copy (its working files too), with a list of what changed in KiCad terms rather than text:
 which pins joined or left each net (redrawn wires that connect the same pins
@@ -123,8 +130,9 @@ How it behaves:
 - An organisation that restricts third-party access may need an owner to
   approve the installation.
 - Permissions the App needs (repository permissions): *Metadata: Read-only*,
-  *Pull requests: Read and write* (review comments) and *Contents: Read and
-  write* (reading files, and pushing from a local copy). After raising a
+  *Pull requests: Read and write* (review comments), *Issues: Read and write*
+  (change requests) and *Contents: Read and write* (reading files, and pushing
+  from a local copy). After raising a
   permission in the App's settings, each installation has to accept it once.
 
 ## Project gallery
@@ -305,12 +313,13 @@ index.html#gh=owner/repo@main:hardware&tab=pcb&sel=U3     project in a repositor
 index.html#gh=owner/repo&pr=owner/repo%2312               … at a pull request's head, with its review comments
 index.html#folder=/path/to/project                        local folder
 index.html#folder=/path/to/project&commit=<sha>           … at a commit (git copies)
+index.html#gh=owner/repo&file=hw/board.kicad_pcb&thread=12  … on issue #12's pin (also with folder=)
 diff.html#gh=owner/repo&pr=42                             visual diff of a pull request
 diff.html#gh=owner/repo&commit=<sha>                      … of a commit
 diff.html#gh=owner/repo&base=main&head=feature&file=hw/board.kicad_pcb
 diff.html#gh=owner/repo&head=feature                      … against the default branch
 diff.html#local=/path/to/copy[&base=<ref>][&head=<ref>]   a local copy (no head: its working files)
-inbox.html#projects, inbox.html#prs                       home screen views
+inbox.html#projects, #prs, #issues                        home screen views
 ```
 
 `gh=` takes `owner/repo`, `owner/repo@branch:path/to/project` or any
@@ -348,12 +357,48 @@ Reading comments on public repositories works without signing in (resolve
 state needs it). Posting, replying and resolving need the GitHub App's *Pull
 requests: Read and write* permission.
 
+## Change requests as issues
+
+Outside a pull request (a branch of a GitHub project, or a local copy linked to
+GitHub) the same pins are GitHub issues: press **C** (or **Request change**),
+click a part, pad, net or spot, give it a title (and details if you like) and
+**Open issue**. The issue gets the label `kivi` (created in the repository the
+first time) and the same hidden marker, plus the file and commit it was made
+on:
+
+```markdown
+R12 should be 10 k: the LED is too bright.
+
+<sub>📍 KiVi · footprint **R12**</sub>
+<!-- kivi:{"v":1,"type":"footprint","ref":"R12",…,"file":"hw/board.kicad_pcb","commit":"3f2a…"} -->
+```
+
+Issues are listed in the schematic and PCB side panels (Open / Closed / All)
+and pinned like review comments; comment on them, close or reopen them there
+or on GitHub. A pull request that says "Fixes #12" closes the issue when it's
+merged, as usual on GitHub. Pins follow the part or net on later commits; when
+it's gone the pin stays where it was, with the commit it was requested at.
+
+In a pull request (the viewer at its head, or its visual diff) the
+repository's issues are shown too, in green next to the review comments, since
+the pull request may be what fixes them. One the pull request already closes
+says so; on the others **Close with this PR** adds "Fixes #N" to the pull
+request's description, so GitHub closes the issue when it's merged (**Close
+issue** closes it straight away).
+
+KiVi lists only issues labelled `kivi`. GitHub drops the label for people
+without write access to the repository; KiVi says so when that happens (a
+maintainer can add it). Reading issues of public repositories works without
+signing in; opening, commenting and closing need the GitHub App's *Issues:
+Read and write* permission. Projects that are only on this computer have no
+issues.
+
 ## Layout
 
 ```
 index.html              viewer
 diff.html               visual diff
-inbox.html              home screen (projects, pull requests)
+inbox.html              home screen (projects, pull requests, issues)
 src/sexpr.js            S-expression parser (+ tree helpers)
 src/geom.js             matrices, arcs, bounding boxes
 src/text.js             text layout (KiCad metrics, markup, escapes)
@@ -362,6 +407,7 @@ src/project.js          project discovery, hierarchy walk, page numbering
 src/sources.js          GitHub (API, PR/commit comparison), 3D model path resolution
 src/diff/               semantic schematic, net, board and design rule diffs, comment anchors
 src/review.js           review comments on GitHub (threads, replies, resolve)
+src/issues.js           change requests as GitHub issues (same threads, labelled kivi)
 src/sch/                schematic model, renderer, themes
 src/pcb/                board model, renderer, shapes, hit testing,
                         outline extraction, face textures, three.js scene,

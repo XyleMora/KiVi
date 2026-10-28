@@ -22,7 +22,8 @@ class App {
     this.project = null;
     this.tab = "sch";
     this.pr = null; // pull request under review: comments in the schematic and PCB tabs
-    this.store = new ReviewStore();
+    this.store = new ReviewStore(); // its review comments, or else the repository's issues
+    this.localIssues = null; // {folder, owner, repo, prefix, commit}: a local copy's GitHub repository (desktop.js)
     this.sch = new SchematicTab(this);
     this.pcb = new PcbTab(this);
     this.bom = new BomTab(this);
@@ -97,8 +98,26 @@ class App {
       if (this.store.pr?.number !== this.pr.number || this.store.pr?.headSha !== this.pr.headSha || this.store.pr?.repo !== this.pr.repo) this.store.open(this.pr);
     } else {
       chip.hidden = true;
-      this.store.close();
+      this.showIssues();
     }
+  }
+
+  /**
+   * Outside a pull request the pins are the repository's KiVi issues: for a
+   * GitHub repository, and for a local copy whose GitHub repository desktop.js
+   * reported (`setLocalIssues`). Anything else has none.
+   */
+  showIssues() {
+    const s = this.source;
+    if (s?.kind === "github") this.store.openIssues({ owner: s.owner, repo: s.repo, prefix: "", commit: s.sha ?? s.commit ?? null });
+    else if (s && this.localIssues && s.path === this.localIssues.folder) this.store.openIssues(this.localIssues);
+    else this.store.close();
+  }
+
+  /** A local folder's GitHub repository (null: none), from desktop.js once git has said. */
+  setLocalIssues(target) {
+    this.localIssues = target;
+    if (!this.pr) this.showIssues();
   }
 
   /** Branch (or short commit) being viewed, for the project bar; the full address goes in the tooltip. */
@@ -126,12 +145,15 @@ class App {
       }
       if (!projects.length) throw new Error(source.truncated ? "Repository too large to list completely; open a sub-folder URL instead" : "No KiCad project (.kicad_pro / .kicad_sch / .kicad_pcb) found");
       this.source = source;
+      if (!this.pr) this.showIssues(); // this repository's issues (a local copy's once desktop.js knows its repository)
       this.projects = projects;
       const sel = $("#project-select");
       sel.innerHTML = projects.map((p, i) => `<option value="${i}">${escapeHtml(p.dir ? `${p.dir}/${p.name}` : p.name)}</option>`).join("");
       sel.hidden = projects.length < 2;
       let pick = projects[0];
       if (state?.project) pick = projects.find((p) => (p.pro ?? p.sch ?? p.pcb) === state.project) ?? pick;
+      // Opened for a file (an issue's pin): the project it belongs to, the deepest folder holding it.
+      else if (state?.file) pick = projectOfFile(projects, state.file) ?? pick;
       sel.value = String(projects.indexOf(pick));
       await this.openProject(pick, state);
     } catch (e) {
@@ -482,3 +504,11 @@ function escapeHtml(s) {
 }
 
 window.kivi = new App();
+
+/** The project a repository file belongs to: its board or root sheet, else the deepest project folder holding it. */
+function projectOfFile(projects, file) {
+  const exact = projects.find((p) => p.pcb === file || p.sch === file || p.pro === file);
+  if (exact) return exact;
+  const holding = projects.filter((p) => !p.dir || file.startsWith(p.dir + "/"));
+  return holding.sort((a, b) => (b.dir?.length ?? 0) - (a.dir?.length ?? 0))[0] ?? null;
+}

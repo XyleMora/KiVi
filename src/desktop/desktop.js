@@ -124,9 +124,10 @@ function setUpViewer() {
     }
   });
 
-  // Folder from the home page, the command line or the visual diff
-  // (index.html#folder=/path[&project=x.kicad_pro][&commit=<sha>]).
+  // Folder from the home page, the command line, the visual diff or an issue
+  // (index.html#folder=/path[&project=x.kicad_pro][&commit=<sha>][&file=…&thread=<issue>]).
   const hash = new URLSearchParams(location.hash.slice(1));
   const fromHash = hash.get("folder");
-  if (fromHash) show(fromHash, { project: hash.get("project") ?? undefined, tab: hash.get("tab") ?? undefined }, hash.get("commit"));
+  const opt = (k) => hash.get(k) ?? undefined;
+  if (fromHash) show(fromHash, { project: opt("project"), tab: opt("tab"), file: opt("file"), thread: opt("thread") }, hash.get("commit"));
 }

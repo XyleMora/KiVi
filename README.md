@@ -253,13 +253,24 @@ Rust `git2` crate), with HTTPS going through the same TLS stack as sign-in.
     to the same branch on GitHub, then offers to open a pull request. On
     `main` it warns first, since protected branches refuse it. A local
     project not linked to GitHub has no Push.
-  - Both are greyed out, saying why, when there's nothing to do: no
-    uncommitted changes, nothing committed yet, or everything pushed.
+  - **Pull…** (**Pull 2 commits…** when the last fetch saw them) brings in
+    GitHub's commits on the branch: when you have no commits of your own the
+    branch simply moves forward, and uncommitted edits stay unless GitHub
+    changed the same files (then nothing happens and KiVi says so). When both
+    sides have commits on *different* files, KiVi combines them in a merge
+    commit for you to push. KiCad files don't merge reliably as text, so when
+    both changed the *same* file nothing is changed; KiVi lists the files and
+    offers **Move my commits to a new branch**: your work (uncommitted edits
+    too) goes to a branch you can push and open a pull request from, and the
+    old branch then matches GitHub.
+  - Commit and Push are greyed out, saying why, when there's nothing to do: no
+    uncommitted changes, nothing committed yet, or everything pushed. A push
+    that GitHub refuses because it has newer commits offers **Pull…**.
 - GitHub is always reached at `https://github.com/<owner>/<repo>.git` with your
   sign-in token (in a request header, never stored in the clone), so a clone
-  with an SSH remote works too. There's no pull or merge: if GitHub has commits
-  on your branch that the copy doesn't, the push is refused; push to a new
-  branch, or update the clone with git.
+  with an SSH remote works too. KiVi never merges a file changed on both
+  sides; resolving such changes means choosing in KiCad (or with git) which
+  version to keep.
 
 ## Linking KiCad
 

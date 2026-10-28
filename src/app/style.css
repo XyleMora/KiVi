@@ -189,7 +189,8 @@ main { flex: 1; min-height: 0; display: flex; }
 .tag.warn { color: var(--accent); border-color: var(--accent-soft); background: #241b0d; }
 
 /* ---- 3D ---- */
-.toolbar3d { position: absolute; left: 12px; top: 12px; display: flex; gap: 8px; flex-wrap: wrap; z-index: 2; }
+/* Camera presets and Components on the right, left of the zoom column (32px button + gaps). */
+.toolbar3d { position: absolute; right: 52px; top: 12px; display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; max-width: calc(100% - 64px); z-index: 2; }
 .toolbar3d .seg { background: rgba(21, 24, 28, 0.92); }
 .toolbar3d .btn { background: rgba(21, 24, 28, 0.92); }
 .pill { background: rgba(21, 24, 28, 0.92); border: 1px solid var(--border); border-radius: var(--radius); padding: 3px 10px; }

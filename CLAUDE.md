@@ -155,10 +155,20 @@ README doesn't: conventions, environment and pitfalls.
   change) and pins of added/removed symbols left out. Per sheet only: a net
   joined through a global label on another sheet isn't followed.
   `diffSchematic` returns `connA`/`connB`, reused by diff.js for anchors.
+  Each sheet's copy of a library symbol (`lib_symbols`) is compared per
+  matched symbol with the same `libId` (`libSymbolDiffs`: pins keyed by
+  number, swapped pins named, body graphics per unit) and reported once as a
+  "library symbol" change listing its parts (`boxesBefore`/`boxesAfter`).
 - `pcb-diff.js`: zones by UUID, else net+layers+outline; settings from
   `zoneSettings` (pcb/model.js); teardrop zones (`attr teardrop`) collapsed
   into one "Teardrops" line; Board setup adds stackup, finish and the
   mask/paste fields of `(setup)`.
+  Inside a footprint (`footprintDiffs`), compared in its own frame so moving
+  or rotating the part adds nothing: pads by number (`byOccurrence`, shared
+  with sch-diff.js; size, shape, drill, layers, mask/paste/clearance overrides
+  from `padSettings` in pcb/model.js; pads with the same change on one line),
+  footprint-level overrides, 3D models, graphics per layer (`localFrame`), and
+  texts. A flipped footprint only says "moved to bottom".
 - `rules-diff.js`: `.kicad_pro` (rules, rule_severities, size presets,
   netclasses: a missing field inherits from Default in KiCad 9+, netclass
   patterns and assignments) and `.kicad_dru` (`#` comments, several top-level

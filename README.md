@@ -70,7 +70,10 @@ when there is one.
 **Visual diff.** A pull request, commit or branch comparison, side by side or
 overlaid, of a GitHub repository or a local git copy (its working files too), with a list of what changed in KiCad terms rather than text:
 which pins joined or left each net (redrawn wires that connect the same pins
-aren't a change), footprints moved or re-wired, routing per net, zone outlines
+aren't a change), library symbols whose pins (number, name, electrical type,
+position) or body changed, with the parts that use them, footprints moved or
+re-wired, what changed inside them (pad size, shape, drill, layers, mask/paste
+overrides; 3D models; silkscreen and other graphics), routing per net, zone outlines
 and settings (clearance, pad connections, thermal reliefs, priority…; teardrops
 in one line), stackup and solder mask settings. A changed `.kicad_pro` or
 `.kicad_dru` gets a table of its design rule changes (constraints, DRC

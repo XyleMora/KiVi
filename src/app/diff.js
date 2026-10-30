@@ -27,7 +27,7 @@ const LAYER_PRESETS = {
 };
 
 const VIEW_SIDE = { before: "base", after: "head", overlay: "head" };
-const TYPE_ORDER = ["symbol", "footprint", "sheet", "net", "label", "routing", "vias", "wire", "bus", "zone", "rule area", "teardrops", "outline", "graphics", "junction", "no-connect", "text", "title block", "board",
+const TYPE_ORDER = ["symbol", "library symbol", "footprint", "sheet", "net", "label", "routing", "vias", "wire", "bus", "zone", "rule area", "teardrops", "outline", "graphics", "junction", "no-connect", "text", "title block", "board",
   "constraint", "DRC check", "netclass", "netclass pattern", "net assignment", "size presets", "custom rule"];
 const COMPARED = (path) => DIFFABLE.test(path ?? "") || RULE_FILES.test(path ?? "");
 
@@ -503,7 +503,7 @@ class DiffApp {
       ? ch
           .map(
             (c, i) =>
-              `<li><button data-i="${i}" class="chg chg-${c.kind}"><span class="st st-${c.kind}">${sign[c.kind]}</span><span class="cbody"><span class="clabel"><span class="${c.type === "symbol" || c.type === "footprint" ? "mono" : ""}">${escapeHtml(c.label)}</span> <span class="ctype">${escapeHtml(c.type)}</span></span>${c.detail ? `<span class="cdetail">${escapeHtml(c.detail)}</span>` : ""}</span></button></li>`,
+              `<li><button data-i="${i}" class="chg chg-${c.kind}"><span class="st st-${c.kind}">${sign[c.kind]}</span><span class="cbody"><span class="clabel"><span class="${c.type === "symbol" || c.type === "library symbol" || c.type === "footprint" ? "mono" : ""}">${escapeHtml(c.label)}</span> <span class="ctype">${escapeHtml(c.type)}</span></span>${c.detail ? `<span class="cdetail">${escapeHtml(c.detail)}</span>` : ""}</span></button></li>`,
           )
           .join("")
       : `<li class="muted" style="font-size:13px;padding:6px 2px">No differences in this file's content.</li>`;

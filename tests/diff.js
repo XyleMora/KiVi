@@ -2,7 +2,7 @@
 // reported changes.   gjs -m tests/diff.js
 
 import { readText, kicadDemos } from "./gjs-fs.js";
-import { parseSchematic } from "../src/sch/model.js";
+import { parseSchematic, libSymbolFor } from "../src/sch/model.js";
 import { renderSchematic } from "../src/sch/render.js";
 import { parsePcb } from "../src/pcb/model.js";
 import { renderPcb } from "../src/pcb/render.js";
@@ -264,6 +264,94 @@ const DEMO = kicadDemos("pic_programmer");
   check(counted.join() === "a/x.kicad_sch,a/rules.kicad_pro,c/big.kicad_pro,d/broken.kicad_pro,e/new.kicad_pro,a/rules.kicad_dru", `PR files counted: ${counted.join(", ")}`);
   check(!counted.includes("b/cosmetic.kicad_pro"), "a .kicad_pro without rule changes doesn't count");
   check(reads.every(([, ref]) => ref === "c".repeat(40)) && reads.length === 3, `only the changed .kicad_pro files are read, at the PR head (${reads.length})`);
+}
+
+// ---- library symbols (the sheet's copies: pins, graphics) ----
+{
+  const text = readText(`${DEMO}/pic_programmer.kicad_sch`);
+  const a = parseSchematic(text);
+  const libChanges = (b) => diffSchematic(a, b, renderSchematic(a), renderSchematic(b)).changes.filter((c) => c.type === "library symbol");
+  const uses = new Map();
+  for (const s of a.symbols) uses.set(s.libId, (uses.get(s.libId) ?? 0) + 1);
+  const sym = a.symbols.filter((s) => libSymbolFor(a, s)?.units.flatMap((u) => u.pins).length >= 2).sort((x, y) => uses.get(y.libId) - uses.get(x.libId))[0];
+  const name = libSymbolFor(a, sym).name, n = uses.get(sym.libId);
+  const pinsOf = (b) => b.libSymbols.get(name).units.flatMap((u) => u.pins);
+
+  const b1 = parseSchematic(text);
+  const p1 = pinsOf(b1)[0];
+  p1.type = p1.type === "power_in" ? "passive" : "power_in";
+  const c1 = libChanges(b1);
+  check(c1.length === 1 && new RegExp(`pin ${p1.number}: type .* → ${p1.type === "power_in" ? "power input" : "passive"}`).test(c1[0].detail), `pin type change on ${sym.libId} (${c1[0]?.detail})`);
+  check(c1[0]?.boxesAfter.length === n && /used by /.test(c1[0].detail), `reported once with its ${n} parts`);
+
+  const b2 = parseSchematic(text);
+  const [q1, q2] = pinsOf(b2);
+  [q1.number, q2.number] = [q2.number, q1.number];
+  const c2 = libChanges(b2);
+  check(c2.length === 1 && c2[0].detail.includes(`moved to pin ${q2.number}'s place`), `swapped pins say where they went (${c2[0]?.detail})`);
+
+  const b3 = parseSchematic(text);
+  b3.libSymbols.get(name).units.find((u) => u.graphics.length).graphics.pop();
+  const c3 = libChanges(b3);
+  check(c3.length === 1 && /graphics changed/.test(c3[0].detail), `symbol body change (${c3[0]?.detail})`);
+}
+
+// ---- footprint contents: pads, 3D models, graphics ----
+{
+  const text = readText(`${kicadDemos("cm5_minima")}/CM5_MINIMA_3.kicad_pcb`);
+  const a = parsePcb(text);
+  const b = parsePcb(text);
+  const smd = a.footprints.find((f) => f.pads.length >= 4 && f.pads.every((p) => p.type === "smd") && f.models.length);
+  const tht = a.footprints.find((f) => f.pads.some((p) => p.drill && !p.drill.oval));
+  const g = b.footprints.find((f) => f.uuid === smd.uuid);
+  for (const p of g.pads.slice(1)) p.w += 0.1; // updated from the library: the same change on many pads
+  g.pads[0].settings.maskMargin = 0.05;
+  g.models[0].path = "other.step";
+  g.graphics.push({ kind: "line", layer: "F.SilkS", width: 0.12, start: { x: g.x, y: g.y }, end: { x: g.x + 1, y: g.y } });
+  const h = b.footprints.find((f) => f.uuid === tht.uuid);
+  const dp = h.pads.find((p) => p.drill && !p.drill.oval);
+  dp.drill = { ...dp.drill, w: dp.drill.w + 0.2, h: dp.drill.h + 0.2 };
+  const d = diffPcb(a, b).changes;
+  const cs = d.find((c) => c.label === smd.reference)?.detail ?? "";
+  check(new RegExp(`pads [^:]+: size [\\d.× ]+ → [\\d.× ]+ mm`).test(cs) && !/pad 1: size/.test(cs.replace(/pad 1: solder/, "")), `pads with the same change grouped (${cs})`);
+  check(/solder mask margin — → 0.05 mm/.test(cs), "pad solder mask override");
+  const model = smd.models[0].path.split("/").pop();
+  check(cs.includes(`3D model ${model} → other.step`) && !cs.includes("3DMODEL_DIR"), `3D model change names the files only (${model} → other.step)`);
+  check(/F\.SilkS graphics \+1/.test(cs), "silkscreen line added");
+  const ct = d.find((c) => c.label === tht.reference)?.detail ?? "";
+  check(new RegExp(`pad ${dp.number || "\\(unnumbered\\)"}: drill [\\d.]+ mm → [\\d.]+ mm`).test(ct), `drill change (${ct})`);
+
+  // The same model from another library version: only the part of the path that differs.
+  const b2 = parsePcb(text);
+  const m2 = b2.footprints.find((f) => f.uuid === smd.uuid).models[0];
+  m2.path = m2.path.replace(/KICAD\d+_3DMODEL_DIR/, "KICAD10_3DMODEL_DIR");
+  const c2 = diffPcb(a, b2).changes.find((c) => c.label === smd.reference)?.detail ?? "";
+  check(new RegExp(`^3D model \\$\\{KICAD\\d+_3DMODEL_DIR\\}/… → \\$\\{KICAD10_3DMODEL_DIR\\}/… \\(${model.replace(/\./g, "\\.")}\\)$`).test(c2), `same file in another folder: the folders that differ (${c2})`);
+
+  // Moving and rotating parts the way KiCad saves them changes nothing inside them.
+  const r = parsePcb(text);
+  for (const fp of r.footprints) {
+    const T = (p) => {
+      const x = p.x - fp.x, y = p.y - fp.y;
+      p.x = fp.x + 3.3 + y;
+      p.y = fp.y - 1.7 - x;
+    };
+    for (const s of fp.graphics) {
+      for (const k of ["start", "mid", "end", "center"]) if (s[k]) T(s[k]);
+      for (const p of s.pts ?? []) if (p.arc) [p.start, p.mid, p.end].forEach(T);
+      else T(p);
+    }
+    for (const p of [...fp.pads, ...fp.texts]) {
+      T(p);
+      p.angle += 90;
+    }
+    fp.x += 3.3;
+    fp.y -= 1.7;
+    fp.angle += 90;
+  }
+  const rot = diffPcb(a, r).changes.filter((c) => c.type === "footprint");
+  const noise = rot.filter((c) => c.detail.split("; ").some((x) => !/^moved [\d.]+ mm$|^rotated /.test(x)));
+  check(rot.length > 50 && !noise.length, `${rot.length} parts moved and rotated: no pad, graphics or text noise (${noise[0]?.detail ?? "none"})`);
 }
 
 print(failures ? `\n${failures} failure(s)` : "\nall diff checks passed");

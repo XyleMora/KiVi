@@ -1,8 +1,8 @@
 // Semantic diff of two versions of a board.
 
-import { BBox } from "../geom.js";
+import { BBox, multiply, rotate, translate, apply } from "../geom.js";
 import { arcBounds } from "../pcb/shapes.js";
-import { summarize } from "./sch-diff.js";
+import { summarize, byOccurrence, geometry } from "./sch-diff.js";
 
 const r3 = (v) => Math.round(v * 1000) / 1000;
 const pk = (p) => `${r3(p.x)},${r3(p.y)}`;
@@ -302,28 +302,165 @@ function footprintDiffs(f, g) {
     }
   }
   if (netChanges) d.push(netChanges <= 2 ? examples.join("; ") : `${netChanges} pad nets changed`);
-  if (f.pads.length !== g.pads.length) d.push(`pads ${f.pads.length} → ${g.pads.length}`);
+  d.push(...settingDiffs(f.settings, g.settings, "footprint "));
+  // Flipping a footprint mirrors everything in it; "moved to bottom" already says so.
+  if (f.side === g.side) {
+    d.push(...padDiffs(f, g));
+    d.push(...graphicDiffs(f, g));
+  } else if (f.pads.length !== g.pads.length) d.push(`pads ${f.pads.length} → ${g.pads.length}`);
+  d.push(...modelDiffs(f.models, g.models));
   // Footprint text (e.g. reference resized for readability): pair by layer + content.
   d.push(...textDiffs(f, g));
-  const gsig = (fp) => fp.graphics.length + ":" + fp.graphics.filter((x) => x.layer.endsWith("SilkS")).length;
-  if (gsig(f) !== gsig(g)) d.push("graphics changed");
   return d;
 }
 
-/**
- * Items keyed by `key` plus their occurrence ("MP", "MP#2", …), so duplicates
- * (several mounting pads numbered MP, two texts alike on a layer) pair up in
- * file order instead of all meeting the last one.
- */
-function byOccurrence(list, key) {
-  const seen = new Map(), out = new Map();
-  for (const x of list) {
-    const k = key(x);
-    const n = (seen.get(k) ?? 0) + 1;
-    seen.set(k, n);
-    out.set(n > 1 ? `${k}#${n}` : k, x);
+const PAD_SETTINGS = [
+  ["maskMargin", "solder mask margin", "mm"],
+  ["pasteMargin", "paste margin", "mm"],
+  ["pasteRatio", "paste ratio", ""],
+  ["clearance", "clearance", "mm"],
+  ["zoneConnect", "zone connection", ""],
+  ["thermalWidth", "thermal spoke width", "mm"],
+  ["thermalGap", "thermal relief gap", "mm"],
+];
+
+/** Changed local overrides of a pad or footprint ("—" = inherited from the footprint or board). */
+function settingDiffs(s, t, prefix = "") {
+  const d = [];
+  for (const [k, label, unit] of PAD_SETTINGS) {
+    const x = s?.[k] ?? null, y = t?.[k] ?? null;
+    if (typeof x === "number" && typeof y === "number" ? r3(x) !== r3(y) : x !== y) d.push(`${prefix}${label} ${show(x, unit)} → ${show(y, unit)}`);
   }
-  return out;
+  return d;
+}
+
+const PAD_TYPE = { smd: "SMD", thru_hole: "through-hole", np_thru_hole: "NPTH", connect: "connector" };
+const norm = (a) => r3((((a ?? 0) % 360) + 360) % 360);
+const size = (w, h) => (r3(w) === r3(h) ? `${r3(w)}` : `${r3(w)} × ${r3(h)}`);
+const drillText = (dr) => (dr ? `${size(dr.w, dr.h)} mm${dr.oval ? " oval" : ""}` : "none");
+
+/** What changed on one pad, in its footprint's frame (so moving the part changes nothing here). */
+function padChanges(p, q, f, g) {
+  const c = [];
+  if (p.type !== q.type) c.push(`type ${PAD_TYPE[p.type] ?? p.type} → ${PAD_TYPE[q.type] ?? q.type}`);
+  if (p.shape !== q.shape) c.push(`shape ${p.shape} → ${q.shape}`);
+  if (r3(p.w) !== r3(q.w) || r3(p.h) !== r3(q.h)) c.push(`size ${size(p.w, p.h)} → ${size(q.w, q.h)} mm`);
+  if (r3(p.localX) !== r3(q.localX) || r3(p.localY) !== r3(q.localY)) c.push("moved");
+  const ra = norm(p.angle - f.angle), rb = norm(q.angle - g.angle);
+  if (ra !== rb) c.push(`rotated ${ra}° → ${rb}°`);
+  const da = p.drill, db = q.drill;
+  if (!!da !== !!db || (da && (r3(da.w) !== r3(db.w) || r3(da.h) !== r3(db.h) || da.oval !== db.oval))) c.push(`drill ${drillText(da)} → ${drillText(db)}`);
+  else if (da && (r3(da.offset.x) !== r3(db.offset.x) || r3(da.offset.y) !== r3(db.offset.y))) c.push("drill offset");
+  const la = [...p.layers].sort().join(", "), lb = [...q.layers].sort().join(", ");
+  if (la !== lb) c.push(`layers ${la || "—"} → ${lb || "—"}`);
+  if ((p.shape === "roundrect" || q.shape === "roundrect") && r3(p.roundrectRatio) !== r3(q.roundrectRatio)) c.push(`corner ratio ${r3(p.roundrectRatio)} → ${r3(q.roundrectRatio)}`);
+  if (r3(p.chamferRatio) !== r3(q.chamferRatio) || p.chamfer.join() !== q.chamfer.join()) c.push("chamfer");
+  if (r3(p.delta.x) !== r3(q.delta.x) || r3(p.delta.y) !== r3(q.delta.y)) c.push("trapezoid");
+  if (geometry(p.primitives) !== geometry(q.primitives) || p.anchor !== q.anchor) c.push("custom shape");
+  c.push(...settingDiffs(p.settings, q.settings));
+  return c.join(", ");
+}
+
+/**
+ * Pads added, removed or changed. Pads with the same change are listed
+ * together ("pads 1, 2: size 1 × 0.6 → 1.2 × 0.8 mm"), as updating a
+ * footprint from its library often changes every pad the same way.
+ */
+function padDiffs(f, g) {
+  const d = [];
+  const pa = byOccurrence(f.pads, (p) => p.number), pb = byOccurrence(g.pads, (p) => p.number);
+  const added = [...pb.keys()].filter((k) => !pa.has(k)), removed = [...pa.keys()].filter((k) => !pb.has(k));
+  const names = (keys) => (keys.length > 6 ? `${keys.length}` : keys.map((k) => k.replace(/#\d+$/, "") || "(unnumbered)").join(", "));
+  if (added.length) d.push(`pad${added.length > 1 ? "s" : ""} added: ${names(added)}`);
+  if (removed.length) d.push(`pad${removed.length > 1 ? "s" : ""} removed: ${names(removed)}`);
+  const same = new Map(); // change → pad keys
+  for (const [k, p] of pa) {
+    const q = pb.get(k);
+    const c = q && padChanges(p, q, f, g);
+    if (c) same.set(c, [...(same.get(c) ?? []), k]);
+  }
+  const groups = [...same].map(([c, keys]) => `${keys.length > 1 ? "pads" : "pad"} ${names(keys)}: ${c}`);
+  d.push(...groups.slice(0, 3));
+  if (groups.length > 3) d.push(`${[...same.values()].slice(3).reduce((n, k) => n + k.length, 0)} more pads changed`);
+  return d;
+}
+
+/** Board → footprint frame (the inverse of the transform parsePcb applied). */
+function localFrame(fp) {
+  const m = multiply(rotate(-fp.angle), translate(-fp.x, -fp.y));
+  return (p) => apply(m, p.x, p.y);
+}
+
+/** Footprint graphics added or removed per layer, compared in the footprint's frame. */
+function graphicDiffs(f, g) {
+  const keys = (fp) => {
+    const L = localFrame(fp);
+    const k = (p) => pk(L(p));
+    return byOccurrence(fp.graphics, (s) => {
+      switch (s.kind) {
+        case "line":
+          return `${s.layer}|l|${[k(s.start), k(s.end)].sort().join(";")}|${r3(s.width)}`;
+        case "arc":
+          return `${s.layer}|a|${k(s.start)}|${k(s.mid)}|${k(s.end)}|${r3(s.width)}`;
+        case "circle":
+          return `${s.layer}|c|${k(s.center)}|${r3(s.r)}|${r3(s.width)}|${s.fill}`;
+        default:
+          return `${s.layer}|${s.kind}|${s.pts.map((p) => (p.arc ? `${k(p.start)}~${k(p.mid)}~${k(p.end)}` : k(p))).join(";")}|${r3(s.width)}|${s.fill}`;
+      }
+    });
+  };
+  const ka = keys(f), kb = keys(g);
+  const count = new Map(); // layer → [added, removed]
+  const tally = (map, other, i) => {
+    for (const [k, s] of map) {
+      if (other.has(k)) continue;
+      const n = count.get(s.layer) ?? [0, 0];
+      n[i]++;
+      count.set(s.layer, n);
+    }
+  };
+  tally(kb, ka, 0);
+  tally(ka, kb, 1);
+  return [...count].map(([layer, [add, rem]]) => `${layer} graphics ${[add ? `+${add}` : "", rem ? `−${rem}` : ""].filter(Boolean).join(" / ")}`);
+}
+
+const fileName = (p) => p.split(/[\\/]/).pop();
+
+/**
+ * A model path change, short: the file names when they differ, else only the
+ * folders that do ("…/Old.3dshapes/… → …/New.3dshapes/…"). Full paths with
+ * `${KICADn_3DMODEL_DIR}` prefixes made the detail line unreadable.
+ */
+function pathChange(a, b) {
+  if (fileName(a) !== fileName(b)) return `${fileName(a)} → ${fileName(b)}`;
+  const sa = a.split(/[\\/]/), sb = b.split(/[\\/]/);
+  let head = 0, tail = 0;
+  while (head < Math.min(sa.length, sb.length) - 1 && sa[head] === sb[head]) head++;
+  while (tail < Math.min(sa.length, sb.length) - head && sa[sa.length - 1 - tail] === sb[sb.length - 1 - tail]) tail++;
+  const part = (s) => `${head ? "…/" : ""}${s.slice(head, s.length - tail).join("/") || "."}${tail ? "/…" : ""}`;
+  return `${part(sa)} → ${part(sb)} (${fileName(b)})`;
+}
+
+/** 3D models changed, added or removed (paired in file order). */
+function modelDiffs(ma, mb) {
+  const d = [];
+  const xyz = (v) => `${r3(v.x)}, ${r3(v.y)}, ${r3(v.z)}`;
+  for (let i = 0; i < Math.max(ma.length, mb.length); i++) {
+    const a = ma[i], b = mb[i];
+    if (!a) d.push(`3D model added: ${fileName(b.path)}`);
+    else if (!b) d.push(`3D model removed: ${fileName(a.path)}`);
+    else {
+      const c = [];
+      if (a.path !== b.path) c.push(pathChange(a.path, b.path));
+      if (xyz(a.offset) !== xyz(b.offset)) c.push(`offset ${xyz(a.offset)} → ${xyz(b.offset)} mm`);
+      if (xyz(a.rotate) !== xyz(b.rotate)) c.push(`rotation ${xyz(a.rotate)} → ${xyz(b.rotate)}°`);
+      if (xyz(a.scale) !== xyz(b.scale)) c.push(`scale ${xyz(a.scale)} → ${xyz(b.scale)}`);
+      if (a.hide !== b.hide) c.push(b.hide ? "hidden" : "shown");
+      if (r3(a.opacity) !== r3(b.opacity)) c.push(`opacity ${r3(a.opacity)} → ${r3(b.opacity)}`);
+      if (c.length) d.push(`3D model ${c.join(", ")}`);
+    }
+  }
+  return d;
 }
 
 function textDiffs(f, g) {
@@ -332,6 +469,7 @@ function textDiffs(f, g) {
   const name = (t) => `${t.field ?? `"${t.text}"`} on ${t.layer}`;
   const ka = (t) => `${t.layer}|${t.field ?? t.text}`;
   const tb = byOccurrence(visible(g), ka);
+  const La = localFrame(f), Lb = localFrame(g);
   const seen = new Set();
   for (const [k, t] of byOccurrence(visible(f), ka)) {
     const u = tb.get(k);
@@ -343,8 +481,8 @@ function textDiffs(f, g) {
     const parts = [];
     if (r3(t.effects.size) !== r3(u.effects.size) || r3(t.effects.width) !== r3(u.effects.width)) parts.push(`size ${r3(t.effects.size)} → ${r3(u.effects.size)} mm`);
     if (r3(t.effects.thickness) !== r3(u.effects.thickness)) parts.push(`thickness ${r3(t.effects.thickness)} → ${r3(u.effects.thickness)} mm`);
-    // Position relative to the footprint, so moving the part is not reported twice.
-    if (r3(t.x - f.x) !== r3(u.x - g.x) || r3(t.y - f.y) !== r3(u.y - g.y)) parts.push("moved");
+    // In the footprint's frame, so moving or rotating the part is not reported twice.
+    if (pk(La(t)) !== pk(Lb(u))) parts.push("moved");
     if (r3(t.angle - f.angle) !== r3(u.angle - g.angle)) parts.push("rotated");
     if (t.effects.h !== u.effects.h || t.effects.v !== u.effects.v) parts.push("justification");
     if (parts.length) out.push(`${name(u)}: ${parts.join(", ")}`);

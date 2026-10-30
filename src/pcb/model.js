@@ -161,6 +161,7 @@ function parseFootprint(n, pcb) {
     pads: [],
     models: [],
     dnp: false,
+    settings: padSettings(n),
   };
   fp.dnp = fp.attrs.includes("dnp");
 
@@ -277,6 +278,8 @@ function parsePad(n, m, fpAngle, pcb, fp) {
     anchor: opts ? String(value(opts, "anchor", 1, "rect")) : "rect",
     primitives: [],
     removeUnusedLayers: flag(n, "remove_unused_layers"),
+    // Local overrides of the footprint's and board's mask, paste and clearance rules.
+    settings: padSettings(n),
     footprint: fp,
   };
   if (prims) {
@@ -288,6 +291,22 @@ function parsePad(n, m, fpAngle, pcb, fp) {
     }
   }
   return pad;
+}
+
+const ZONE_CONNECT = { 0: "none", 1: "thermal reliefs", 2: "solid", 3: "thermal reliefs for PTH only" };
+
+/** Mask, paste, clearance and zone connection overrides of a pad or footprint (null = inherited). */
+function padSettings(n) {
+  const zc = value(n, "zone_connect", 1, null);
+  return {
+    maskMargin: value(n, "solder_mask_margin", 1, null),
+    pasteMargin: value(n, "solder_paste_margin", 1, null),
+    pasteRatio: value(n, "solder_paste_margin_ratio", 1, value(n, "solder_paste_ratio", 1, null)),
+    clearance: value(n, "clearance", 1, null),
+    zoneConnect: zc === null ? null : ZONE_CONNECT[zc] ?? String(zc),
+    thermalWidth: value(n, "thermal_bridge_width", 1, value(n, "thermal_width", 1, null)),
+    thermalGap: value(n, "thermal_gap", 1, null),
+  };
 }
 
 // ---- shapes ---------------------------------------------------------------

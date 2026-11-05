@@ -4,7 +4,12 @@ import { parse, child, children, value, num } from "./sexpr.js";
 import { f } from "./geom.js";
 import { svgText } from "./text.js";
 
-/** KiCad's built-in default drawing sheet. */
+/**
+ * KiCad's built-in default drawing sheet, from KiCad's
+ * common/drawing_sheet/drawing_sheet_default_description.cpp (comments left out).
+ * Copyright (C) 1992-2013 Jean-Pierre Charras; Copyright The KiCad Developers.
+ * GPL-2.0-or-later, used here under the GPL-3.0 (vendor/kicad/COPYRIGHT).
+ */
 export const DEFAULT_WKS = `(kicad_wks (version 20210606) (generator pl_editor)
 (setup (textsize 1.5 1.5)(linewidth 0.15)(textlinewidth 0.15)
 (left_margin 10)(right_margin 10)(top_margin 10)(bottom_margin 10))

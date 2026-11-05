@@ -255,7 +255,7 @@ Apache License
 
 Licence: LGPL-2.1. https://github.com/kovacsv/occt-import-js
 
-`vendor/occt-import-js/`: Open CASCADE Technology (LGPL-2.1 with the Open CASCADE exception, https://dev.opencascade.org) compiled to WebAssembly with Emscripten (MIT). It is loaded as a separate, replaceable file. KiVi modifies `occt-import-js.js` in one place, marked `KiVi patch` (see `vendor/README.md`); the modified file is its own source. The unmodified sources are at the homepage.
+`vendor/occt-import-js/`: Open CASCADE Technology (LGPL-2.1 with the Open CASCADE exception, https://dev.opencascade.org) compiled to WebAssembly with Emscripten (MIT). It is built into the app with the pages, unlinked from KiVi's own code: the pages load it at run time. KiVi modifies `occt-import-js.js` in one place, marked `KiVi patch` (see `vendor/README.md`); the modified file is its own source and is in KiVi's source archive (`KiVi_<version>_source.tar.gz`, published with each release), which also lets you rebuild KiVi with a modified or newer occt-import-js. The unmodified sources are at the homepage.
 
 ```text
 GNU LESSER GENERAL PUBLIC LICENSE
@@ -762,6 +762,69 @@ necessary.  Here is a sample; alter the names:
   Ty Coon, President of Vice
 
 That's all there is to it!
+```
+
+## Code copied into KiVi's own files
+
+### Octicons
+
+Licence: MIT. https://github.com/primer/octicons
+
+The repository, pull request and issue icons in `src/desktop/icons.js` are the path data of Octicons' `repo-16`, `git-pull-request-16` and `issue-opened-16`.
+
+```text
+MIT License
+
+Copyright (c) 2026 GitHub Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+### KiCad default drawing sheet
+
+Licence: GPL-2.0-or-later. https://www.kicad.org
+
+`DEFAULT_WKS` in `src/drawing-sheet.js` is KiCad's built-in default drawing sheet (`common/drawing_sheet/drawing_sheet_default_description.cpp` in KiCad's source, without its comments), used for schematics that name no drawing sheet of their own. KiVi uses it under the GPL-3.0, as "any later version" allows. KiCad's copyright and permission notice:
+
+```text
+This program source code file is part of KiCad, a free EDA CAD application.
+
+Copyright (C) 1992-2013 Jean-Pierre Charras <jp.charras at wanadoo.fr>.
+Copyright The KiCad Developers, see AUTHORS.txt for contributors.
+
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, you may find one here:
+http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
+or you may search the http://www.gnu.org website for the version 2 license,
+or you may write to the Free Software Foundation, Inc.,
+51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
 ```
 
 ## Rust crates

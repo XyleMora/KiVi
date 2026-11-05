@@ -415,7 +415,8 @@ ok    diff
 
 Pushing a tag `v<version>` (matching `version` in `src-tauri/tauri.conf.json`,
 checked) runs all four and publishes a GitHub Release with the AppImage, the
-Windows `.exe`, `LICENSE`, `THIRD-PARTY-NOTICES.md` and `appimage-libraries.md`.
+Windows `.exe`, `LICENSE`, `THIRD-PARTY-NOTICES.md`, `appimage-libraries.md`
+and `KiVi_<version>_source.tar.gz` (`git archive` of the tag).
 Merges don't build, so run the workflow by hand on `main` before tagging and
 check both builds pass.
 
@@ -427,9 +428,11 @@ later version. It comes with no warranty.
 
 It includes third-party software under its own licences: three.js (MIT),
 Chevrotain (Apache-2.0), occt-import-js with Open CASCADE Technology (LGPL-2.1)
-and the Rust crates behind Tauri (mostly MIT and Apache-2.0).
+and the Rust crates behind Tauri (mostly MIT and Apache-2.0), plus three icons
+from GitHub's Octicons (MIT) and KiCad's default drawing sheet (GPL-2.0-or-later).
 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) has their licence texts and is
-installed with the app. Regenerate it with `python3 tools/notices.py` after
+installed with the app. Each release also carries its source code
+(`KiVi_<version>_source.tar.gz`). Regenerate it with `python3 tools/notices.py` after
 changing `Cargo.lock` or `vendor/` (CI fails if it's out of date). The AppImage
 also bundles system libraries (GTK, WebKitGTK, GStreamer…) from the build
 machine; each release lists them with their licences and sources in

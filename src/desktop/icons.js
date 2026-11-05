@@ -1,6 +1,7 @@
 // 16 px icons for the desktop header and menus. The repository, pull request
-// and issue glyphs follow GitHub's Octicons (MIT licence) so the switch reads the
-// same as github.com's header; the menu icons are simple strokes.
+// and issue glyphs are GitHub's Octicons repo-16, git-pull-request-16 and
+// issue-opened-16 (Copyright (c) GitHub Inc., MIT licence, vendor/octicons/LICENSE)
+// so the switch reads the same as github.com's header; the menu icons are simple strokes.
 
 const svg = (body, extra = "") => `<svg class="icon16" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"${extra}>${body}</svg>`;
 const stroke = (body) => svg(body, ' fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"');

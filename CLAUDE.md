@@ -419,6 +419,13 @@ GPL-3.0-or-later (`LICENSE`; `license` in `Cargo.toml` and `tauri.conf.json`).
 `Cargo.lock` or a vendored package (CI runs `--check`). New dependencies must be
 GPL-3.0-compatible and keep their licence file. The AppImage's system libraries
 are listed per release by `notices.py --appdir` in CI.
+Third-party code pasted into KiVi's own files goes in `COPIED` (notices.py) with
+its notice under `vendor/` and a credit comment where it's used: so far Octicons
+(`icons.js`, `vendor/octicons/LICENSE`) and KiCad's default drawing sheet
+(`drawing-sheet.js` `DEFAULT_WKS`, GPL-2.0-or-later, `vendor/kicad/COPYRIGHT`).
+The release job attaches `KiVi_<version>_source.tar.gz` (`git archive` of the
+tag): the repository is private, and the patched occt-import-js (LGPL, built
+into the binary) needs the source to be rebuildable.
 
 ## Tests
 

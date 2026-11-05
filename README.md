@@ -1,93 +1,233 @@
 <img src="assets/kivi-logo.svg" width="120" alt="KiVi logo: a kiwi with a circuit board inside">
 
-# KiVi — KiCad viewer and hardware review for GitHub
+# KiVi: view, compare and review KiCad projects
 
-A desktop app ([Tauri 2](https://tauri.app)) for browsing, viewing and
-reviewing KiCad projects. GitHub stays the place for source control, diffs and
-review comments; KiVi renders what's in it. Everything is parsed and rendered
-on your computer.
+[![Built with Claude Code](https://img.shields.io/badge/Built_with-Claude_Code-D97757?logo=claude&logoColor=white)](https://claude.com/claude-code)
+
+**KiVi turns the KiCad projects in your GitHub repositories, or on your disk,
+into something you can actually look at.** GitHub shows a changed
+`.kicad_pcb` as thousands of lines of S-expressions; reviewing it usually
+means checking out both versions and flipping between KiCad windows. In KiVi,
+schematics, boards and 3D views open in seconds, a visual diff tells you what
+changed in KiCad terms, and comments pinned to parts and nets make a board
+change as easy to review as a code change.
+
+- **Nothing to set up on a server.** GitHub stays your source control, diff
+  and review system; KiVi is a desktop app that parses and renders everything
+  locally.
+- **Nothing to install.** One `.AppImage` on Linux, one `.exe` on Windows.
+- **No account needed to play around.** Public repositories work signed out;
+  sign in with GitHub for private repositories and the full review features.
+- **You are in control of access.** Sign-in uses a GitHub App with
+  fine-grained permissions, and you choose which repositories it can read.
+- **KiCad 6 to 10.** Tested against the demo projects that ship with KiCad 10.
+
+## What you get
+
+**🗂 Every project at a glance.** KiVi finds every KiCad project in the
+repositories you can reach and in folders you add, and shows each as a card
+with a rendered board thumbnail. One click opens its schematic, PCB, 3D view
+or BOM.
 
 ![Home screen: a gallery of KiCad projects with rendered board thumbnails](docs/screenshots/home-projects.png)
 
-## A quick tour
+**🔍 Viewing, cross-probing and more.** Click a symbol to see its fields and
+every pin with its net, or a wire to select the whole net. **Highlight on PCB** shows
+that net on the board, with its length, layers and vias; **Show in 3D** lights
+it up and turns the camera to the side it's routed on. Switch PCB layers one
+by one, flip to the bottom, and measure between pads, vias and model corners
+(key **M**).
 
-**Projects.** The home screen finds every `.kicad_pro` in the
-repositories you can reach and shows each as a card. The
-filter narrows the grid by project, repository or folder name as you type;
-a card's `⋯` menu opens the schematic, PCB, 3D view, BOM or GitHub directly.
+![Schematic: the net USB_C.D_P selected next to the USB-C connector, with its pins listed](docs/screenshots/viewer-schematic.png)
 
+![PCB: the same net /USB_C.D_P highlighted, 21 mm of track on both copper layers with 2 vias and 4 pads](docs/screenshots/viewer-pcb.png)
 
-**Schematic.** Click a symbol to inspect it: its fields, datasheet and every
-pin with its net. **Show on PCB** and **Show in 3D** jump to the same part (cross-probe).
+![3D: the same net highlighted in yellow on the board, seen from the top](docs/screenshots/viewer-3d-net.png)
 
-![Schematic with the USB-C connector J101 selected and its pins listed](docs/screenshots/viewer-schematic.png)
+**🧮 A diff that speaks KiCad.** Compare a pull request, a commit, two
+branches, or your uncommitted local work. KiVi lists changes the way a designer
+thinks about them and marks each one on both versions side by side:
 
+- *Schematic:* which pins joined or left each net; parts added, removed or
+  edited; library symbols whose pinout, pin types or body changed, with every
+  part that uses them.
+- *Board:* parts moved, rotated, flipped or re-wired; what changed inside a
+  footprint (pads, drills, mask and paste overrides, 3D models, silkscreen);
+  routing, vias, zones, outline and stackup.
+- *Design rules:* a table of what changed in the `.kicad_pro` and `.kicad_dru`.
+- *Not a change:* redrawn wires that connect the same pins, re-annotation,
+  refilled zones, or the pads of a part that merely moved.
 
-**PCB.** Layers can be switched one by one (or *Copper*, *Default*, *All*),
-the board flipped to the bottom, and footprints, pads and tracks inspected.
+Here a footprint was updated from a corrected library: four pads got longer,
+pad 1 got a solder mask override, the 3D model went from VRML to STEP and a
+pin-1 mark was added to the silkscreen.
 
-**Measuring.** The ruler (under the PCB view's zoom buttons, in the 3D
-toolbar, or **M**) measures on the board: click two points to read the distance
-in mm and mil with Δx and Δy (and the angle on the PCB, Δz in 3D, e.g. a part's
-height above the board). Points snap to pads, vias, track ends, footprint
-origins and board outline corners on the layers shown, and in 3D also to the
-corners of part models; hold Shift to measure freely. Esc clears the
-measurement, a second Esc leaves the tool.
+![Visual diff of a board: U405's pads, mask margin, 3D model and silkscreen changes listed and marked](docs/screenshots/diff-footprint.png)
 
-![PCB view with the HDMI connector J501 selected](docs/screenshots/viewer-pcb.png)
+And here the LED symbol's anode and cathode were swapped in the library: KiVi
+reports it once, with both LEDs that use it and the nets that changed.
 
+![Visual diff of a schematic: the LED library symbol's swapped pins and the nets that changed](docs/screenshots/diff-library-symbol.png)
 
-**3D.** The board in 3D with the stackup from the KiCad file (soldermask,
-finish and silkscreen colours, layer thicknesses) and component models from
-KiCad's library, the project and any extra model sources. Models come from
-the web by default; with KiCad installed, link it in Settings (see
-[Linking KiCad](#linking-kicad)) to load them from disk like KiCad does:
-faster, offline, and matching your KiCad version. Other folders can be added
-as model sources (**Add folder…**). Each model is looked for in the project
-first, then in model folders, then in web sources (URLs and GitHub
-repositories), the first found wins.
+**💬 Review where the problem is.** Press **C** and click a footprint, pad,
+net or symbol to comment on it. Comments are ordinary GitHub pull request
+review comments, so your team sees them on github.com too, and they stay
+pinned to the part across later pushes. Outside a pull request the same pin
+opens a GitHub issue: a hardware change request that a later pull request can
+close ([see how](#reviewing-hardware-pull-requests-and-issues)).
 
-![3D view of the CM5 MINIMA board with component models](docs/screenshots/viewer-3d.png)
+![PCB at a pull request's head: review comment 1 open on U405, change request #12 pinned in green](docs/screenshots/review-comment.png)
 
+**🌿 Git without the git.** Download a project, make a branch, edit in KiCad
+(KiVi reloads as you save), then commit, push and open a pull request from one
+menu, with git built in. KiCad files don't merge reliably as text, so KiVi
+never merges a file both sides changed; it keeps your work safe on a branch
+instead.
 
-**Pull requests.** The second icon in the header lists open pull requests in
-remote projects and, once you sign in, those waiting for your review and
-your own, in repositories with KiCad projects only.
-Each says how many KiCad files it changes (schematics, boards, custom rules,
-and a `.kicad_pro` only when its design rules changed, as in the visual diff); **Visual diff** and **Hardware**
-open it in KiVi.
+![Branch menu of a local copy: New branch, Commit, Push 1 commit and Pull, above the branch list](docs/screenshots/git-branch-menu.png)
 
-![Pull requests: the watched test repository's open PR, which changes 9 KiCad files](docs/screenshots/pull-requests.png)
+**🔗 Works with your KiCad.** Link your KiCad installation and KiVi loads 3D
+models from your library exactly as KiCad does, and **Open in KiCad** opens the
+project in one click.
 
+![Settings: KiCad 10.0.6 linked, with its 3D model and add-on folders](docs/screenshots/settings-kicad.png)
 
-**Issues.** The third icon lists open hardware change requests (GitHub issues
-made in KiVi, see [Change requests as issues](#change-requests-as-issues)): those assigned to you
-and opened by you once you sign in, and those in your projects. Each names the
-part, pad or net it's pinned to; **Hardware** opens it there, in the local copy
-when there is one.
+## Reviewing hardware: pull requests and issues
 
+KiVi gives a team two ways to talk about a design, both pinned to the part,
+pad or net they're about and both stored on GitHub, so nothing lives only in
+KiVi:
 
-**Visual diff.** A pull request, commit or branch comparison, side by side or
-overlaid, of a GitHub repository or a local git copy (its working files too), with a list of what changed in KiCad terms rather than text:
-which pins joined or left each net (redrawn wires that connect the same pins
-aren't a change), library symbols whose pins (number, name, electrical type,
-position) or body changed, with the parts that use them, footprints moved or
-re-wired, what changed inside them (pad size, shape, drill, layers, mask/paste
-overrides; 3D models; silkscreen and other graphics), routing per net, zone outlines
-and settings (clearance, pad connections, thermal reliefs, priority…; teardrops
-in one line), stackup and solder mask settings. A changed `.kicad_pro` or
-`.kicad_dru` gets a table of its design rule changes (constraints, DRC
-severities, netclasses and which nets they cover, custom rules); a
-`.kicad_pro` whose rules didn't change is left out of the list. During pull request review users can leave comments pinned where they belong (to actual components or traces):
+| | Review comment | Change request |
+|---|---|---|
+| **For** | Discussing a proposed change before it's merged | Asking for a change to the design as it is |
+| **Made in** | A pull request: its visual diff, or the viewer at its head (**Hardware**) | A branch of a GitHub project, or a local copy linked to GitHub |
+| **How** | Press **C** (**Comment**) and click | Press **C** (**Request change**), click, give it a title |
+| **On GitHub it's** | A review comment on the `.kicad_sch` / `.kicad_pcb` file, in the pull request's conversation and *Files changed* | An issue labelled `kivi`, in the repository's Issues |
+| **Done when** | Resolved, in KiVi or on GitHub | Closed; a pull request whose description says "Fixes #N" closes it when merged |
+| **Listed in** | The pull request's side panel | The schematic and PCB side panels, KiVi's home **Issues** view, GitHub |
+| **Pins** | Numbered 1, 2, 3… in orange | Issue numbers (#12) in green |
 
-![Visual diff of a schematic sheet with a review comment open on R404](docs/screenshots/visual-diff.png)
+### Reviewing a pull request
 
+1. **Find it.** The home screen's pull request view lists the open pull
+   requests in your projects, each saying how many KiCad files it changes.
+   **Visual diff** opens it; **Hardware** opens the viewer at its head.
 
+   ![Pull requests: a remote project's open pull request, which changes 3 KiCad files](docs/screenshots/pull-requests.png)
 
-## Building (Linux)
+2. **Review it.** Go through the change list; each item zooms to the change
+   on both versions. Press **C**, click what you have a question about and
+   write it: here a question about U405's longer pads, pinned to U405. The
+   author answers and resolves it in KiVi or on github.com, where it's an
+   ordinary review comment. The repository's open change requests show up
+   too, in green, since the pull request may be what fixes them.
+
+   ![Visual diff of a pull request with a review comment open on U405 and two change requests listed](docs/screenshots/visual-diff.png)
+
+### Requesting a change with an issue
+
+1. **Pin a request to the hardware.** In the viewer on any branch, press
+   **C**, click the part, pad or net, and give the request a title: here #12
+   asks to move the HDMI connector J501, and has a reply underneath. Anyone
+   with access to the repository sees it in KiVi or in GitHub's Issues.
+
+   ![PCB with change request #12 open on the HDMI connector J501](docs/screenshots/viewer-issues.png)
+
+2. **Keep track of them.** The home screen's **Issues** view gathers the open
+   change requests of all your projects, each saying what it's pinned to;
+   **Hardware** opens it right there.
+
+   ![Issues: four open change requests, pinned to J501, the +5V net, M701 and D605](docs/screenshots/issues.png)
+
+3. **Fix it in a pull request.** The pull request that drills M701 bigger says
+   "Fixes #9" in its description, so in its visual diff issue #9 is marked
+   *closes with this PR*: the reviewer sees the request next to the change
+   that answers it, and GitHub closes the issue when the pull request is
+   merged. For the other issues, **Close with this PR** adds the "Fixes #N"
+   line for you (signed in).
+
+   ![Visual diff of the pull request with issue #9 open on M701: closes when this pull request is merged](docs/screenshots/pr-closes-issue.png)
+
+## Try it in five minutes
+
+1. **Get KiVi.** Download it from the
+   [Releases page](https://github.com/XyleMora/KiVi/releases): on Linux the
+   AppImage (`chmod +x KiVi_*.AppImage`, then run it); on Windows
+   `KiVi_<version>_x64.exe` (run it; it isn't code-signed yet, so SmartScreen
+   asks once: *More info* → *Run anyway*). Or [build it](#building) yourself.
+2. **Add a public project.** In **Projects**, click **+** → **Remote
+   project…** and enter `greatscottgadgets/hackrf` (the HackRF One software
+   defined radio), or any public repository with KiCad projects. No sign-in
+   needed.
+3. **Look around.** Open its card: click parts in the schematic, cross-probe
+   to the PCB, measure something, spin it in 3D.
+4. **See what changed.** Open **History** in the project bar, pick a commit
+   that touched the hardware and press **Visual diff**. In your own
+   repositories, the pull request icon in the header lists the open pull
+   requests the same way.
+5. **Bring your own.** **+** → **Local project…** adds a folder from your
+   computer. Edit it in KiCad, save, and press **Visual diff** to see your
+   uncommitted changes the way a reviewer would.
+6. **Sign in** (account menu, top right) to see your private repositories
+   and the pull requests waiting for your review, and to comment.
+
+### Help us test it
+
+KiVi is young and we'd love to hear how it does on your projects: boards it
+draws wrong, diffs that miss a change or report noise, anything confusing.
+[Open an issue](https://github.com/XyleMora/KiVi/issues) with the KiCad
+version and, if you can, the file. Good to know before you start:
+
+- Linux is where it's used day to day. The Windows build is made by CI and
+  hasn't been tried much by hand; macOS isn't built yet.
+- See [Known limitations](#known-limitations) for what KiVi doesn't do yet.
+
+## Using KiVi
+
+The [user guide](docs/README.md) covers every feature in detail:
+[Projects](docs/README.md#projects) · [Schematic, PCB and 3D](docs/README.md#schematic-pcb-and-3d) · [Visual diff](docs/README.md#visual-diff) · [Pull requests](docs/README.md#pull-requests) · [Review comments on pull requests](docs/README.md#review-comments-on-pull-requests) · [Change requests as issues](docs/README.md#change-requests-as-issues) · [Local copies, branches and pushing](docs/README.md#local-copies-branches-and-pushing) · [Linking KiCad](docs/README.md#linking-kicad) · [GitHub sign-in](docs/README.md#github-sign-in) · [Links into the viewer](docs/README.md#links-into-the-viewer) · [How the gallery stays fast](docs/README.md#how-the-gallery-stays-fast).
+
+## Known limitations
+
+- **3D models embedded in KiCad 9+ files** (`kicad-embed://…`) aren't read
+  yet; such parts show without a model unless a file with the same name is in
+  the repository.
+- **KiCad 9 padstacks** (different pad shapes on inner layers) are drawn with
+  the outer layers' shape.
+- Text uses a regular sans font scaled to KiCad's metrics instead of KiCad's
+  stroke font (the newstroke font data is GPL-2.0, so it is not bundled).
+  Layout and anchoring match, but glyph shapes differ.
+- Schematic nets are traced per sheet (wires, junctions, labels, pins) and
+  mapped to board nets through component pins; the name shown is the board's
+  when there is one. Buses aren't traced, and the diff doesn't follow a net
+  through a global label on another sheet.
+- The default 3D model source is the KiCad 6-era GitHub mirror of
+  `kicad-packages3D`; models added in later KiCad versions need KiCad linked in
+  Settings or another model source. A GitHub repository model source is
+  listed once through the API, so it counts against the rate limit. The first
+  view of a board with many STEP models is slow (KiCad 10's library is STEP
+  only); later views use the cache.
+- Git LFS files aren't fetched.
+- A file changed on both sides is never merged (on purpose: KiCad files don't
+  merge reliably as text); Pull offers to move your commits to a new branch
+  instead.
+
+## Not done yet
+
+- The token and refresh token are kept in the app's local storage; a release
+  should keep them in the OS keychain, at least the long-lived refresh token.
+- Auto-update, code signing, notarisation and a macOS build, file
+  associations.
+
+---
+
+## For developers
+
+### Building
 
 ```sh
-# once: system libraries and Rust
+# once: system libraries and Rust (Linux)
 sudo apt install libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev build-essential
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 cargo install tauri-cli --version "^2" --locked
@@ -96,307 +236,28 @@ cargo tauri dev        # run from source
 cargo tauri build      # release binary + AppImage in src-tauri/target/release/bundle/appimage/
 ```
 
-Windows builds the same way, with Rust and Python installed:
-`cargo tauri build --no-bundle` makes `src-tauri/target/release/kivi-desktop.exe`,
-which runs as it is, with the pages built in (plain `cargo tauri build` also
-makes an NSIS installer, set in `src-tauri/tauri.windows.conf.json`, which Tauri
-merges on Windows). macOS would too, but isn't set up or tested. Tauri doesn't
-cross-compile. The pages are plain ES modules with no build
-step; `tools/build_web.py` (run by Tauri) copies them to `dist/web`.
+KiVi is a [Tauri 2](https://tauri.app) app. Windows builds the same way, with
+Rust and Python installed: `cargo tauri build --no-bundle` makes
+`src-tauri/target/release/kivi-desktop.exe`, which runs as it is, with the
+pages built in (plain `cargo tauri build` also makes an NSIS installer, set in
+`src-tauri/tauri.windows.conf.json`, which Tauri merges on Windows). macOS
+would too, but isn't set up or tested. Tauri doesn't cross-compile. The pages
+are plain ES modules with no build step; `tools/build_web.py` (run by Tauri)
+copies them to `dist/web`.
 
-## GitHub sign-in
+Settings and sign-in are kept per user (`%LOCALAPPDATA%\app.kivi.desktop` on
+Windows, `~/.local/share/app.kivi.desktop` on Linux), not next to the program.
+The Windows `.exe` needs the WebView2 runtime, which is part of Windows 11 and
+comes with Edge updates on Windows 10 (otherwise get the *Evergreen* runtime
+from Microsoft).
 
-Sign-in uses a GitHub App (free, no server). Unlike an OAuth App, it asks for
-fine-grained permissions instead of the `repo` scope (full access to every
-private repository), and users choose which repositories it can read.
+To build in your own GitHub App, set `KIVI_GITHUB_CLIENT_ID` and
+`KIVI_GITHUB_APP_SLUG` when building (in CI: the repository variables of the
+same names, under Settings → Secrets and variables → Actions → Variables);
+without them the sign-in dialog asks for them. The device-flow endpoints don't
+send CORS headers, so those requests run in Rust (`src-tauri/src/lib.rs`).
 
-
-Signing in from the account menu shows a one-time code (like `WDJB-MJHT`) and
-a **Copy code and open GitHub** button; you paste the code on
-github.com/login/device and approve KiVi, and the dialog finishes by itself. If
-the App isn't installed on any of your accounts yet, it then offers **Install on
-GitHub** to choose the repositories.
-
-How it behaves:
-
-- The device-flow endpoints don't send CORS headers, so those requests run in
-  Rust (`src-tauri/src/lib.rs`).
-- The token only reaches repositories where the App is **installed** (and the
-  user has access); public repositories are readable regardless. After signing
-  in, if the App isn't installed anywhere yet, the dialog links to its install
-  page; the account menu has **Repository access** for changing it later.
-  "Waiting for your review" only lists PRs in repositories the App can see.
-- User tokens expire after 8 hours. The refresh token (valid 6 months, single
-  use) is stored next to the token and the app swaps it for a new pair before
-  expiry: when a page opens, on a timer, and when the window regains focus.
-  Device-flow tokens refresh without the client secret, so none is shipped.
-- An organisation that restricts third-party access may need an owner to
-  approve the installation.
-- Permissions the App needs (repository permissions): *Metadata: Read-only*,
-  *Pull requests: Read and write* (review comments), *Issues: Read and write*
-  (change requests) and *Contents: Read and write* (reading files, and pushing
-  from a local copy). After raising a
-  permission in the App's settings, each installation has to accept it once.
-
-## Project gallery
-
-- Repositories come from `GET /user/installations` and
-  `/user/installations/{id}/repositories`, plus the remote projects.
-- Each repository's default branch is listed with one recursive tree request;
-  each `.kicad_pro` is a project (without one, only a loose `.kicad_pcb` counts).
-  The result is cached per repository and reused until the repository's last
-  push or default branch changes, so **Reload** with no new commits only costs
-  the repository listing.
-- Thumbnails are the realistic front face (soldermask, copper, silkscreen),
-  clipped to the board outline. They're rendered when a card scrolls into
-  view, two at a time, and cached by the board file's git blob SHA, so each
-  board version is downloaded and rendered once. Boards over 30 MB aren't
-  previewed.
-- The grid renders 48 cards at a time and adds more as you scroll.
-- The scan stops at a rate-limit error and keeps what it found.
-
-### Local projects
-
-The **+** button at the bottom right of the Projects view adds a project:
-**Local project…** or **Remote project…**. The pages have no address bar;
-projects open from the gallery, the pull request list, a dropped folder or the
-command line.
-
-**Remote project…** asks for a GitHub repository (`owner/repo` or its
-github.com address), checks that it exists, that your account can see it, that
-it has KiCad projects and that it isn't in the gallery yet, and adds it to the
-remote projects, so its projects join the gallery and its pull requests the
-pull request list.
-
-**Remove from projects** in a GitHub card's `⋯` menu takes its whole
-repository (all its cards) off the gallery and the pull request list; it's
-remembered as hidden (settings `hiddenRepos`). **Reload**, next to the page
-title, lists every repository again, including the removed ones, as does adding
-it again with **Remote project…**.
-
-**Local project…** adds a folder on this computer; each KiCad project in it gets a card (with a folder icon and
-its path), listed with the GitHub projects by date of the last change. The
-folders are kept in settings `localProjects`; thumbnails are rendered from the
-board file on disk and re-rendered when it changes. A folder that isn't in a
-git repository becomes one when it's added (`git init`, on `main`, with a
-`.gitignore` leaving out KiCad's working files: local history `.history/`,
-lock files `~*.lck`, backups, autosaves and `fp-info-cache`, but not the
-project's local settings `*.kicad_prl`; nothing is committed), so its changes can be committed from the viewer's branch menu.
-
-- A local card's `⋯` menu has the views, **Open in KiCad**, **View on GitHub**
-  (greyed out until the folder is linked), **Link to GitHub…** and **Remove
-  from projects** (the folder stays on disk). There's no Download: the project
-  is already here.
-- **Link to GitHub…** asks for a repository (`owner/repo` or its github.com
-  address), checks that it exists and that your account can see it, and adds
-  it as the folder's git remote (`origin`, or `github` if origin points
-  elsewhere). Nothing is uploaded: open the project and use **Commit…** and
-  **Push…** from its branch menu. Use an empty repository, since KiVi can't merge a
-  history that GitHub already has.
-- Once linked, the card gets the sync icon and View on GitHub, and the
-  branch menu gets **Push…** next to **Commit…**. Before that, new
-  branches and commits stay on this computer.
-- A folder that is a clone of a repository already in the gallery isn't added
-  as a card of its own: it becomes that repository's linked copy (as **Link**
-  on its card would), and the same happens when a local project is linked to
-  such a repository.
-
-## Local copies, branches and pushing
-
-A project from the gallery can be worked on in a folder on your computer and
-pushed back, without Git installed: KiVi has git built in (libgit2, through the
-Rust `git2` crate), with HTTPS going through the same TLS stack as sign-in.
-
-- **Download** (a project card's `⋯` menu) clones the whole
-  repository into `<chosen folder>/<repository>` and opens the project from it.
-  **Link** instead uses a clone you already have; KiVi checks
-  that it is a clone of that repository and never changes its files or history.
-  Once linked, the card (its name, thumbnail and views) always opens the local
-  copy; **Unlink** goes back to opening it from GitHub.
-- Each card has a sync icon left of its `⋯` menu (hover it for the details):
-  grey when the project isn't on this computer, green when the local copy has
-  nothing uncommitted and its branch is at the same commit as on GitHub, yellow
-  when it differs (uncommitted changes, commits to push, newer commits on
-  GitHub). It asks GitHub for its branch tips (one small request per linked
-  repository, no download), again on **Reload** and when the window regains
-  focus; offline it compares with what the copy last fetched.
-- The project bar looks the same for a GitHub project and a local copy: the
-  project and its repository or folder on the left, the branch button
-  (`⎇ main`) on the right. Its menu lists the branches (with a filter); picking
-  one switches to it. For a GitHub project that reopens the project on that
-  branch; for a local copy it checks the branch out (GitHub branches the copy
-  doesn't have yet included, marked "on GitHub"): uncommitted edits come
-  along, unless that branch changes the same files, then nothing happens and
-  KiVi says why.
-- **History**, next to the branch button, lists the commits on that branch,
-  newest first (with a filter and **Show more**). Picking one shows the
-  project as it was at that commit, on the same tab, sheet and selection; the
-  button then shows the commit (`🕘 07eced8`, in orange) and the menu's first
-  item goes back to the latest. For a GitHub project the commit goes into the
-  link as `&commit=<SHA>` (the branch stays in `gh=`); for a local copy the
-  first item is the working files, and while an earlier commit is shown, live
-  reload and **Open in KiCad** wait until you're back on them. Not shown while
-  reviewing a pull request.
-- **Visual diff**, next to History, opens the visual diff of what's shown: a
-  local copy's working files (uncommitted edits included) against where the
-  branch left main (after updating main from GitHub), like the pull request
-  would; a GitHub branch against the default branch (the default branch
-  itself: its latest commit); a commit from History against its parent; a
-  pull request as reviewed. Greyed out for a folder that isn't a git repository.
-  The diff's bar shows the project's name; the **Before** and **After**
-  labels on the two panes (and the Overlay label) pick each side: the menu's
-  "Commits on" list chooses a branch (local and GitHub ones for a local copy),
-  then **Latest on <branch>** (the branch itself) or one of its commits; a
-  local copy's after side can also be its working files. A branch before counts from where the after side left
-  it, like a pull request; a commit is compared with as it is. The choice
-  goes into the link as `&base=` / `&head=`. A pull request keeps its two
-  sides (and its title in the bar).
-- With a local copy open, the branch button also counts the changed files and
-  its menu has:
-  - **New branch…** creates a branch at the current commit and switches to it;
-    uncommitted edits come along. Before the first commit it replaces `main`:
-    the first commit starts the new branch.
-  - **Commit…** lists the changed files with checkboxes and commits the
-    chosen ones with your message, on this computer. The commit author is
-    your git identity if the clone has one, else your GitHub account with its
-    private e-mail address.
-  - **Push…** (**Push 2 commits…** when it knows how many) pushes the branch
-    to the same branch on GitHub, then offers to open a pull request. On
-    `main` it warns first, since protected branches refuse it. A local
-    project not linked to GitHub has no Push.
-  - **Pull…** (**Pull 2 commits…** when the last fetch saw them) brings in
-    GitHub's commits on the branch: when you have no commits of your own the
-    branch simply moves forward, and uncommitted edits stay unless GitHub
-    changed the same files (then nothing happens and KiVi says so). When both
-    sides have commits on *different* files, KiVi combines them in a merge
-    commit for you to push. KiCad files don't merge reliably as text, so when
-    both changed the *same* file nothing is changed; KiVi lists the files and
-    offers **Move my commits to a new branch**: your work (uncommitted edits
-    too) goes to a branch you can push and open a pull request from, and the
-    old branch then matches GitHub.
-  - Commit and Push are greyed out, saying why, when there's nothing to do: no
-    uncommitted changes, nothing committed yet, or everything pushed. A push
-    that GitHub refuses because it has newer commits offers **Pull…**.
-- GitHub is always reached at `https://github.com/<owner>/<repo>.git` with your
-  sign-in token (in a request header, never stored in the clone), so a clone
-  with an SSH remote works too. KiVi never merges a file changed on both
-  sides; resolving such changes means choosing in KiCad (or with git) which
-  version to keep.
-
-## Linking KiCad
-
-Settings → **KiCad** takes KiCad's program or installation folder (typed, or
-**Browse…**): `/usr` or `/usr/bin/kicad` on Linux,
-`C:\Program Files\KiCad\10.0` on Windows, `/Applications/KiCad` on macOS.
-KiVi checks it with `kicad-cli version` (so KiCad 7 or later) and lists what it
-found. Linking is never automatic; an empty box unlinks it.
-
-- **3D models**: KiVi reads KiCad's path variables the way KiCad expands them:
-  the installation's library (`${KICAD10_3DMODEL_DIR}`), the add-on libraries
-  from the Plugin and Content Manager (`${KICAD10_3RD_PARTY}`), and the
-  variables changed or added in KiCad's *Preferences → Configure Paths*
-  (`kicad_common.json`), with environment variables winning as in KiCad. A
-  model path using one of them is loaded from exactly that place, after the
-  project's own copy; `${KICAD9_3DMODEL_DIR}` and other versions' library
-  variables use the linked library. The library and add-on folders are then
-  searched by file name like any model folder; your own variables' folders
-  aren't searched, only used for exact paths. Settings re-reads KiCad's paths
-  each time it opens.
-- **Open in KiCad**: a button next to the branch button when a project is open,
-  and an item in each project card's `⋯` menu. It opens the project's
-  `.kicad_pro` in KiCad's project manager; saving in KiCad reloads the view.
-  It's greyed out (hover it for why) until KiCad is linked, for projects that
-  aren't on this computer (a GitHub project without a local copy: **Download**
-  or **Link** it first), and for projects without a `.kicad_pro`.
-
-## Links into the viewer
-
-```
-index.html#gh=owner/repo@main:hardware&tab=pcb&sel=U3     project in a repository
-index.html#gh=owner/repo&pr=owner/repo%2312               … at a pull request's head, with its review comments
-index.html#folder=/path/to/project                        local folder
-index.html#folder=/path/to/project&commit=<sha>           … at a commit (git copies)
-index.html#gh=owner/repo&file=hw/board.kicad_pcb&thread=12  … on issue #12's pin (also with folder=)
-diff.html#gh=owner/repo&pr=42                             visual diff of a pull request
-diff.html#gh=owner/repo&commit=<sha>                      … of a commit
-diff.html#gh=owner/repo&base=main&head=feature&file=hw/board.kicad_pcb
-diff.html#gh=owner/repo&head=feature                      … against the default branch
-diff.html#local=/path/to/copy[&base=<ref>][&head=<ref>]   a local copy (no head: its working files)
-inbox.html#projects, #prs, #issues                        home screen views
-```
-
-`gh=` takes `owner/repo`, `owner/repo@branch:path/to/project` or any
-`https://github.com/owner/repo/tree/<ref>/<path>` URL.
-
-## Review comments on pull requests
-
-In the visual diff of a pull request, and in the viewer opened at a pull
-request (marked *PR #N* in the project bar), press **C** (or **Comment**) and
-click a footprint, pad, trace/net, symbol, wire or an empty spot to comment on
-it. Comments are pinned on the canvas and listed in the side panel (Open /
-Resolved / All); click a pin to read the thread, reply or resolve it. The same
-threads show up in both places, numbered the same way; in the schematic the
-list covers every sheet and jumps to the one a comment is on.
-
-They are ordinary GitHub review comments on the `.kicad_sch` / `.kicad_pcb`
-file, so they appear in the pull request conversation and *Files changed*,
-notify reviewers, and share GitHub's resolve state both ways. What a comment
-points at is kept in a hidden `<!-- kivi:{…} -->` marker (stable UUID /
-reference / pad / net name plus the clicked point), so pins follow parts and
-nets across later pushes; when the element is gone the pin stays where it was,
-marked as not found. A comment on the HDMI connector is stored on GitHub as:
-
-```markdown
-Can the HDMI connector move 1 mm towards the edge? The shield tabs touch the keep-out.
-
-<sub>📍 KiVi · footprint **J501**</sub>
-<!-- kivi:{"v":1,"type":"footprint","ref":"J501","x":99.09,"y":72.07,"side":"head"} -->
-```
-
-On github.com it reads as the text with a small "📍 KiVi · footprint **J501**"
-line under it; in KiVi it's a pin on J501.
-
-Reading comments on public repositories works without signing in (resolve
-state needs it). Posting, replying and resolving need the GitHub App's *Pull
-requests: Read and write* permission.
-
-## Change requests as issues
-
-Outside a pull request (a branch of a GitHub project, or a local copy linked to
-GitHub) the same pins are GitHub issues: press **C** (or **Request change**),
-click a part, pad, net or spot, give it a title (and details if you like) and
-**Open issue**. The issue gets the label `kivi` (created in the repository the
-first time) and the same hidden marker, plus the file and commit it was made
-on:
-
-```markdown
-R12 should be 10 k: the LED is too bright.
-
-<sub>📍 KiVi · footprint **R12**</sub>
-<!-- kivi:{"v":1,"type":"footprint","ref":"R12",…,"file":"hw/board.kicad_pcb","commit":"3f2a…"} -->
-```
-
-Issues are listed in the schematic and PCB side panels (Open / Closed / All)
-and pinned like review comments; comment on them, close or reopen them there
-or on GitHub. A pull request that says "Fixes #12" closes the issue when it's
-merged, as usual on GitHub. Pins follow the part or net on later commits; when
-it's gone the pin stays where it was, with the commit it was requested at.
-
-In a pull request (the viewer at its head, or its visual diff) the
-repository's issues are shown too, in green next to the review comments, since
-the pull request may be what fixes them. One the pull request already closes
-says so; on the others **Close with this PR** adds "Fixes #N" to the pull
-request's description, so GitHub closes the issue when it's merged (**Close
-issue** closes it straight away).
-
-KiVi lists only issues labelled `kivi`. GitHub drops the label for people
-without write access to the repository; KiVi says so when that happens (a
-maintainer can add it). Reading issues of public repositories works without
-signing in; opening, commenting and closing need the GitHub App's *Issues:
-Read and write* permission. Projects that are only on this computer have no
-issues.
-
-## Layout
+### Layout
 
 ```
 index.html              viewer
@@ -414,17 +275,18 @@ src/issues.js           change requests as GitHub issues (same threads, labelled
 src/sch/                schematic model, renderer, themes
 src/pcb/                board model, renderer, shapes, hit testing,
                         outline extraction, face textures, three.js scene,
-                        STEP conversion (worker) and its cache
-src/app/                UI: tabs, pan/zoom viewport, inspectors, BOM, diff page
+                        STEP conversion (worker) and its cache, measuring
+src/app/                UI: tabs, pan/zoom viewport, inspectors, BOM, diff page,
+                        branch and history menus, measuring
 src/desktop/
   tauri.js              TauriSource (folder on disk), GitRevSource (it at a commit), drag and drop, link routing,
                         sign-in, token refresh
   desktop.js            additions to the viewer and diff pages
   account.js            header on every page: home icons, account menu, Settings dialog
-  inbox.js, desktop.css home screen: view switch, pull requests
+  inbox.js, desktop.css home screen: view switch, pull requests, issues
   projects.js           project gallery: repository scan, caches, cards
   thumb-worker.js       board thumbnails (parse + render off the main thread)
-  git.js                local copies: download/link, branch and history menus, commit and push
+  git.js                local copies: download/link, branch and history menus, commit, push, pull
   add-project.js        the "+" menu: local project, remote project (settings `watchRepos`)
   local-projects.js     local project folders in the gallery, Link to GitHub…
   icons.js              header and menu icons (repository / pull request follow Octicons)
@@ -432,7 +294,7 @@ src-tauri/              Rust app
   src/lib.rs            commands: open_folder, list_folder, read_file, startup_folder,
                         model folders, github_client_id, github_app_slug,
                         github_device_start/poll/refresh
-  src/git.rs            git commands (clone, branch, local changes, commit, push)
+  src/git.rs            git commands (clone, branch, local changes, commit, push, pull, fetch with prune)
   src/git_http.rs       git over HTTPS through reqwest (no OpenSSL)
   src/kicad.rs          linking KiCad (program, version, path variables), Open in KiCad
   tauri.conf.json       window, CSP, bundle targets
@@ -440,26 +302,28 @@ src-tauri/              Rust app
   icons/                app icons (tools/make_icons.py)
 vendor/                 three.js 0.169, occt-import-js (LGPL-2.1), see vendor/README.md
 tests/                  headless checks (gjs), Tauri API mock
-tools/                  build, CLI rendering, visual comparison, icons, headless browser
+tools/                  build, CLI rendering, visual comparison, icons, headless browser,
+                        screenshot preludes
 assets/                 logo (SVG)
+docs/README.md          user guide (every feature in detail)
 docs/screenshots/       README images
 ```
 
-The parsers and SVG renderers have no DOM dependency, so they run in a page, a
-worker, or headless.
+The parsers, renderers and diff engines have no DOM dependency, so they run in
+a page, a worker, or headless.
 
-## Logo and icons
+### Logo and icons
 
 `assets/kivi-logo.svg` is the logo. The page headers show it in the header's
-colours (`src/app/logo.js` inlines it: the orange parts follow the brand colour, the
-white ones the header background). The app icons in `src-tauri/icons/` are
+colours (`src/app/logo.js` inlines it: the orange parts follow the brand colour,
+the white ones the header background). The app icons in `src-tauri/icons/` are
 generated from it:
 
 ```sh
 python3 tools/make_icons.py
 ```
 
-## Tests and visual checks
+### Tests and visual checks
 
 The tooling runs on `gjs` (GNOME's JavaScript runtime), so Node is not needed.
 The tests use KiCad's demo projects without a KiCad installation:
@@ -475,7 +339,7 @@ python3 tools/fetch_demos.py --refresh 10.0.7    # move the list to another KiCa
 # Parse and render every KiCad demo project, check invariants
 # (envelope, NaN, unresolved references, pin-to-wire connectivity, footprints)
 gjs -m tests/run.js               # or: gjs -m tests/run.js path/to/projects …
-gjs -m tests/diff.js
+gjs -m tests/diff.js              # schematic, library symbol, board, footprint and rules diffs
 gjs -m tests/nets.js
 gjs -m tests/review.js
 gjs -m tests/models.js
@@ -500,6 +364,13 @@ LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a gjs -m tools/browser-check.js \
   --prelude "$(cat tests/tauri-mock.js)" --wait "document.querySelector('.project-card')"
 ```
 
+`tools/screenshots.sh` regenerates every screenshot in this README (all, or
+by name: `tools/screenshots.sh viewer-3d-net`) after a UI change. It needs no
+network or sign-in: `tools/screenshots-prelude.js` answers GitHub and the
+desktop app from the KiCad demo files, with a pull request that applies a few
+fixes to the CM5 MINIMA board, and serves KiCad's installed 3D library
+(`KICAD3D`, default `/usr/share/kicad/3dmodels`).
+
 What a passing run prints:
 
 ```console
@@ -516,7 +387,7 @@ ok    viewer
 ok    diff
 ```
 
-## Continuous integration
+### Continuous integration
 
 `.github/workflows/ci.yml` runs the tests on every pull request and push to
 `main` (or `master`), and builds only for releases and manual runs:
@@ -525,69 +396,24 @@ ok    diff
    from the Actions cache (keyed on `tests/kicad-demos.txt`, so they're
    downloaded only when the list changes or the cache expired after 7 unused
    days), then runs the unit tests, the full demo sweep and `tests/smoke.sh`.
-2. **Rust tests**, alongside: `cargo test` on the Rust side
-   (`src-tauri/src/lib.rs`), with the Rust build cached, and a check that
-   `THIRD-PARTY-NOTICES.md` is up to date. Both builds below wait for both test
-   jobs.
+2. **Rust tests**, alongside: `cargo test` on the Rust side, with the Rust
+   build cached, and a check that `THIRD-PARTY-NOTICES.md` is up to date. Both
+   builds below wait for both test jobs.
 3. **Build (Linux)**, only for tags and manual runs (*Run workflow* on the
    Actions tab): `cargo tauri build`, with the Rust build and the Tauri CLI
    cached; lists the AppImage's bundled system libraries in
    `appimage-libraries.md`. The AppImage and that list are the `kivi-linux`
    artifact.
-
-4. **Build (Windows)**, likewise: `cargo tauri build --no-bundle` on a Windows runner; the
-   `kivi-windows` artifact holds `KiVi_<version>_x64.exe` with `LICENSE` and
-   `THIRD-PARTY-NOTICES.md` next to it (GitHub zips every run artifact for
-   download; release files aren't).
+4. **Build (Windows)**, likewise: `cargo tauri build --no-bundle` on a Windows
+   runner; the `kivi-windows` artifact holds `KiVi_<version>_x64.exe` with
+   `LICENSE` and `THIRD-PARTY-NOTICES.md` next to it (GitHub zips every run
+   artifact for download; release files aren't).
 
 Pushing a tag `v<version>` (matching `version` in `src-tauri/tauri.conf.json`,
 checked) runs all four and publishes a GitHub Release with the AppImage, the
 Windows `.exe`, `LICENSE`, `THIRD-PARTY-NOTICES.md` and `appimage-libraries.md`.
 Merges don't build, so run the workflow by hand on `main` before tagging and
 check both builds pass.
-
-Neither needs installing: on Linux make the AppImage executable and run it; on
-Windows download the `.exe` and run it. It needs the WebView2 runtime, which
-is part of Windows 11 and comes with Edge updates on Windows 10 (otherwise get
-the *Evergreen* runtime from Microsoft). The `.exe` isn't code-signed, so
-Windows SmartScreen warns on first run (*More info* → *Run anyway*). Settings
-and sign-in are kept per user (`%LOCALAPPDATA%\app.kivi.desktop` on Windows,
-`~/.local/share/app.kivi.desktop` on Linux), not next to the program.
-
-Set the repository variables `KIVI_GITHUB_CLIENT_ID` and `KIVI_GITHUB_APP_SLUG`
-(Settings → Secrets and variables → Actions → Variables) to build the GitHub
-App in; without them the sign-in dialog asks for it.
-
-## Known limitations
-
-- Text uses a regular sans font scaled to KiCad's metrics instead of KiCad's
-  stroke font (the newstroke font data is GPL-2.0, so it is not bundled).
-  Layout and anchoring match, but glyph shapes differ.
-- The default 3D model library is the KiCad 6-era GitHub mirror of
-  `kicad-packages3D`; models added in later KiCad versions are not shown unless
-  you link KiCad in Settings or add another mirror to the model sources. A folder source can only be read by the desktop app,
-  which hands out nothing but `.wrl`/`.step`/`.stp` files inside that folder. A GitHub repository
-  source is listed once through the API, so it counts against the rate limit.
-  STEP models load through the bundled `occt-import-js` (7.7 MB of
-  WebAssembly, loaded on first use), in a background worker so the window
-  stays responsive. Converting a STEP model takes 0.3–1 s, so the result is
-  cached on disk: the first view of a board with many STEP models (KiCad 10's
-  library is STEP only) takes as long as before, reopening it is several times
-  faster (24 s → 5 s on CM5_MINIMA_3).
-- Git LFS files are not fetched.
-- Schematic nets are traced per sheet (wires, junctions, labels, pins) and
-  mapped to board nets through component pins; the name shown is the board's
-  when there is one. Buses are not traced.
-
-## Not done yet
-
-- The token and refresh token are kept in the webview's localStorage; a release
-  should keep them in the OS keychain (e.g. the `keyring` crate), at least the
-  long-lived refresh token.
-- Pulling or merging into a local copy (KiVi clones, branches, commits and
-  pushes, but doesn't bring later GitHub commits into an existing copy).
-- Auto-update, code signing, notarisation (macOS), file associations in the
-  bundle config.
 
 ## Licence
 

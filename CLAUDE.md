@@ -6,8 +6,9 @@ a visual diff and review comments pinned to parts/nets that are stored as
 ordinary GitHub PR review comments. GitHub stays the backend for source
 control, diffs and review comments.
 
-README.md is the user-facing reference (features, build, GitHub App setup,
-deep links, layout, test commands). Read it first; this file covers what the
+README.md is the user-facing pitch and developer reference (build, layout,
+test commands); `docs/README.md` is the user guide (every feature, GitHub App
+setup, deep links). Read them first; this file covers what the
 README doesn't: conventions, environment and pitfalls.
 
 ## Stack and constraints
@@ -512,14 +513,47 @@ xvfb-run -a -s "-screen 0 1440x900x24" bash -c 'src-tauri/target/release/kivi-de
 
 ## README screenshots
 
-`docs/screenshots/*.png` were taken with `tools/browser-check.js` at 1440×900,
-signed out (the user asked for no signed-in account in them), on public data:
-`XyleMora/cm5_minima_test_repo` and `KiCad/kicad-source-mirror` as watched
-repositories; PR #1 has a real KiVi comment on R404 in `CM5.kicad_sch`. The
-prelude was `tests/tauri-mock.js` plus settings faked in memory and KiCad demo
-boards served from `tests/kicad-demos` (slow connection). A full set costs
-~25 unauthenticated API requests of the 60/hour; wait for 3D with a "status
-unchanged for 10 s" condition, not the first "loaded" text.
+`tools/screenshots.sh [name …]` regenerates all of `docs/screenshots/*.png`
+(1440 wide, dark UI, signed out: the user asked for no signed-in account in
+them); rerun it after UI changes and look at each image. Run it with
+`TMPDIR` set to the scratchpad. It needs no network and costs no API
+requests: `tools/screenshots-prelude.js` (after `tests/tauri-mock.js`) mocks
+`fetch` for api.github.com / raw.githubusercontent.com and the Tauri commands:
+
+- `XyleMora/cm5_minima_test_repo` = the cm5_minima demo on main, plus PR #1
+  whose head applies `EDITS` (U405 pads, mask margin, 3D model and silk mark;
+  M701 drill; AP2553W6 GND pin type; LED pins swapped) and one KiVi review
+  comment on U405 and a description saying "Fixes #9", plus open `kivi`
+  issues #9 (M701, closed by the PR's drill change), #12 (J501, one reply),
+  #13 (+5V net) and #14 (D605 on IO.kicad_sch), anchored at real positions; `KiCad/kicad-source-mirror` = the demo projects of
+  `tests/kicad-demos.txt` (its real blob SHAs). Both are in `watchRepos`.
+- `diff.html#local=…` = a copy of cm5_minima with `EDITS` as working files;
+  in the viewer (`index.html#folder=/home/designer/cm5_minima`, the
+  `git-branch-menu` shot) the same folder is a clone of the test repository
+  with one commit to push (`git_info` answers by page).
+- `review-comment` = the viewer at PR #1's head with comment 101 open;
+  `settings-kicad` = the Settings dialog with the linked KiCad.
+- A linked KiCad 10 whose library is `/usr/share/kicad/3dmodels`, served at
+  `/kicad3d/` from a temporary web root of symlinks (`--directory`, so the
+  server is killed by PID cleanly); `modelSources: []` keeps it offline.
+- Avatars are `<img>`s of github.com/XyleMora.png: the only real network use.
+- The browser profile keeps storage: the script clears `kivi.projectIndex`,
+  `kivi.kicadRepos`, `kivi-thumbs` and `kivi-models` before and after.
+- The cross-probing trio (`viewer-schematic`, `viewer-pcb`, `viewer-3d-net`;
+  the user wants all three views of one net) selects `/USB_C.D_P` through
+  `net=` (a selected net's inspector says "Highlight on PCB").
+  `viewer-issues` opens issue #12 with `thread=12`; in a PR's diff an issue
+  is `thread=i9` (`pr-closes-issue`). The README's "Reviewing hardware"
+  section walks through PR review vs issues with these shots (the user's
+  request).
+- 3D waits until `#status3d` counts 70+ models and is unchanged for 10 s
+  (~60 s cold; a big STEP model can stall the count for 10 s mid-load). Diff shots
+  click a change, then zoom with `kiviDiff.after.zoomTo(c.after, mm)` or
+  `(c.boxesAfter[0], mm)`.
+
+The real `XyleMora/KiVi` and `cm5_minima_test_repo` aren't publicly readable
+(API 404 signed out, checked 2026-10-30), so the README's quick start uses
+`greatscottgadgets/hackrf` (public, `hardware/hackrf-one/hackrf-one.kicad_pro`).
 
 ## Test data
 

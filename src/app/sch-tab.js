@@ -419,7 +419,7 @@ export class SchematicTab {
         t.anchor.sheet = pg.path; // which instance of the sheet
         return { ...t, side: "head" };
       },
-      commentPath: () => page().file,
+      commentPath: () => page()?.file ?? null,
       refreshOverlay: () => tab.rendered && tab.updateOverlay(),
       zoomMin: 25,
       writeHash: () => tab.app.writeHash(),

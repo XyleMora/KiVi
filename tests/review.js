@@ -268,5 +268,19 @@ const DEMO = kicadDemos("pic_programmer");
   check(locateSch(sch, r, conn, symAnchor).found, "symbol anchor found by UUID");
 }
 
+// ---- GitHub's 422 details reach the message ----
+{
+  const errors = [
+    { resource: "PullRequestReviewComment", code: "custom", field: "pull_request_review_thread.path", message: "pull_request_review_thread.path is missing" },
+    { resource: "PullRequestReviewComment", field: "commit_id", code: "invalid" },
+    { resource: "PullRequestReviewComment", code: "custom", field: "path", message: "could not be resolved" },
+    "plain text reason",
+  ];
+  const fetch422 = async () => ({ ok: false, status: 422, json: async () => ({ message: "Validation Failed", errors }), headers: { get: () => null } });
+  const api = new ReviewComments({ owner: "o", repo: "r", pr: 1, token: "t0k", fetch: fetch422 });
+  const msg = await api.create({ path: "hw/board.kicad_pcb", commitId: "beef", anchor: { type: "point", x: 1, y: 2, side: "head" }, text: "x" }).then(() => "", (e) => e.message);
+  check(msg === "GitHub 422: Validation Failed: pull_request_review_thread.path is missing; PullRequestReviewComment commit_id invalid; path could not be resolved; plain text reason", `422 lists every reason GitHub gave (${msg})`);
+}
+
 print(failures ? `\n${failures} failure(s)` : "\nall review checks passed");
 if (failures) imports.system.exit(1);

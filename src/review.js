@@ -198,6 +198,20 @@ export class ReviewComments {
     });
   }
 
+  /**
+   * Repository paths the pull request changes: GitHub takes review comments
+   * only on these ("path could not be resolved" on any other file).
+   * @returns {Promise<Set<string>>}
+   */
+  async changedFiles() {
+    const out = new Set();
+    for (let page = 1; ; page++) {
+      const batch = await this.request("GET", `/repos/${this.owner}/${this.repo}/pulls/${this.pr}/files?per_page=100&page=${page}`);
+      for (const f of batch) out.add(f.filename);
+      if (batch.length < 100) return out;
+    }
+  }
+
   async reply(thread, text) {
     return this.request("POST", `/repos/${this.owner}/${this.repo}/pulls/${this.pr}/comments/${thread.rootId}/replies`, { body: text.trim() });
   }
@@ -259,12 +273,24 @@ export function comment(id, body, author, avatar, createdAt, url, mine) {
   return { id, text, anchor, author: author ?? "ghost", avatar: avatar ?? null, createdAt, url, mine: !!mine };
 }
 
+/**
+ * One entry of a 422's `errors`: a string, or {resource, field, code} with a
+ * `message` only for code "custom", so the others are spelt out
+ * ("PullRequestReviewComment path invalid") instead of "[object Object]".
+ * A message that doesn't name its field ("could not be resolved") gets it.
+ */
+function validationError(e) {
+  if (typeof e !== "object" || e === null) return String(e);
+  if (e.message) return e.field && !e.message.includes(e.field) ? `${e.field} ${e.message}` : e.message;
+  return [e.resource, e.field, e.code].filter(Boolean).join(" ") || JSON.stringify(e);
+}
+
 function githubError(status, data, headers, what = "pull requests") {
   let msg = data?.message || `HTTP ${status}`;
   if (status === 403 && headers?.get?.("x-ratelimit-remaining") === "0") msg = "API rate limit reached — sign in with GitHub for a higher limit";
   else if (status === 401) msg = "GitHub ended the sign-in; sign in again";
   else if (status === 403 || status === 404) msg += ` — the token needs write access to ${what}`;
-  else if (status === 422 && data?.errors?.length) msg += `: ${data.errors.map((e) => e.message ?? e).join("; ")}`;
+  else if (status === 422 && data?.errors?.length) msg += `: ${data.errors.map(validationError).join("; ")}`;
   const err = new Error(`GitHub ${status}: ${msg}`);
   err.status = status;
   return err;

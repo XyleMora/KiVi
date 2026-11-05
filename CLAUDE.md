@@ -218,6 +218,12 @@ README doesn't: conventions, environment and pitfalls.
   description) marks the ones the PR closes; **Close with this PR**
   (`addClosingIssue`) appends "Fixes #N" to the description, re-read first. An
   issue load failure only leaves a note (`issueError`), comments still load.
+  GitHub refuses review comments on files the PR doesn't change (422 "path
+  could not be resolved"), so new pins there are issues (the user's choice):
+  `store.changed` (`changedFiles()`, `/pulls/N/files`, signed in only, unknown
+  = review comment) and `kindFor(path)` / `wordsAt(path)` pick the button,
+  composer and `post()` target per file (the viewer at a PR's head; the visual
+  diff lists only changed files).
 - main.js `showIssues()`: GitHub sources outside PR mode; local folders once
   git.js `mountGitMenu` calls `kivi.setLocalIssues` with `git_info`'s owner
   (`folderPrefix`, tauri.js). `file=` without `project=` picks the project

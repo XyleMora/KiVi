@@ -24,6 +24,10 @@ change as easy to review as a code change.
 
 ## What you get
 
+*Screenshots show [CM5 MINIMA REV3](https://github.com/piecol/CM5_MINIMA_REV3)
+by Pierluigi Colangeli (CERN-OHL-S-2.0), from KiCad's demo projects. The
+changes, review comments and issues in them were made up for these examples.*
+
 **🗂 Every project at a glance.** KiVi finds every KiCad project in the
 repositories you can reach and in folders you add, and shows each as a card
 with a rendered board thumbnail. One click opens its schematic, PCB, 3D view

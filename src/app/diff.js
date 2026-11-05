@@ -565,7 +565,7 @@ class DiffApp {
         return "pending";
       },
       target: (p, name) => app.commentTarget(p, name),
-      commentPath: () => app.file.path,
+      commentPath: () => app.file?.path ?? null,
       refreshOverlay: () => app.refreshOverlay(),
       get zoomMin() {
         return app.res?.kind === "pcb" ? 8 : 25;

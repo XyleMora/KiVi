@@ -134,6 +134,12 @@ Resolved / All); click a pin to read the thread, reply or resolve it. The same
 threads show up in both places, numbered the same way; in the schematic the
 list covers every sheet and jumps to the one a comment is on.
 
+GitHub only takes review comments on files the pull request changes. In the
+viewer at a pull request, a sheet or board it doesn't change gets **Request
+change** instead of **Comment**: the pin becomes a change request (an issue,
+see below), made on the pull request's head commit and listed with the
+pull request's other issues.
+
 They are ordinary GitHub review comments on the `.kicad_sch` / `.kicad_pcb`
 file, so they appear in the pull request conversation and *Files changed*,
 notify reviewers, and share GitHub's resolve state both ways. What a comment

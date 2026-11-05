@@ -57,6 +57,7 @@ export class ReviewStore {
     this.kind = "pr";
     this.threads = [];
     this.closing = new Set(); // issue numbers the pull request closes when merged
+    this.changed = null; // repository paths the pull request changes (null: not known)
     this.listeners = new Set();
     // Pick up comments added or resolved on GitHub while this tab was in the background.
     document.addEventListener("visibilitychange", () => {
@@ -104,10 +105,34 @@ export class ReviewStore {
     this.closing = new Set();
     this.loadedAt = 0;
     this.error = this.issueError = null;
+    this.changed = null;
     this.api = new ReviewComments({ owner: pr.owner, repo: pr.repo, pr: pr.number, token });
     this.issueApi = new IssueComments({ owner: pr.owner, repo: pr.repo, token });
     this.emit();
+    // Only signed in (writing needs it anyway; spares the anonymous rate limit). Not
+    // known (or failed): new pins stay review comments and GitHub has the last word.
+    const api = this.api;
+    if (token) {
+      api.changedFiles().then(
+        (files) => api === this.api && ((this.changed = files), this.emit()),
+        (e) => console.warn(e),
+      );
+    }
     await this.reload();
+  }
+
+  /**
+   * What a new pin on `path` becomes: "pr" (a review comment) or "issues". In a
+   * pull request a file it doesn't change takes an issue, since GitHub refuses
+   * review comments there.
+   */
+  kindFor(path) {
+    return this.kind === "pr" && this.changed && path && !this.changed.has(path) ? "issues" : this.kind;
+  }
+
+  /** Wording for a new pin on `path`. */
+  wordsAt(path) {
+    return WORDS[this.kindFor(path)];
   }
 
   /**
@@ -122,6 +147,7 @@ export class ReviewStore {
     this.issues = { owner, repo, prefix, commit };
     if (same) return;
     this.pr = null;
+    this.changed = null;
     this.kind = "issues";
     this.threads = [];
     this.closing = new Set();
@@ -135,6 +161,7 @@ export class ReviewStore {
   close() {
     this.api = this.issueApi = null;
     this.pr = null;
+    this.changed = null;
     this.issues = null;
     this.threads = [];
     this.emit();
@@ -191,11 +218,13 @@ export class ReviewStore {
 
   /**
    * Start a thread on the pull request's head commit, or open an issue (with
-   * `title`) on the shown commit. Returns what GitHub made, with its `key`.
+   * `title`) on the shown commit: outside a pull request, or on a file it
+   * doesn't change (`kindFor`). Returns what GitHub made, with its `key`.
    */
   async post(path, anchor, text, title) {
-    if (this.kind === "issues") {
-      const created = await this.api.create({ path: this.issues.prefix + path, commitId: this.issues.commit, anchor, text, title });
+    if (this.kindFor(path) === "issues") {
+      const prefix = this.issues?.prefix ?? "", commitId = this.issues ? this.issues.commit : this.pr.headSha;
+      const created = await this.issueApi.create({ path: prefix + path, commitId, anchor, text, title });
       return { ...created, key: `i${created.id}` };
     }
     const created = await this.api.create({ path, commitId: this.pr.headSha, anchor, text });
@@ -362,16 +391,18 @@ export class ReviewPanel {
 
   /** Labels that differ between pull request comments and issues. */
   applyWords() {
-    const w = this.store.words;
+    const w = this.store.words, nw = this.store.wordsAt(this.host.commentPath());
     const title = this.store.kind === "pr" && this.store.threads.some((t) => t.issue) ? "Comments & issues" : w.title;
-    if (this.wordsKind === title) return;
-    this.wordsKind = title;
+    if (this.wordsKind === title + nw.button) return;
+    this.wordsKind = title + nw.button;
     this.q(".cm-title-text").textContent = title;
     this.q(".cm-resolved-label").textContent = w.resolved;
     this.q(".cm-head-btn")?.setAttribute("aria-label", title);
-    this.modeButton.title = `${w.button === "Comment" ? "Comment on" : "Request a change to"} a part, pad, net or spot (C)`;
+    // New pins on a file the pull request doesn't change are issues (kindFor).
+    const elsewhere = nw !== w ? ` (pull request #${this.store.pr.number} doesn't change this file, so GitHub takes no review comments on it)` : "";
+    this.modeButton.title = `${nw.button === "Comment" ? "Comment on" : "Request a change to"} a part, pad, net or spot (C)${elsewhere}`;
     const label = this.modeButton.querySelector("span");
-    if (label) label.textContent = w.button;
+    if (label) label.textContent = nw.button;
   }
 
   visible(t) {
@@ -527,13 +558,14 @@ export class ReviewPanel {
     const canWrite = this.store.canWrite;
     const tokenNote = (what) => `<div class="cm-note"><button class="link" data-act="signin">Sign in with GitHub</button> to ${what}.</div>`;
     let html;
-    const w = this.store.words, issues = this.store.kind === "issues";
     if (a.kind === "draft") {
       const what = a.anchor.type === "point" ? "this spot" : anchorLabel(a.anchor);
+      const path = this.host.commentPath(a), issues = this.store.kindFor(path) === "issues", w = this.store.wordsAt(path);
+      const elsewhere = issues && this.store.kind === "pr" ? `<div class="cm-note">Pull request #${this.store.pr.number} doesn't change this file, so GitHub takes no review comments on it: this opens a change request instead.</div>` : "";
       html = `${this.head(a.anchor, null)}
         ${
           canWrite
-            ? `${issues ? `<input class="input cm-issue-title-input" placeholder="Title: what should change on ${esc(what)}" aria-label="Issue title">` : ""}
+            ? `${elsewhere}${issues ? `<input class="input cm-issue-title-input" placeholder="Title: what should change on ${esc(what)}" aria-label="Issue title">` : ""}
                <textarea class="input cm-input" rows="3" placeholder="${issues ? "Details (optional)…" : `Comment on ${esc(what)}…`}" aria-label="${issues ? "Details" : "Comment"}"></textarea>
                <div class="cm-actions"><span class="muted cm-hint">${esc(w.posted)} · Ctrl+Enter</span><button class="btn" data-act="cancel">Cancel</button><button class="btn primary" data-act="submit" disabled>${issues ? "Open issue" : "Comment"}</button></div>`
             : tokenNote(issues ? "request changes" : "comment")
@@ -641,7 +673,7 @@ export class ReviewPanel {
         await this.store.reload();
         const t = this.store.byRoot(created.key);
         if (!t || !this.openThread(t, { view: a.view })) this.close();
-        if (this.store.kind !== "issues") toast("Comment posted to the pull request");
+        if (!created.key.startsWith("i")) toast("Comment posted to the pull request");
         // Without write access GitHub drops the label, and KiVi lists only labelled issues.
         else if (created.labelled === false) toast(`Issue #${created.id} opened, but GitHub didn't add the "${ISSUE_LABEL}" label (that needs write access), so it won't show here: ask a maintainer to add it`, true);
         else toast(`Issue #${created.id} opened`);

@@ -1,5 +1,5 @@
 # Tests on every pull request and push to main; the Linux and Windows builds
-# and a GitHub Release with the AppImage and the Windows .exe for every tag
+# and a GitHub Release with the AppImage, the Windows .exe and a source archive for every tag
 # v<version> (matching "version" in src-tauri/tauri.conf.json). Running the
 # workflow by hand (workflow_dispatch) builds both without releasing: do that
 # before tagging, since merges no longer build.
@@ -209,6 +209,21 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: bundles
+
+      # The tagged source next to the binaries: the GPL asks for it, and the
+      # LGPL of occt-import-js (patched, built into the app) needs it to rebuild
+      # KiVi with another version. Unlike GitHub's "Source code" links (only
+      # for people who can see the repository), it's a file that goes wherever
+      # the binaries are copied.
+      - uses: actions/checkout@v4
+        with:
+          path: src
+      - name: Source archive
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          mkdir -p bundles/source
+          git -C src archive --format=tar.gz --prefix="KiVi-${version}/" \
+            -o "$PWD/bundles/source/KiVi_${version}_source.tar.gz" HEAD
 
       - uses: softprops/action-gh-release@v2
         with:

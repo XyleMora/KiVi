@@ -5,7 +5,8 @@
     python3 tools/notices.py --check            # exit 1 if it's out of date
     python3 tools/notices.py --appdir DIR OUT   # system libraries in an AppImage
 
-THIRD-PARTY-NOTICES.md covers the vendored JavaScript (vendor/) and every Rust
+THIRD-PARTY-NOTICES.md covers the vendored JavaScript (vendor/), the bits of
+third-party code copied into KiVi's own files (COPIED below), and every Rust
 crate compiled into the app for Linux or Windows, with each crate's licence files as
 published on crates.io (MIT and Apache-2.0 require them in binary copies too).
 It's committed and bundled with the app; rerun after changing Cargo.lock or
@@ -42,9 +43,28 @@ VENDORED = [
      "vendor/occt-import-js/LICENSE.md",
      "`vendor/occt-import-js/`: Open CASCADE Technology (LGPL-2.1 with the Open CASCADE "
      "exception, https://dev.opencascade.org) compiled to WebAssembly with Emscripten "
-     "(MIT). It is loaded as a separate, replaceable file. KiVi modifies "
-     "`occt-import-js.js` in one place, marked `KiVi patch` (see `vendor/README.md`); "
-     "the modified file is its own source. The unmodified sources are at the homepage."),
+     "(MIT). It is built into the app with the pages, unlinked from KiVi's own code: "
+     "the pages load it at run time. KiVi modifies `occt-import-js.js` in one place, "
+     "marked `KiVi patch` (see `vendor/README.md`); the modified file is its own source "
+     "and is in KiVi's source archive (`KiVi_<version>_source.tar.gz`, published with "
+     "each release), which also lets you rebuild KiVi with a modified or newer "
+     "occt-import-js. The unmodified sources are at the homepage."),
+]
+
+# Third-party code copied into KiVi's own files (not vendored as a package):
+# (name, licence, homepage, notice file, where it is).
+COPIED = [
+    ("Octicons", "MIT", "https://github.com/primer/octicons",
+     "vendor/octicons/LICENSE",
+     "The repository, pull request and issue icons in `src/desktop/icons.js` are the "
+     "path data of Octicons' `repo-16`, `git-pull-request-16` and `issue-opened-16`."),
+    ("KiCad default drawing sheet", "GPL-2.0-or-later", "https://www.kicad.org",
+     "vendor/kicad/COPYRIGHT",
+     "`DEFAULT_WKS` in `src/drawing-sheet.js` is KiCad's built-in default drawing sheet "
+     "(`common/drawing_sheet/drawing_sheet_default_description.cpp` in KiCad's source, "
+     "without its comments), used for schematics that name no drawing sheet of their own. "
+     "KiVi uses it under the GPL-3.0, as \"any later version\" allows. KiCad's copyright "
+     "and permission notice:"),
 ]
 
 LICENSE_NAMES = ("LICENSE", "LICENCE", "COPYING", "NOTICE", "COPYRIGHT", "UNLICENSE")
@@ -131,6 +151,10 @@ def notices():
     ]
     for name, version, lic, home, path, note in VENDORED:
         out += [f"### {name} {version}", "", f"Licence: {lic}. {home}", "", note, "",
+                fence(read_text(ROOT / path)), ""]
+    out += ["## Code copied into KiVi's own files", ""]
+    for name, lic, home, path, note in COPIED:
+        out += [f"### {name}", "", f"Licence: {lic}. {home}", "", note, "",
                 fence(read_text(ROOT / path)), ""]
 
     pkgs = cargo_packages()

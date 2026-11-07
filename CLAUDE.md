@@ -339,7 +339,8 @@ the branch menu, and the cards' `⋯` menu) is greyed out with `aria-disabled`
 (the tooltip and a click say why): KiCad not linked, project not on this
 computer, or no `.kicad_pro`. The user chose an explicit link (no
 auto-detection), a path box with Browse…, and greying out instead of hiding.
-Windows and macOS paths come from KiCad's documentation, untested.
+Windows paths come from KiCad's documentation, untested; macOS paths were
+checked by hand with KiCad 10.0.1 (see Build and run).
 
 ## 3D models
 
@@ -401,6 +402,23 @@ cargo tauri build               # release + AppImage: src-tauri/target/release/b
   manual runs, and has never been run by hand:
   nothing Windows-specific was tested locally. `src-tauri/icons/icon.ico` (from
   `tools/make_icons.py`) is required for the Windows build.
+- macOS: `src-tauri/tauri.macos.conf.json` (merged by Tauri on macOS) makes a
+  `.dmg` (macOS 11+). No extra libraries (system WKWebView); `python3` comes
+  with the Xcode Command Line Tools. Tauri makes `KiVi.icns` from the PNGs, so
+  there's no `.icns` in `icons/`. CI (`build-macos`, macos-14) runs
+  `cargo tauri build --target universal-apple-darwin` (Apple Silicon + Intel)
+  and ships `KiVi_<version>_universal.dmg`, not code-signed or notarised (the
+  linker's ad-hoc signature only). Locally, `bundle_dmg.sh`'s Finder styling
+  can leave the image busy (`hdiutil: couldn't unmount … Resource busy`):
+  `CI=true` skips it (Actions sets it). WebView data (localStorage,
+  IndexedDB) lives in `~/Library/WebKit/app.kivi.desktop` for the `.app`, but
+  `~/Library/WebKit/kivi-desktop` for `cargo tauri dev` (an unbundled binary):
+  the two don't share settings. Tested by hand on Apple Silicon (macOS 27,
+  KiCad 10.0.1): dev and `.dmg` builds, viewer, 3D, Settings → KiCad
+  (`/Applications/KiCad` → `KiCad.app/Contents/MacOS/kicad`,
+  `SharedSupport/3dmodels`, `kicad_common.json` in
+  `~/Library/Preferences/kicad/10.0`), Open in KiCad, GitHub sign-in with a
+  GitHub App. Not tested on Intel.
 - The user runs the **AppImage**: rebuild after every change and tell them to
   restart it. A stale AppImage looks like "the fix didn't work".
 - `tauri.conf.json` CSP:
@@ -454,7 +472,7 @@ tests/smoke.sh                               # pages load cleanly, viewer opens 
   and verifies each. `tests/gjs-fs.js` `kicadDemos()` finds them and exits
   with a hint if they're missing. This machine's connection is slow
   (~0.2 MB/s): a full fetch takes ~6 min here.
-- CI is `.github/workflows/ci.yml` (see README): tests and Rust tests (with the notices check) on PRs and main → Linux and Windows builds (artifacts; tags and manual runs only, the user's choice to save Actions minutes on the private repo)
+- CI is `.github/workflows/ci.yml` (see README): tests and Rust tests (with the notices check) on PRs and main → Linux, Windows and macOS builds (artifacts; tags and manual runs only, the user's choice to save Actions minutes on the private repo)
   → GitHub Release on `v*` tags. Keep its commands in sync with this list;
   it was written without a way to run it locally (no act/actionlint here), so
   the first run on GitHub is its real test.

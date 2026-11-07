@@ -1,7 +1,7 @@
-# Tests on every pull request and push to main; the Linux and Windows builds
-# and a GitHub Release with the AppImage, the Windows .exe and a source archive for every tag
+# Tests on every pull request and push to main; the Linux, Windows and macOS builds
+# and a GitHub Release with the AppImage, the Windows .exe, the macOS .dmg and a source archive for every tag
 # v<version> (matching "version" in src-tauri/tauri.conf.json). Running the
-# workflow by hand (workflow_dispatch) builds both without releasing: do that
+# workflow by hand (workflow_dispatch) builds all three without releasing: do that
 # before tagging, since merges no longer build.
 #
 # Optional repository variables (Settings → Secrets and variables → Actions →
@@ -197,15 +197,55 @@ jobs:
             THIRD-PARTY-NOTICES.md
           if-no-files-found: error
 
+  # Only for releases and manual runs, like the other builds. One universal
+  # .dmg (Apple Silicon and Intel) from src-tauri/tauri.macos.conf.json, which
+  # Tauri merges on macOS. Not code-signed or notarised (that needs an Apple
+  # Developer account): the linker's ad-hoc signature is enough to run, and
+  # Gatekeeper asks once (System Settings → Privacy & Security → Open Anyway).
+  # CI=true (set by Actions) skips the Finder window styling in Tauri's
+  # bundle_dmg.sh, which can leave the disk image busy. LICENSE and
+  # THIRD-PARTY-NOTICES.md are inside the .app, like the AppImage.
+  build-macos:
+    name: Build (macOS)
+    needs: [test, rust-test]
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    runs-on: macos-14
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli --version "^2" --locked
+
+      - name: Build the .dmg
+        env:
+          KIVI_GITHUB_CLIENT_ID: ${{ vars.KIVI_GITHUB_CLIENT_ID }}
+          KIVI_GITHUB_APP_SLUG: ${{ vars.KIVI_GITHUB_APP_SLUG }}
+        run: cargo tauri build --target universal-apple-darwin
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kivi-macos
+          path: src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+          if-no-files-found: error
+
   release:
     name: Release
-    needs: [build, build-windows]
+    needs: [build, build-windows, build-macos]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04
     permissions:
       contents: write
     steps:
-      # Every artifact (kivi-linux, kivi-windows), each in its own folder.
+      # Every artifact (kivi-linux, kivi-windows, kivi-macos), each in its own folder.
       - uses: actions/download-artifact@v4
         with:
           path: bundles

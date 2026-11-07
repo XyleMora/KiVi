@@ -15,7 +15,8 @@ change as easy to review as a code change.
 - **Nothing to set up on a server.** GitHub stays your source control, diff
   and review system; KiVi is a desktop app that parses and renders everything
   locally.
-- **Nothing to install.** One `.AppImage` on Linux, one `.exe` on Windows.
+- **Nothing to install.** One `.AppImage` on Linux, one `.exe` on Windows,
+  one `.dmg` on macOS.
 - **No account needed to play around.** Public repositories work signed out;
   sign in with GitHub for private repositories and the full review features.
 - **You are in control of access.** Sign-in uses a GitHub App with
@@ -159,7 +160,10 @@ KiVi:
    [Releases page](https://github.com/XyleMora/KiVi/releases): on Linux the
    AppImage (`chmod +x KiVi_*.AppImage`, then run it); on Windows
    `KiVi_<version>_x64.exe` (run it; it isn't code-signed yet, so SmartScreen
-   asks once: *More info* → *Run anyway*). Or [build it](#building) yourself.
+   asks once: *More info* → *Run anyway*); on macOS `KiVi_<version>_universal.dmg`
+   (drag KiVi to Applications; it isn't notarised yet, so the first time it's
+   blocked: *System Settings* → *Privacy & Security* → *Open Anyway*). Or
+   [build it](#building) yourself.
 2. **Add a public project.** In **Projects**, click **+** → **Remote
    project…** and enter `greatscottgadgets/hackrf` (the HackRF One software
    defined radio), or any public repository with KiCad projects. No sign-in
@@ -184,7 +188,9 @@ draws wrong, diffs that miss a change or report noise, anything confusing.
 version and, if you can, the file. Good to know before you start:
 
 - Linux is where it's used day to day. The Windows build is made by CI and
-  hasn't been tried much by hand; macOS isn't built yet.
+  hasn't been tried much by hand. The macOS build has been tried by hand on
+  Apple Silicon (macOS 27, KiCad 10.0.1: viewer, 3D with the linked KiCad's
+  models, Open in KiCad, GitHub sign-in); not yet on Intel.
 - See [Known limitations](#known-limitations) for what KiVi doesn't do yet.
 
 ## Using KiVi
@@ -221,8 +227,7 @@ The [user guide](docs/README.md) covers every feature in detail:
 
 - The token and refresh token are kept in the app's local storage; a release
   should keep them in the OS keychain, at least the long-lived refresh token.
-- Auto-update, code signing, notarisation and a macOS build, file
-  associations.
+- Auto-update, code signing, notarisation, file associations.
 
 ---
 
@@ -244,13 +249,24 @@ KiVi is a [Tauri 2](https://tauri.app) app. Windows builds the same way, with
 Rust and Python installed: `cargo tauri build --no-bundle` makes
 `src-tauri/target/release/kivi-desktop.exe`, which runs as it is, with the
 pages built in (plain `cargo tauri build` also makes an NSIS installer, set in
-`src-tauri/tauri.windows.conf.json`, which Tauri merges on Windows). macOS
-would too, but isn't set up or tested. Tauri doesn't cross-compile. The pages
+`src-tauri/tauri.windows.conf.json`, which Tauri merges on Windows).
+
+On macOS, install the Xcode Command Line Tools (`xcode-select --install`,
+which bring `python3`) and Rust; no other libraries are needed (Tauri uses
+the system's WKWebView). `cargo tauri build` makes
+`src-tauri/target/release/bundle/dmg/KiVi_<version>_aarch64.dmg` (set in
+`src-tauri/tauri.macos.conf.json`, which Tauri merges on macOS); CI builds one
+for both architectures with `rustup target add x86_64-apple-darwin` and
+`cargo tauri build --target universal-apple-darwin`. If the build stops with
+`hdiutil: couldn't unmount … Resource busy`, run it as
+`CI=true cargo tauri build`: that skips the Finder window styling of the disk
+image, which can keep it busy. Tauri doesn't cross-compile. The pages
 are plain ES modules with no build step; `tools/build_web.py` (run by Tauri)
 copies them to `dist/web`.
 
 Settings and sign-in are kept per user (`%LOCALAPPDATA%\app.kivi.desktop` on
-Windows, `~/.local/share/app.kivi.desktop` on Linux), not next to the program.
+Windows, `~/.local/share/app.kivi.desktop` on Linux,
+`~/Library/WebKit/app.kivi.desktop` on macOS), not next to the program.
 The Windows `.exe` needs the WebView2 runtime, which is part of Windows 11 and
 comes with Edge updates on Windows 10 (otherwise get the *Evergreen* runtime
 from Microsoft).
@@ -401,8 +417,8 @@ ok    diff
    downloaded only when the list changes or the cache expired after 7 unused
    days), then runs the unit tests, the full demo sweep and `tests/smoke.sh`.
 2. **Rust tests**, alongside: `cargo test` on the Rust side, with the Rust
-   build cached, and a check that `THIRD-PARTY-NOTICES.md` is up to date. Both
-   builds below wait for both test jobs.
+   build cached, and a check that `THIRD-PARTY-NOTICES.md` is up to date. All
+   three builds below wait for both test jobs.
 3. **Build (Linux)**, only for tags and manual runs (*Run workflow* on the
    Actions tab): `cargo tauri build`, with the Rust build and the Tauri CLI
    cached; lists the AppImage's bundled system libraries in
@@ -412,13 +428,17 @@ ok    diff
    runner; the `kivi-windows` artifact holds `KiVi_<version>_x64.exe` with
    `LICENSE` and `THIRD-PARTY-NOTICES.md` next to it (GitHub zips every run
    artifact for download; release files aren't).
+5. **Build (macOS)**, likewise: `cargo tauri build --target
+   universal-apple-darwin` on a macOS runner; the `kivi-macos` artifact holds
+   `KiVi_<version>_universal.dmg` (Apple Silicon and Intel; `LICENSE` and
+   `THIRD-PARTY-NOTICES.md` are inside the app). Not code-signed or notarised.
 
 Pushing a tag `v<version>` (matching `version` in `src-tauri/tauri.conf.json`,
-checked) runs all four and publishes a GitHub Release with the AppImage, the
-Windows `.exe`, `LICENSE`, `THIRD-PARTY-NOTICES.md`, `appimage-libraries.md`
-and `KiVi_<version>_source.tar.gz` (`git archive` of the tag).
-Merges don't build, so run the workflow by hand on `main` before tagging and
-check both builds pass.
+checked) runs all five and publishes a GitHub Release with the AppImage, the
+Windows `.exe`, the macOS `.dmg`, `LICENSE`, `THIRD-PARTY-NOTICES.md`,
+`appimage-libraries.md` and `KiVi_<version>_source.tar.gz` (`git archive` of
+the tag). Merges don't build, so run the workflow by hand on `main` before
+tagging and check all three builds pass.
 
 ## Licence
 

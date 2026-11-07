@@ -405,7 +405,7 @@ cargo tauri build               # release + AppImage: src-tauri/target/release/b
 - macOS: `src-tauri/tauri.macos.conf.json` (merged by Tauri on macOS) makes a
   `.dmg` (macOS 11+). No extra libraries (system WKWebView); `python3` comes
   with the Xcode Command Line Tools. Tauri makes `KiVi.icns` from the PNGs, so
-  there's no `.icns` in `icons/`. CI (`build-macos`, macos-14) runs
+  there's no `.icns` in `icons/`. CI (`build-macos`, macos-26) runs
   `cargo tauri build --target universal-apple-darwin` (Apple Silicon + Intel)
   and ships `KiVi_<version>_universal.dmg`, not code-signed or notarised (the
   linker's ad-hoc signature only). Locally, `bundle_dmg.sh`'s Finder styling

@@ -2,8 +2,9 @@
 // comments and KiVi issues) against a mocked API, and anchor picking/relocation on demo files.   gjs -m tests/review.js
 
 import { readText, kicadDemos } from "./gjs-fs.js";
-import { encodeBody, decodeBody, anchorLabel, renderCommentText, ReviewComments, closingNumbers } from "../src/review.js";
-import { IssueComments } from "../src/issues.js";
+import { encodeBody, decodeBody, anchorLabel, renderCommentText, closingNumbers } from "../src/review.js";
+import { GitHubReviews as ReviewComments, GitHubIssues as IssueComments, github } from "../src/forge/github.js";
+import { FORGES, forge, parseRepoSpec } from "../src/forge/index.js";
 import { pickPcb, locatePcb, pickSch, locateSch } from "../src/diff/anchors.js";
 import { parsePcb } from "../src/pcb/model.js";
 import { renderPcb } from "../src/pcb/render.js";
@@ -280,6 +281,41 @@ const DEMO = kicadDemos("pic_programmer");
   const api = new ReviewComments({ owner: "o", repo: "r", pr: 1, token: "t0k", fetch: fetch422 });
   const msg = await api.create({ path: "hw/board.kicad_pcb", commitId: "beef", anchor: { type: "point", x: 1, y: 2, side: "head" }, text: "x" }).then(() => "", (e) => e.message);
   check(msg === "GitHub 422: Validation Failed: pull_request_review_thread.path is missing; PullRequestReviewComment commit_id invalid; path could not be resolved; plain text reason", `422 lists every reason GitHub gave (${msg})`);
+}
+
+// ---- the forge interface ----
+{
+  // Every member of the Forge typedef in src/forge/index.js, so an adapter can be checked against it.
+  const MEMBERS = ["id", "name", "host", "hashKey", "parseSpec", "ownsUrl", "open", "source", "repo", "listRepos", "tree", "branches", "commits", "compare", "pullRequest", "pullFiles", "searchPullRequests", "searchIssues", "reviews", "issues", "user", "gitAuthor", "avatar", "web"];
+  for (const f of FORGES) {
+    const missing = MEMBERS.filter((m) => f[m] === undefined);
+    check(!missing.length, `${f.id} implements the forge interface${missing.length ? ` (missing ${missing.join(", ")})` : ""}`);
+    check(["repo", "tree", "compare"].every((k) => typeof f.web[k] === "function") && typeof f.web.newRepo === "string", `${f.id} has its web pages`);
+  }
+  check(forge() === github && forge("github") === github, "GitHub is the default forge");
+  check(parseRepoSpec("me/models@main:3d")?.forge === github && parseRepoSpec("me/models@main:3d").spec.path === "3d", "a shorthand goes to the default forge");
+  check(parseRepoSpec("https://github.com/me/models/tree/main/3d")?.spec.rest === "main/3d", "a github.com address goes to GitHub");
+  check(parseRepoSpec("https://example.com/me/models") === null, "an address no forge owns isn't a repository");
+  check(github.source({ owner: "o", repo: "r", ref: "main" }).forge === github, "sources know their forge");
+  check(github.web.tree("o/r", "feat/x", "hw/board") === "https://github.com/o/r/tree/feat/x/hw/board" && github.web.tree("o/r") === "https://github.com/o/r", "folder pages");
+
+  // Searches: GitHub's query syntax and its 256-character limit stay in the adapter.
+  const queries = [];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    queries.push(decodeURIComponent(/[?&]q=([^&]*)/.exec(url)[1]));
+    const item = { repository_url: "https://api.github.com/repos/O/R", number: queries.length, title: "t", user: { login: "u", avatar_url: "a?v=4" }, updated_at: "2026-11-01T00:00:00Z", html_url: `h${queries.length}` };
+    return { ok: true, status: 200, json: async () => ({ items: [item] }) };
+  };
+  const repos = Array.from({ length: 30 }, (_, i) => `owner${i}/repository-${i}`);
+  const found = await github.searchIssues({ label: "kivi", repos }, null);
+  const mine = await github.searchPullRequests({ reviewRequested: true }, "t");
+  globalThis.fetch = realFetch;
+  check(queries.length > 2 && queries.slice(0, -1).every((q) => q.length <= 256 && q.startsWith("is:issue is:open archived:false label:kivi repo:")), `issue searches split under GitHub's limit (${queries.length - 1} queries)`);
+  check(repos.every((r) => queries.some((q) => q.includes(` repo:${r}`))), "every repository is searched");
+  check(queries.at(-1) === "is:pr is:open archived:false review-requested:@me", "review requests query");
+  check(found[0].nwo === "O/R" && found[0].author === "u" && found[0].url === "h1" && mine[0].updatedAt === "2026-11-01T00:00:00Z", "search hits become SearchItems");
+  check(github.avatar("a?v=4", 48) === "a?v=4&s=48" && github.avatar("a", 48) === "a?s=48", "avatar sizes");
 }
 
 print(failures ? `\n${failures} failure(s)` : "\nall review checks passed");

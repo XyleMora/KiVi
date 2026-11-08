@@ -16,7 +16,7 @@ export const BRANCH_ICON = `<svg viewBox="0 0 16 16" width="14" height="14" aria
 /**
  * Put the branch menu in the project bar (replacing any earlier one).
  * @param {object} o
- * @param {string} o.kind "github" | "local", so each side removes only its own menu
+ * @param {string} o.kind "forge" | "local", so each side removes only its own menu
  * @param {string|null} o.branch the branch shown on the button
  * @param {string} [o.title] the button's tooltip
  * @param {number} [o.count] a badge after the name (local: changed files)

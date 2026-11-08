@@ -3,6 +3,7 @@
 // gets wired up.
 
 import { settings, saveSettings, toast } from "../app/ui.js";
+import { github } from "../forge/github.js";
 
 const T = window.__TAURI__;
 export const isDesktop = !!T;
@@ -204,7 +205,7 @@ const SIGNIN_HTML = `
   <h2>Sign in with GitHub</h2>
   <div data-step="client" hidden>
     <p class="muted settings-hint">This build has no GitHub App configured. Register one at
-      <a href="https://github.com/settings/apps/new">github.com/settings/apps/new</a> with <em>Enable Device Flow</em>
+      <a href="${github.web.newApp}">${github.web.newApp.replace(/^https:\/\//, "")}</a> with <em>Enable Device Flow</em>
       ticked, and paste its Client ID (or build with <code>KIVI_GITHUB_CLIENT_ID</code> set).</p>
     <label class="field-label" for="signin-client">GitHub App Client ID</label>
     <input id="signin-client" class="input mono" spellcheck="false" placeholder="Iv23li…">
@@ -230,7 +231,7 @@ const SIGNIN_HTML = `
 /** Install / repository-access page of the App, or null if its URL name isn't known. */
 export async function appInstallUrl() {
   const slug = (await invoke("github_app_slug")) ?? settings().githubAppSlug;
-  return slug ? `https://github.com/apps/${encodeURIComponent(slug)}/installations/new` : null;
+  return slug ? github.web.appInstall(slug) : null;
 }
 
 /** Settings fields for a token response from GitHub. */
@@ -396,14 +397,7 @@ export async function signInWithGitHub() {
 async function offerInstall(dlg, step, go, token) {
   const url = await appInstallUrl();
   if (!url) return;
-  try {
-    const r = await fetch("https://api.github.com/user/installations?per_page=1", {
-      headers: { Accept: "application/vnd.github+json", Authorization: `Bearer ${token}` },
-    });
-    if (!r.ok || (await r.json()).total_count > 0) return;
-  } catch {
-    return;
-  }
+  if ((await github.hasAppInstallation(token)) !== false) return; // installed, or GitHub can't tell
   step("install");
   go.textContent = "Install on GitHub";
   go.onclick = () => T.opener.openUrl(url);

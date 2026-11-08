@@ -288,10 +288,13 @@ src/geom.js             matrices, arcs, bounding boxes
 src/text.js             text layout (KiCad metrics, markup, escapes)
 src/drawing-sheet.js    .kicad_wks parser/renderer, built-in default sheet
 src/project.js          project discovery, hierarchy walk, page numbering
-src/sources.js          GitHub (API, PR/commit comparison), 3D model path resolution
+src/forge/              code hosts: the forge interface (index.js) and the GitHub
+                        adapter (github.js: every API request, comparisons, review
+                        comments, issues, search, github.com links)
+src/sources.js          text before a patch, 3D model path resolution
 src/diff/               semantic schematic, net, board and design rule diffs, comment anchors
-src/review.js           review comments on GitHub (threads, replies, resolve)
-src/issues.js           change requests as GitHub issues (same threads, labelled kivi)
+src/review.js           comment markers and the thread shape (review comments and
+                        change requests), the same on every forge
 src/sch/                schematic model, renderer, themes
 src/pcb/                board model, renderer, shapes, hit testing,
                         outline extraction, face textures, three.js scene,

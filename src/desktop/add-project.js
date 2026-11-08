@@ -3,8 +3,8 @@
 // repository, added to the watched repositories that the gallery scans).
 // It replaced the address bar the pages used to have.
 
-import { settings, saveSettings } from "../app/ui.js";
-import { GitHubSource, parseGitHubSpec } from "../sources.js";
+import { escapeHtml, settings, saveSettings } from "../app/ui.js";
+import { forge } from "../forge/index.js";
 import { dialog } from "./git.js";
 import { ICONS } from "./icons.js";
 import { ensureFreshToken } from "./tauri.js";
@@ -63,6 +63,7 @@ export function removeRepo(nwo) {
  * Resolves with "owner/repo" once added, or null.
  */
 export function addRemoteProject({ inGallery, hasProjects }) {
+  const host = forge();
   return new Promise((resolve) => {
     const dlg = dialog(`<form method="dialog" class="settings">
       <h2>Add a remote project</h2>
@@ -70,7 +71,7 @@ export function addRemoteProject({ inGallery, hasProjects }) {
         settings().token ? "" : " Signed out, only public repositories can be added."
       }</p>
       <label class="field-label" for="remote-repo">GitHub repository</label>
-      <input id="remote-repo" class="input mono" required spellcheck="false" autocomplete="off" placeholder="owner/repo or https://github.com/owner/repo">
+      <input id="remote-repo" class="input mono" required spellcheck="false" autocomplete="off" placeholder="owner/repo or ${escapeHtml(host.web.repo("owner/repo"))}">
       <p class="muted settings-hint error-text" id="remote-error" hidden></p>
       <div class="row end gap"><button value="cancel" class="btn" formnovalidate>Cancel</button><button value="ok" class="btn primary">Add</button></div>
     </form>`);
@@ -85,20 +86,20 @@ export function addRemoteProject({ inGallery, hasProjects }) {
     dlg.querySelector("form").addEventListener("submit", async (e) => {
       if (e.submitter?.value !== "ok") return;
       e.preventDefault();
-      const gh = parseGitHubSpec(box.value.trim());
-      if (!gh) return fail("Enter the repository as owner/repo or its github.com address");
+      const gh = host.parseSpec(box.value.trim());
+      if (!gh) return fail(`Enter the repository as owner/repo or its ${host.host} address`);
       error.hidden = true;
       add.disabled = true;
       try {
-        const r = await GitHubSource.api(`/repos/${gh.owner}/${gh.repo}`, await ensureFreshToken());
-        const nwo = r.full_name; // its real name and case
+        const r = await host.repo(`${gh.owner}/${gh.repo}`, await ensureFreshToken());
+        const nwo = r.nwo; // its real name and case
         if (inGallery(nwo)) return fail(`${nwo} is in the gallery already`);
         if (!(await hasProjects(nwo))) return fail(`${nwo} has no KiCad projects`);
         watchRepo(nwo);
         dlg.close("added");
         resolve(nwo);
       } catch (err) {
-        fail(err.status === 404 ? `${gh.owner}/${gh.repo} isn't on GitHub, or this account can't see it` : String(err.message ?? err));
+        fail(err.status === 404 ? `${gh.owner}/${gh.repo} isn't on ${host.name}, or this account can't see it` : String(err.message ?? err));
       } finally {
         add.disabled = false;
       }

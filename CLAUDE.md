@@ -48,6 +48,21 @@ README doesn't: conventions, environment and pitfalls.
   with more of its pads and track pieces; even = stay), and the 3D view
   glides to the Top or Bottom preset around it (`Board3D.focusOn(box, side)`,
   `onView` presses the preset button). Clicks inside a view never move it.
+- **Forges** (`src/forge/`): every GitHub request (REST, GraphQL, raw files,
+  search) and github.com link is in `src/forge/github.js`; the rest of the app
+  talks to a forge object only (`forge()` / `forgeInHash()` / `parseRepoSpec()`
+  from `src/forge/index.js`, whose JSDoc typedefs are the interface: `Forge`,
+  `Source`, `RepoInfo`, `PullRequest`, `ChangedFile`, `Comparison`,
+  `SearchItem`, `ReviewThreads`) and gets forge-neutral shapes back, never
+  GitHub JSON. Forge sources carry `source.forge` (app code tests that, not
+  `kind === "github"`); page hashes use `forge.hashKey` (`gh=`); review
+  stores and diff specs carry `forge` (an id, GitHub by default). A new forge
+  = a new adapter added to `FORGES` (`tests/review.js` checks each one has
+  every member). Not forge-neutral yet: tokens and sign-in (settings `token`,
+  the GitHub App device flow in tauri.js, which uses `github` directly), the
+  Rust git commands (github.com URLs in git.rs/git_http.rs, `git_link_github`)
+  and most UI wording ("GitHub"). No DOM or Tauri in `src/forge/`: it runs
+  under gjs.
 - `src/desktop/` holds the Tauri integration; it's a no-op when
   `window.__TAURI__` is missing (`isDesktop`), which is what lets the pages run
   in a plain headless browser for tests.
@@ -174,10 +189,10 @@ README doesn't: conventions, environment and pitfalls.
   netclasses: a missing field inherits from Default in KiCad 9+, netclass
   patterns and assignments) and `.kicad_dru` (`#` comments, several top-level
   rules). Everything else in a `.kicad_pro` is ignored. `RULE_FILES`
-  (sources.js) files are fetched by the diff page, shown as a table
+  (project.js) files are fetched by the diff page, shown as a table
   (`#rules-view`, `.rules-mode`) and dropped when unchanged
   (`dropUnchangedRules`). The inbox badge counts the same files
-  (`src/desktop/pr-files.js`): a modified `.kicad_pro` is read at the PR head
+  (`src/desktop/pr-files.js`, on `forge.pullFiles` ChangedFiles): a modified `.kicad_pro` is read at the PR head
   and its base rebuilt from the PR's `patch` (`textBeforePatch`, sources.js),
   so no extra API request for the base; unverifiable files count.
 - Changes may carry `boxesBefore`/`boxesAfter` (per-side marks) and `rows`
@@ -197,8 +212,9 @@ README doesn't: conventions, environment and pitfalls.
 - The user's design: issues pinned like review comments, outside PRs, listed
   in a home view; only issues labelled `kivi` (`ISSUE_LABEL`, the user's
   choice over listing every issue).
-- `src/issues.js` `IssueComments` extends `ReviewComments` (same request and
-  error code) and turns issues into the same thread shape: `rootId` = issue
+- `GitHubIssues` extends `GitHubReviews` (forge/github.js; same request and
+  error code) and turns issues into the same thread shape (`issueThread`,
+  review.js; `ISSUE_LABEL` is there too): `rootId` = issue
   number (so `thread=12` is issue #12), resolved = closed, the body is the
   first comment (never deletable). The marker carries `file` (repository path)
   and `commit`. Signed in: one GraphQL query (issues + comments); signed out:
@@ -213,7 +229,7 @@ README doesn't: conventions, environment and pitfalls.
 - In PR mode the store holds both (`api` = review comments, `issueApi` =
   issues; `apiFor(t)`, `wordsFor(t)`), keys keep them apart (`t.key`: comment
   id, or "i12"), only review threads are numbered 1…n, issue pins are green
-  (`.cm-pin.issue`), `openCounts` skips issues. `closingIssues()` (review.js:
+  (`.cm-pin.issue`), `openCounts` skips issues. `closingIssues()` (forge/github.js:
   GraphQL `closingIssuesReferences` signed in, else `closingNumbers` of the
   description) marks the ones the PR closes; **Close with this PR**
   (`addClosingIssue`) appends "Fixes #N" to the description, re-read first. An
@@ -258,7 +274,7 @@ README doesn't: conventions, environment and pitfalls.
   on a blocking thread.
 - Branch menu `#branch-menu` (`src/app/branch-menu.js`, shared, the user's
   design): the same button and branch list for GitHub projects (main.js
-  `mountGitHubBranches`: `/branches` API, switching rewrites the URL's `gh=`
+  `mountForgeBranches`: `forge.branches`, switching rewrites the URL's `gh=`
   ref so `restoreFromHash` reopens the project, same tab) and local copies
   (git.js `mountGitMenu`: `git_branches` after a best-effort fetch,
   `git_switch_branch` = safe checkout like `git switch`, plus New branch…,
@@ -268,12 +284,12 @@ README doesn't: conventions, environment and pitfalls.
   nothing to do); a folder without a GitHub remote gets no Push (no sign-in
   needed; the user's request), and before its first
   commit `git_info.branch` is the unborn branch and a new branch replaces it). `data-kind` tells which side owns it: main.js
-  removes only a "github" one, desktop.js mounts the "local" one after a folder
+  removes only a "forge" one, desktop.js mounts the "local" one after a folder
   opens and on live reload/focus. The left of the bar shows the repository
   (GitHub) or folder (local), no longer the ref.
 - History menu `#history-menu` (`src/app/history-menu.js`, shared, next to
   the branch menu; `data-kind` like it): the branch's commits, 50 per
-  **Show more**. GitHub (main.js `mountGitHubHistory`, hidden in PR mode):
+  **Show more**. GitHub (main.js `mountForgeHistory`, `forge.commits`, hidden in PR mode):
   `/commits?sha=<ref>` (one API request per page per page load); picking one
   sets `commit=<SHA>` in the URL, which `openGitHub` turns into the source's
   `sha`/`commit` while `ref` (and the branch menu) keep the branch. Local
@@ -283,7 +299,7 @@ README doesn't: conventions, environment and pitfalls.
   repository's root). While a `GitRevSource` is open, live reload is skipped
   and Open in KiCad is greyed out; switching branch returns to the working files.
 - Visual diff button `#visual-diff` (index.html, set by `setDiffButton` in
-  `src/app/diff-button.js` from main.js `setGitHubDiff` or git.js
+  `src/app/diff-button.js` from main.js `setForgeDiff` or git.js
   `mountGitMenu`; it replaced the branch menu's "Visual diff of changes", the
   user's request). The side pickers, in the Before/After pane labels and the
   Overlay one (`.pick-slot`, the user's design; the bar shows only the
@@ -296,7 +312,7 @@ README doesn't: conventions, environment and pitfalls.
   takes a base branch (from the merge base) or revision (that commit itself,
   `base_tip`) and an optional head (`rev_tip`: local branch, GitHub's, then any
   revision; none = working files); `git_log` takes `rev`. GitHub
-  (`resolveComparison`): no base = default branch, base = head → that commit
+  (`forge.compare`, `compare` in forge/github.js): no base = default branch, base = head → that commit
   vs its parent, a full-SHA base that isn't the merge base → `treeDiff` (two
   recursive trees; refuses truncated ones).
 - `src/desktop/git.js`: card menu actions (projects.js), the local branch
@@ -458,7 +474,7 @@ python3 tools/fetch_demos.py                 # KiCad demo files → tests/kicad-
 gjs -m tests/run.js                          # parse+render all KiCad demos
 gjs -m tests/diff.js
 gjs -m tests/nets.js
-gjs -m tests/review.js                       # GitHub API layer, mocked
+gjs -m tests/review.js                       # GitHub adapter and forge interface, mocked
 gjs -m tests/models.js                       # 3D model path resolution order
 cargo test --manifest-path src-tauri/Cargo.toml --lib   # Rust: model folders, git (needs dist/web)
 tests/smoke.sh                               # pages load cleanly, viewer opens pic_programmer (~15 s)

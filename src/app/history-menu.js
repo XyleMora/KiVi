@@ -18,7 +18,7 @@ const PAGE = 50; // commits per "Show more"
 /**
  * Put the history menu in the project bar (replacing any earlier one), after the branch menu.
  * @param {object} o
- * @param {string} o.kind "github" | "local", so each side removes only its own menu
+ * @param {string} o.kind "forge" | "local", so each side removes only its own menu
  * @param {string|null} o.viewing the commit shown (full SHA), or null for the latest
  * @param {string} o.latest the first item, e.g. "Latest on main" or "Working files"
  * @param {string} [o.latestNote] a note after it (local: the changed files)

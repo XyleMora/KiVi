@@ -10,7 +10,7 @@
 // linked to that repository's card instead (settings.localCopies, git.js).
 
 import { escapeHtml, settings, saveSettings, toast } from "../app/ui.js";
-import { GitHubSource, parseGitHubSpec } from "../sources.js";
+import { forge } from "../forge/index.js";
 import { findProjects } from "../project.js";
 import { dialog, localCopy, setLocalCopy } from "./git.js";
 import { ensureFreshToken, invoke, pickFolder } from "./tauri.js";
@@ -134,12 +134,13 @@ export function removeLocalProject(folder) {
  * KiVi can't merge a history GitHub already has. Resolves true once linked.
  */
 export function linkLocalProject(p, inGallery) {
+  const host = forge();
   return new Promise((resolve) => {
     const dlg = dialog(`<form method="dialog" class="settings">
       <h2>Link to GitHub</h2>
-      <p class="muted settings-hint">Adds the repository as a git remote of <code>${escapeHtml(p.folder)}</code>. Nothing is uploaded until you commit and push from the project's branch menu. Use an empty repository: <a href="https://github.com/new">create one on GitHub</a>.</p>
+      <p class="muted settings-hint">Adds the repository as a git remote of <code>${escapeHtml(p.folder)}</code>. Nothing is uploaded until you commit and push from the project's branch menu. Use an empty repository: <a href="${escapeHtml(host.web.newRepo)}">create one on GitHub</a>.</p>
       <label class="field-label" for="link-repo">GitHub repository</label>
-      <input id="link-repo" class="input mono" required spellcheck="false" autocomplete="off" placeholder="owner/repo or https://github.com/owner/repo">
+      <input id="link-repo" class="input mono" required spellcheck="false" autocomplete="off" placeholder="owner/repo or ${escapeHtml(host.web.repo("owner/repo"))}">
       <p class="muted settings-hint error-text" id="link-error" hidden></p>
       <div class="row end gap"><button value="cancel" class="btn" formnovalidate>Cancel</button><button value="ok" class="btn primary">Link</button></div>
     </form>`);
@@ -150,26 +151,26 @@ export function linkLocalProject(p, inGallery) {
     form.addEventListener("submit", async (e) => {
       if (e.submitter?.value !== "ok") return;
       e.preventDefault();
-      const gh = parseGitHubSpec(box.value.trim());
+      const gh = host.parseSpec(box.value.trim());
       const fail = (msg) => {
         error.textContent = msg;
         error.hidden = false;
       };
-      if (!gh || gh.ref || gh.path || gh.rest) return fail("Enter the repository as owner/repo or its github.com address");
+      if (!gh || gh.ref || gh.path || gh.rest) return fail(`Enter the repository as owner/repo or its ${host.host} address`);
       try {
         // Its real name and case, and whether this account can see it.
-        const r = await GitHubSource.api(`/repos/${gh.owner}/${gh.repo}`, await ensureFreshToken());
-        const [owner, repo] = r.full_name.split("/");
+        const r = await host.repo(`${gh.owner}/${gh.repo}`, await ensureFreshToken());
+        const [owner, repo] = r.nwo.split("/");
         const info = await invoke("git_link_github", { path: p.folder, owner, repo });
         dlg.close("linked");
-        if (inGallery(r.full_name)) {
+        if (inGallery(r.nwo)) {
           // The repository has cards already: the folder becomes their local copy.
           saveFolders(folders().filter((f) => !sameFolder(f, p.folder)));
-          adopt(r.full_name, info.root);
-        } else toast(`Linked ${p.folder} to ${r.full_name}`);
+          adopt(r.nwo, info.root);
+        } else toast(`Linked ${p.folder} to ${r.nwo}`);
         resolve(true);
       } catch (err) {
-        fail(err.status === 404 ? `${gh.owner}/${gh.repo} isn't on GitHub, or this account can't see it` : String(err.message ?? err));
+        fail(err.status === 404 ? `${gh.owner}/${gh.repo} isn't on ${host.name}, or this account can't see it` : String(err.message ?? err));
       }
     });
     dlg.addEventListener("close", () => dlg.returnValue !== "linked" && resolve(false));

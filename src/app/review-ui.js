@@ -1,7 +1,7 @@
 // Review comments on pull requests, in the visual diff and in the viewer's
 // schematic and PCB tabs: comment pins on a canvas, a composer and thread
 // popover, and the list of threads in a side panel. Outside a pull request the
-// same pins are GitHub issues (hardware change requests, ../issues.js).
+// same pins are forge issues (hardware change requests, see ../review.js).
 //
 // Threads live on GitHub (see ../review.js). A ReviewStore holds the threads
 // of one pull request, or the issues of one repository; each canvas gets a
@@ -24,8 +24,8 @@
 //   host.zoomMin                 minimum zoom box (mm)
 //   host.writeHash()             (optional)
 
-import { ReviewComments, anchorLabel, anchorKind, renderCommentText } from "../review.js";
-import { IssueComments, ISSUE_LABEL } from "../issues.js";
+import { ISSUE_LABEL, anchorLabel, anchorKind, renderCommentText } from "../review.js";
+import { forge } from "../forge/index.js";
 import { trackPath, circlePath } from "../pcb/shapes.js";
 import { f } from "../geom.js";
 import { $, toast, settings, collapsible } from "./ui.js";
@@ -95,9 +95,10 @@ export class ReviewStore {
     for (const fn of this.listeners) fn();
   }
 
-  /** @param {{owner: string, repo: string, number: number, headSha: string}} pr */
+  /** @param {{owner: string, repo: string, number: number, headSha: string, forge?: string}} pr  `forge`: its id, GitHub by default */
   async open(pr) {
     const token = settings().token ?? null;
+    const f = forge(pr.forge);
     this.pr = pr;
     this.issues = null;
     this.kind = "pr";
@@ -106,8 +107,8 @@ export class ReviewStore {
     this.loadedAt = 0;
     this.error = this.issueError = null;
     this.changed = null;
-    this.api = new ReviewComments({ owner: pr.owner, repo: pr.repo, pr: pr.number, token });
-    this.issueApi = new IssueComments({ owner: pr.owner, repo: pr.repo, token });
+    this.api = f.reviews({ owner: pr.owner, repo: pr.repo, pr: pr.number, token });
+    this.issueApi = f.issues({ owner: pr.owner, repo: pr.repo, token });
     this.emit();
     // Only signed in (writing needs it anyway; spares the anonymous rate limit). Not
     // known (or failed): new pins stay review comments and GitHub has the last word.
@@ -140,11 +141,12 @@ export class ReviewStore {
    * the repository ("" at its root, "hw/" below it): threads carry paths
    * relative to the folder, like the documents. `commit` is what new issues
    * are made on. Opening the same repository again only updates the commit.
-   * @param {{owner: string, repo: string, prefix?: string, commit?: string|null}} target
+   * @param {{owner: string, repo: string, prefix?: string, commit?: string|null, forge?: string}} target
    */
-  async openIssues({ owner, repo, prefix = "", commit = null }) {
-    const same = this.kind === "issues" && this.api && this.issues.owner === owner && this.issues.repo === repo && this.issues.prefix === prefix;
-    this.issues = { owner, repo, prefix, commit };
+  async openIssues({ owner, repo, prefix = "", commit = null, forge: forgeId = undefined }) {
+    const f = forge(forgeId);
+    const same = this.kind === "issues" && this.api && this.issues.forge === f.id && this.issues.owner === owner && this.issues.repo === repo && this.issues.prefix === prefix;
+    this.issues = { forge: f.id, owner, repo, prefix, commit };
     if (same) return;
     this.pr = null;
     this.changed = null;
@@ -153,7 +155,7 @@ export class ReviewStore {
     this.closing = new Set();
     this.loadedAt = 0;
     this.error = this.issueError = null;
-    this.api = this.issueApi = new IssueComments({ owner, repo, token: settings().token ?? null });
+    this.api = this.issueApi = f.issues({ owner, repo, token: settings().token ?? null });
     this.emit();
     await this.reload();
   }

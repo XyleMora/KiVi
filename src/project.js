@@ -26,6 +26,15 @@ export function joinPath(dir, rel) {
   return (dir.startsWith("/") ? "/" : "") + out.join("/");
 }
 
+/** Files a repository source lists: KiCad design files and 3D models. */
+export const SOURCE_FILES = /\.(kicad_pro|kicad_sch|kicad_pcb|kicad_wks|kicad_prl|wrl|step|stp|wrz)$/i;
+/** Files that the visual diff can show. */
+export const DIFFABLE = /\.kicad_(sch|pcb)$/i;
+/** Design rule files: the visual diff compares their rules (rules-diff.js) rather than drawing them. */
+export const RULE_FILES = /\.kicad_(pro|dru)$/i;
+/** Files a comparison keeps: drawn or rule-compared ones. */
+export const COMPARED = (path) => DIFFABLE.test(path) || RULE_FILES.test(path);
+
 /** Find KiCad projects among a list of paths. */
 export function findProjects(paths) {
   const projects = [];

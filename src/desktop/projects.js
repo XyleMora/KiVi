@@ -5,13 +5,13 @@
 //
 // API cost is kept low with two caches:
 //   - the project list per repository (localStorage), reused until the
-//     repository's `pushed_at` or default branch changes, so a refresh without
+//     repository's last push or default branch changes, so a refresh without
 //     new commits costs only the repository listing;
 //   - thumbnails (IndexedDB), keyed by the board file's git blob SHA, so a board
 //     is fetched and rendered once per version.
 
 import { escapeHtml, settings, toast } from "../app/ui.js";
-import { GitHubSource } from "../sources.js";
+import { forge } from "../forge/index.js";
 import { findProjects } from "../project.js";
 import { cloneProject, forgetSync, knownSync, linkProject, localCopy, localViewUrl, syncState, unlinkLocalCopy } from "./git.js";
 import { kicadAction, openInKicad, projectPath } from "./tauri.js";
@@ -23,37 +23,16 @@ const THUMB_W = 640, THUMB_H = 400;
 const PAGE = 48; // cards rendered at a time; more as the end of the grid scrolls into view
 const MAX_PREVIEW = 30e6; // bytes; bigger boards (KiCad's 85 MB Jetson demo) take minutes and a lot of memory to parse
 const token = () => settings().token ?? null;
-const api = (path) => GitHubSource.api(path, token());
+// The forge the gallery lists; its repositories are named "owner/repo".
+const host = forge();
 
 // ---- repositories and projects ------------------------------------------------------
 
-/** All pages of a listing (capped at `max` pages of 100). */
-async function all(path, key, max = 10) {
-  const out = [];
-  for (let page = 1; page <= max; page++) {
-    const res = await api(`${path}${path.includes("?") ? "&" : "?"}per_page=100&page=${page}`);
-    const items = key ? res[key] : res;
-    out.push(...items);
-    if (items.length < 100) break;
-  }
-  return out;
-}
-
-/** Repositories to scan, by full name. */
-async function listRepos() {
-  const repos = new Map();
+/** Repositories to scan: the signed-in account's, then remote projects, less those removed from projects. */
+function listRepos() {
   // Removed from the gallery by the user (Remove from projects), until added again.
   const hidden = new Set((settings().hiddenRepos ?? []).map((h) => h.toLowerCase()));
-  // Not `size`: GitHub computes it later, so a repository just filled by a push can still say 0.
-  // An empty one is found by its scan instead (409, no projects).
-  const add = (r) => r && !r.disabled && !hidden.has(r.full_name.toLowerCase()) && repos.set(r.full_name, r);
-  if (token()) {
-    // Exactly the repositories the GitHub App is installed on (and the user can see).
-    for (const inst of await all("/user/installations", "installations"))
-      for (const r of await all(`/user/installations/${inst.id}/repositories`, "repositories")) add(r);
-  }
-  for (const nwo of settings().watchRepos ?? []) if (!repos.has(nwo) && !hidden.has(nwo.toLowerCase())) add(await api(`/repos/${nwo}`).catch(() => null));
-  return [...repos.values()];
+  return host.listRepos(token(), { watched: settings().watchRepos ?? [], hidden });
 }
 
 function loadIndex() {
@@ -71,24 +50,18 @@ function saveIndex(index) {
   }
 }
 
-/** Projects of one repository at its default branch (one tree request). */
+/** Projects of one repository at its default branch (one tree request). @param {import("../forge/index.js").RepoInfo} r */
 async function scanRepo(r) {
-  let tree;
-  try {
-    tree = await api(`/repos/${r.full_name}/git/trees/${encodeURIComponent(r.default_branch)}?recursive=1`);
-  } catch (e) {
-    if (e.status !== 409) throw e; // 409: empty repository
-    tree = { tree: [] };
-  }
-  const blobs = new Map(tree.tree.filter((e) => e.type === "blob" && /\.kicad_(pro|sch|pcb)$/.test(e.path)).map((e) => [e.path, e]));
+  const tree = await host.tree(r.nwo, r.defaultBranch, token());
+  const blobs = new Map(tree.files.filter((e) => /\.kicad_(pro|sch|pcb)$/.test(e.path)).map((e) => [e.path, e]));
   // Without a .kicad_pro, findProjects lists every loose schematic (sub-sheets too); keep only boards then.
   const projects = findProjects([...blobs.keys()])
     .filter((p) => p.pro || p.pcb)
     .map((p) => ({ name: p.name, dir: p.dir, pro: p.pro, sch: p.sch, pcb: p.pcb, pcbSha: blobs.get(p.pcb)?.sha ?? null, pcbSize: blobs.get(p.pcb)?.size ?? 0 }));
   return {
-    repo: { nwo: r.full_name, private: r.private, archived: r.archived },
-    pushed: r.pushed_at,
-    branch: r.default_branch,
+    repo: { nwo: r.nwo, private: r.private, archived: r.archived },
+    pushed: r.pushedAt,
+    branch: r.defaultBranch,
     truncated: !!tree.truncated,
     projects,
   };
@@ -126,15 +99,15 @@ export async function repoHasProjects(nwo) {
   } catch {
     cache = {};
   }
-  const r = await api(`/repos/${nwo}`);
-  const hit = cache[r.full_name];
-  if (hit && hit.pushed === r.pushed_at && hit.branch === r.default_branch) return hit.has;
+  const r = await host.repo(nwo, token());
+  const hit = cache[r.nwo];
+  if (hit && hit.pushed === r.pushedAt && hit.branch === r.defaultBranch) return hit.has;
   const scanned = await scanRepo(r);
   // A truncated tree may hide projects: show its pull requests rather than lose them.
   const has = scanned.projects.length > 0 || scanned.truncated;
   try {
     cache = JSON.parse(localStorage.getItem(KICAD_REPOS_KEY) ?? "{}"); // other checks ran meanwhile
-    localStorage.setItem(KICAD_REPOS_KEY, JSON.stringify({ ...cache, [r.full_name]: { pushed: r.pushed_at, branch: r.default_branch, has } }));
+    localStorage.setItem(KICAD_REPOS_KEY, JSON.stringify({ ...cache, [r.nwo]: { pushed: r.pushedAt, branch: r.defaultBranch, has } }));
   } catch {
     /* storage unavailable: checked again next time */
   }
@@ -232,7 +205,7 @@ function thumbnail(p) {
       if (!blob) {
         blob = await limited(async () => {
           const [owner, repo] = p.local ? [] : p.nwo.split("/");
-          const text = p.local ? await readLocalBoard(p) : await new GitHubSource({ owner, repo, ref: p.branch, token: token() }).readText(p.pcb);
+          const text = p.local ? await readLocalBoard(p) : await host.source({ owner, repo, ref: p.branch, token: token() }).readText(p.pcb);
           return rasterize(await renderInWorker(text, p.pcb));
         });
         await idb("readwrite", (s) => s.put(blob, k));
@@ -262,7 +235,6 @@ function when(iso) {
 }
 
 const tooBig = (p) => p.pcbSize > MAX_PREVIEW;
-const enc = (path) => path.split("/").map(encodeURIComponent).join("/");
 
 function thumbHtml(p) {
   const url = thumbKey(p) && thumbUrls.get(thumbKey(p));
@@ -280,8 +252,8 @@ function cardHtml(p) {
   const spec = `${p.nwo}@${p.branch}:${p.pro ?? p.pcb}`;
   const local = localCopy(p.nwo);
   // A linked project always opens from its local copy; otherwise from GitHub.
-  const view = (tab) => (local ? localViewUrl(local, p.pro ?? p.pcb, tab) : `index.html#${new URLSearchParams({ gh: spec, ...(tab && { tab }) })}`);
-  const github = `https://github.com/${p.nwo}/tree/${enc(p.branch)}${p.dir ? `/${enc(p.dir)}` : ""}`;
+  const view = (tab) => (local ? localViewUrl(local, p.pro ?? p.pcb, tab) : `index.html#${new URLSearchParams({ [host.hashKey]: spec, ...(tab && { tab }) })}`);
+  const web = host.web.tree(p.nwo, p.branch, p.dir);
   const thumb = thumbHtml(p);
   const where = p.dir ? `${p.nwo}/${p.dir}` : p.nwo;
   // Linked: the views above open the copy; otherwise download the repository or link a clone.
@@ -302,7 +274,7 @@ function cardHtml(p) {
             ${p.pcb ? `<a href="${escapeHtml(view("pcb"))}">PCB</a><a href="${escapeHtml(view("3d"))}">3D view</a>` : ""}
             <a href="${escapeHtml(view("bom"))}">Bill of materials</a>
             <button type="button" data-kicad aria-disabled="${!kicad.ok}" title="${escapeHtml(kicad.title)}">Open in KiCad</button>
-            <a href="${escapeHtml(github)}">View on GitHub</a>
+            <a href="${escapeHtml(web)}">View on ${escapeHtml(host.name)}</a>
             <hr>
             ${localItems}
             <button type="button" data-repo="remove" title="${escapeHtml(`Stop showing ${p.nwo} in the gallery and the pull request list${p.repoCount > 1 ? ` (all its ${p.repoCount} projects)` : ""}; Reload brings it back`)}">Remove from projects</button>
@@ -345,7 +317,7 @@ function localCardHtml(p) {
   // The project's place in the repository, on the branch checked out.
   const sub = p.git ? [relativeTo(p.git.root, p.folder), p.dir].filter(Boolean).join("/") : "";
   const github = p.git
-    ? `<a href="${escapeHtml(`https://github.com/${p.git.nwo}${p.git.branch ? `/tree/${enc(p.git.branch)}${sub ? `/${enc(sub)}` : ""}` : ""}`)}">View on GitHub</a>`
+    ? `<a href="${escapeHtml(host.web.tree(p.git.nwo, p.git.branch, sub))}">View on ${escapeHtml(host.name)}</a>`
     : `<button type="button" aria-disabled="true" title="Not linked to GitHub yet: use Link to GitHub…">View on GitHub</button>`;
   const link = p.git ? "" : `<button type="button" data-local="link" title="Add a GitHub repository as this folder's git remote">Link to GitHub…</button>`;
   const known = p.git ? knownSync(p.git.nwo, p.git.root) : { color: "grey", title: "Not linked to GitHub: Link to GitHub… from the ⋯ menu" };
@@ -617,18 +589,18 @@ export function initProjects({ grid, status, filter, add = null, onWatched = nul
     }
     if (id !== scan) return;
     // Forget repositories that are no longer reachable.
-    const names = new Set(repos.map((r) => r.full_name));
+    const names = new Set(repos.map((r) => r.nwo));
     for (const k of Object.keys(index)) if (!names.has(k)) delete index[k];
     queueRender();
 
-    const todo = repos.filter((r) => index[r.full_name]?.pushed !== r.pushed_at || index[r.full_name]?.branch !== r.default_branch);
+    const todo = repos.filter((r) => index[r.nwo]?.pushed !== r.pushedAt || index[r.nwo]?.branch !== r.defaultBranch);
     let done = 0, failed = 0, stop = null;
     const progress = () => (status.textContent = `Scanning repositories… ${done} of ${todo.length}`);
     if (todo.length) progress();
     const work = async () => {
       for (let r; !stop && id === scan && (r = todo.shift()); ) {
         try {
-          index[r.full_name] = await scanRepo(r);
+          index[r.nwo] = await scanRepo(r);
           queueRender();
         } catch (e) {
           failed++; // keep the previous result, if any; don't cache the failure

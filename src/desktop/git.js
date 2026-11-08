@@ -6,7 +6,7 @@
 // Links are kept in settings.localCopies: {"owner/repo" (lower case): folder}.
 
 import { $, escapeHtml, settings, saveSettings, toast } from "../app/ui.js";
-import { GitHubSource } from "../sources.js";
+import { forge } from "../forge/index.js";
 import { ensureFreshToken, folderPrefix, invoke, listen, pickFolder } from "./tauri.js";
 import { mountBranchMenu } from "../app/branch-menu.js";
 import { mountHistoryMenu } from "../app/history-menu.js";
@@ -316,15 +316,9 @@ function newBranchDialog(info) {
   });
 }
 
-/** The commit author when the copy has no git identity: the GitHub account, with its private e-mail. */
+/** The commit author when the copy has no git identity: the forge account, with its private e-mail. */
 async function fallbackAuthor() {
-  if (!settings().token) return { name: "KiVi user", email: "kivi@users.noreply.github.com" };
-  try {
-    const me = await GitHubSource.api("/user", await ensureFreshToken());
-    return { name: me.name || me.login, email: `${me.id}+${me.login}@users.noreply.github.com` };
-  } catch {
-    return { name: "KiVi user", email: "kivi@users.noreply.github.com" };
-  }
+  return forge().gitAuthor(settings().token ? await ensureFreshToken() : null);
 }
 
 /** Commit chosen files with a message, on this computer (Push… sends them to GitHub). */
@@ -419,7 +413,7 @@ async function pushDialog(info) {
         result.textContent = "Pushing to GitHub…";
         const token = await ensureFreshToken();
         const branch = await invoke("git_push", { path: info.root, owner: info.owner, repo: info.repo, token });
-        const compare = `https://github.com/${info.owner}/${info.repo}/compare/${encodeURIComponent(branch)}?expand=1`;
+        const compare = forge().web.compare(`${info.owner}/${info.repo}`, branch);
         result.innerHTML = `Pushed <b>${escapeHtml(branch)}</b> to GitHub. ${onMain ? "" : `<a href="${escapeHtml(compare)}" target="_blank" rel="noopener">Open a pull request</a>`}`;
         dlg.querySelector("button[value=push]")?.remove();
       } catch (err) {

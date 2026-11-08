@@ -11,7 +11,8 @@
 // "Open in KiCad" uses its program, and the 3D view its path variables.
 
 import { $, escapeHtml, settings, saveSettings, toast } from "../app/ui.js";
-import { GitHubSource, parseModelSource } from "../sources.js";
+import { parseModelSource } from "../sources.js";
+import { forge } from "../forge/index.js";
 import { ICONS } from "./icons.js";
 import { appInstallUrl, inspectKicad, pickFolder, signInWithGitHub, withoutGitHubToken } from "./tauri.js";
 
@@ -213,16 +214,16 @@ export function initHeader({ homeLinks = true, onAccountChange = () => location.
     } else {
       let me = null, error = null;
       try {
-        me = await GitHubSource.api("/user", token);
+        me = await forge().user(token);
       } catch (e) {
         error = e;
       }
       const access = me ? await appInstallUrl() : null;
       el.innerHTML = me
         ? accountMenu(
-            `<img class="avatar" src="${escapeHtml(me.avatar_url)}&s=64" alt=""><span class="account-login">${escapeHtml(me.login)}</span>`,
-            `<img class="avatar avatar-lg" src="${escapeHtml(me.avatar_url)}&s=80" alt=""><div><strong>${escapeHtml(me.login)}</strong>${me.name ? `<span class="muted">${escapeHtml(me.name)}</span>` : ""}</div>`,
-            [[["person", "Your GitHub profile", null, me.html_url], ...(access ? [["key", "Repository access", null, access]] : []), settingsItem], [["signOut", "Sign out", "signout"]]],
+            `<img class="avatar" src="${escapeHtml(forge().avatar(me.avatar, 64))}" alt=""><span class="account-login">${escapeHtml(me.login)}</span>`,
+            `<img class="avatar avatar-lg" src="${escapeHtml(forge().avatar(me.avatar, 80))}" alt=""><div><strong>${escapeHtml(me.login)}</strong>${me.name ? `<span class="muted">${escapeHtml(me.name)}</span>` : ""}</div>`,
+            [[["person", "Your GitHub profile", null, me.url], ...(access ? [["key", "Repository access", null, access]] : []), settingsItem], [["signOut", "Sign out", "signout"]]],
           )
         : accountMenu(
             `<span class="tag warn">signed out</span>`,

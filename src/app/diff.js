@@ -2,7 +2,8 @@
 // (desktop app, diff.html#local=<folder>) a local git copy's working files with
 // the point where its branch left main.
 
-import { DIFFABLE, RULE_FILES, GitHubSource, resolveComparison } from "../sources.js";
+import { DIFFABLE, RULE_FILES } from "../project.js";
+import { forge, forgeInHash } from "../forge/index.js";
 import { parseSchematic } from "../sch/model.js";
 import { renderSchematic } from "../sch/render.js";
 import { parsePcb } from "../pcb/model.js";
@@ -69,7 +70,7 @@ class DiffApp {
     this.pendingLocal = null;
   }
 
-  /** A local copy (its working files, or `spec.head`) against main or `spec.base`, in the shape resolveComparison returns. */
+  /** A local copy (its working files, or `spec.head`) against main or `spec.base`, in the shape a forge's compare() returns. */
   async localComparison(spec) {
     if (!this.localGit) throw new Error("Local changes can only be shown in the KiVi desktop app");
     const lc = await this.localGit.changes(spec.local, spec.base, spec.head);
@@ -119,13 +120,14 @@ class DiffApp {
 
   specFromHash(p) {
     if (p.get("local")) return { local: p.get("local"), base: p.get("base"), head: p.get("head") };
-    const gh = p.get("gh");
-    if (!gh) return null;
-    const [owner, repo] = gh.split("/");
-    if (p.get("pr")) return { owner, repo, pr: Number(p.get("pr")) };
-    if (p.get("commit")) return { owner, repo, commit: p.get("commit") };
-    // Without a base: the default branch (resolveComparison).
-    if (p.get("head")) return { owner, repo, base: p.get("base"), head: p.get("head") };
+    const at = forgeInHash(p);
+    if (!at) return null;
+    const [owner, repo] = at.value.split("/");
+    const f = at.forge.id;
+    if (p.get("pr")) return { forge: f, owner, repo, pr: Number(p.get("pr")) };
+    if (p.get("commit")) return { forge: f, owner, repo, commit: p.get("commit") };
+    // Without a base: the default branch (the forge's compare).
+    if (p.get("head")) return { forge: f, owner, repo, base: p.get("base"), head: p.get("head") };
     return null;
   }
 
@@ -137,7 +139,7 @@ class DiffApp {
       if (s.base) p.set("base", s.base);
       if (s.head) p.set("head", s.head);
     } else {
-      p.set("gh", `${s.owner}/${s.repo}`);
+      p.set(forge(s.forge).hashKey, `${s.owner}/${s.repo}`);
       if (s.pr) p.set("pr", String(s.pr));
       else if (s.commit) p.set("commit", s.commit);
       else {
@@ -160,8 +162,8 @@ class DiffApp {
     this.cache.clear();
     this.proCache = new Map(); // the sides may be other commits now
     try {
-      this.busy(spec.local ? "Reading local changes…" : "Reading changes from GitHub…");
-      const cmp = spec.local ? await this.localComparison(spec) : await resolveComparison(spec, settings().token);
+      this.busy(spec.local ? "Reading local changes…" : `Reading changes from ${forge(spec.forge).name}…`);
+      const cmp = spec.local ? await this.localComparison(spec) : await forge(spec.forge).compare(spec, settings().token);
       this.cmp = cmp;
       $("#diff-bar").hidden = false;
       $("#diff-main").hidden = false;
@@ -193,7 +195,7 @@ class DiffApp {
       cmp.files.sort((a, b) => order(a.path) - order(b.path) || a.path.localeCompare(b.path));
       this.renderFileList();
       if (spec.pr) {
-        this.store.open({ owner: spec.owner, repo: spec.repo, number: spec.pr, headSha: cmp.head.sha });
+        this.store.open({ forge: spec.forge, owner: spec.owner, repo: spec.repo, number: spec.pr, headSha: cmp.head.sha });
         if (focus) this.review.setFocus(focus);
       } else this.store.close();
       const first = cmp.files.find((f) => f.path === initialFile) ?? cmp.files[0];
@@ -235,27 +237,16 @@ class DiffApp {
     for (const slot of document.querySelectorAll(".pick-slot")) slot.replaceChildren();
     if (spec.pr) return;
     const local = !!spec.local;
-    const gh = local ? null : spec;
+    const f = local ? null : forge(spec.forge);
     // Both pickers list the same branches, read once per comparison.
     let branchList = null;
     const branches = () =>
       (branchList ??= local
         ? this.localGit.branches(cmp.root).then((bs) => bs.map((b) => ({ name: b.name, note: b.current ? "checked out" : b.remote ? "on GitHub" : "" })))
-        : (async () => {
-            const all = [];
-            for (let page = 1; page <= 5; page++) {
-              const batch = await GitHubSource.api(`/repos/${gh.owner}/${gh.repo}/branches?per_page=100&page=${page}`, settings().token);
-              all.push(...batch);
-              if (batch.length < 100) break;
-            }
-            return all.map((b) => ({ name: b.name }));
-          })());
+        : f.branches(spec.owner, spec.repo, settings().token));
     const commits = local
       ? (branch, offset, count) => this.localGit.commits(cmp.root, branch, offset, count)
-      : async (branch, offset, count) => {
-          const batch = await GitHubSource.api(`/repos/${gh.owner}/${gh.repo}/commits?sha=${encodeURIComponent(branch)}&per_page=${count}&page=${Math.floor(offset / count) + 1}`, settings().token);
-          return batch.map((c) => ({ sha: c.sha, summary: c.commit.message.split("\n")[0], author: c.commit.author?.name ?? c.author?.login ?? "", time: Date.parse(c.commit.author?.date) / 1000 }));
-        };
+      : (branch, offset, count) => f.commits(spec.owner, spec.repo, branch, offset, count, settings().token);
     const sha = /^[0-9a-f]{7,40}\^?$/i;
     // What each side is now: the URL's choice, else what it was resolved to
     // (a local copy's default base is e.g. origin/main, listed as main).
@@ -263,7 +254,7 @@ class DiffApp {
     const headValue = local ? (spec.head ?? "") : (spec.head ?? cmp.head.sha);
     const headBranch = local ? (spec.head && !sha.test(spec.head) ? spec.head : cmp.branch) : !sha.test(headValue) ? headValue : null;
     const pick = (side) => async (value) => {
-      const next = local ? { local: spec.local, base: spec.base, head: spec.head } : { owner: gh.owner, repo: gh.repo, base: baseValue, head: headValue };
+      const next = local ? { local: spec.local, base: spec.base, head: spec.head } : { forge: spec.forge, owner: spec.owner, repo: spec.repo, base: baseValue, head: headValue };
       next[side] = value || null;
       await this.open(next, this.file?.path);
       this.writeHash();
@@ -323,7 +314,7 @@ class DiffApp {
     const ref = this.cmp[side];
     if (ref.src) return ref.src.readText(path); // a local copy
     if (!ref.sha) return null;
-    const src = new GitHubSource({ owner: ref.owner, repo: ref.repo, ref: ref.sha, sha: ref.sha, token: settings().token });
+    const src = forge(this.spec.forge).source({ owner: ref.owner, repo: ref.repo, ref: ref.sha, sha: ref.sha, token: settings().token });
     return src.readText(path);
   }
 
@@ -342,7 +333,7 @@ class DiffApp {
       this.proCache.set(
         key,
         (async () => {
-          const src = ref.src ?? new GitHubSource({ owner: ref.owner, repo: ref.repo, ref: ref.sha, sha: ref.sha, path: dir, token: settings().token });
+          const src = ref.src ?? forge(this.spec.forge).source({ owner: ref.owner, repo: ref.repo, ref: ref.sha, sha: ref.sha, path: dir, token: settings().token });
           const pro = (await src.list()).find((p) => p.endsWith(".kicad_pro") && dirname(p) === dir) ?? null;
           if (!pro) return { pro, vars: {} };
           return { pro, vars: JSON.parse(await src.readText(pro)).text_variables ?? {} };
@@ -420,7 +411,7 @@ class DiffApp {
       // A local copy opens its working files (the folder, with the project of this file), or the compared commit.
       const viewerHash = this.cmp.root
         ? new URLSearchParams({ folder: this.cmp.root, project: fl.path.replace(/\.kicad_(sch|pcb|dru)$/i, ".kicad_pro"), ...(this.cmp.head.sha && { commit: this.cmp.head.sha }) })
-        : new URLSearchParams({ gh: `${this.cmp.head.owner}/${this.cmp.head.repo}@${this.cmp.head.sha}${dirname(fl.path) ? `:${dirname(fl.path)}` : ""}`, tab: res.kind === "sch" ? "sch" : "pcb", ...(res.kind !== "rules" && { file: fl.path }) });
+        : new URLSearchParams({ [forge(this.spec.forge).hashKey]: `${this.cmp.head.owner}/${this.cmp.head.repo}@${this.cmp.head.sha}${dirname(fl.path) ? `:${dirname(fl.path)}` : ""}`, tab: res.kind === "sch" ? "sch" : "pcb", ...(res.kind !== "rules" && { file: fl.path }) });
       if (this.spec.pr) viewerHash.set("pr", `${this.spec.owner}/${this.spec.repo}#${this.spec.pr}`);
       $("#open-viewer").href = `index.html#${viewerHash}`;
       this.writeHash();

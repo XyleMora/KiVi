@@ -4,48 +4,38 @@
 // user's review, their own, and those of remote projects, only in
 // repositories with KiCad projects, marked with the KiCad files they change,
 // opening in the visual diff or the hardware viewer) and Issues (open
-// hardware change requests, the "kivi" issues of ../issues.js, opening in the
+// hardware change requests, the "kivi" issues of ../review.js, opening in the
 // viewer on their pin).
 // The avatar opens the shared account menu (account.js).
 // "+" adds projects to the gallery: a local folder or a GitHub repository.
 // Reload lists every repository again, bringing back those removed from projects.
 
 import { $, escapeHtml, settings, saveSettings } from "../app/ui.js";
-import { GitHubSource } from "../sources.js";
+import { forge } from "../forge/index.js";
 import { initHeader } from "./account.js";
 import { ICONS } from "./icons.js";
 import { galleryRepos, initProjects, repoHasProjects } from "./projects.js";
 import { localCopy } from "./git.js";
-import { decodeBody, anchorLabel } from "../review.js";
-import { ISSUE_LABEL } from "../issues.js";
+import { ISSUE_LABEL, decodeBody, anchorLabel } from "../review.js";
 import { kicadFilesChanged } from "./pr-files.js";
 import { ensureFreshToken, invoke, isDesktop, onDrop, routeExternalLinks } from "./tauri.js";
 
 const token = () => settings().token ?? null;
+// The forge the home page lists; repositories ("owner/repo") are on it.
+const host = forge();
 const hidden = () => new Set((settings().hiddenRepos ?? []).map((h) => h.toLowerCase())); // removed from projects
 // Repositories added with + → Remote project…, unless removed from projects since.
 const watched = () => (settings().watchRepos ?? []).filter((r) => !hidden().has(r.toLowerCase()));
-
-async function api(path) {
-  const headers = { Accept: "application/vnd.github+json" };
-  if (token()) headers.Authorization = `Bearer ${token()}`;
-  const r = await fetch(`https://api.github.com${path}`, { headers });
-  if (!r.ok) {
-    const body = await r.json().catch(() => ({}));
-    throw new Error(`GitHub ${r.status}: ${body.message ?? r.statusText}`);
-  }
-  return r.json();
-}
 
 // ---- pull requests -----------------------------------------------------------------
 
 function sections() {
   const out = [];
   if (token()) {
-    out.push({ title: "Waiting for your review", q: "is:pr is:open archived:false review-requested:@me" });
-    out.push({ title: "Your pull requests", q: "is:pr is:open archived:false author:@me" });
+    out.push({ title: "Waiting for your review", filter: { reviewRequested: true } });
+    out.push({ title: "Your pull requests", filter: { author: "me" } });
   }
-  if (watched().length) out.push({ title: "Remote projects", q: `is:pr is:open ${watched().map((r) => `repo:${r}`).join(" ")}` });
+  if (watched().length) out.push({ title: "Remote projects", filter: { repos: watched() } });
   return out;
 }
 
@@ -55,21 +45,21 @@ function ago(iso) {
   return "just now";
 }
 
+/** @param {import("../forge/index.js").SearchItem} it */
 function prRow(it) {
-  const [owner, repo] = it.repository_url.split("/").slice(-2);
-  const nwo = `${owner}/${repo}`;
-  const diff = `diff.html#${new URLSearchParams({ gh: nwo, pr: String(it.number) })}`;
-  const hw = `index.html#${new URLSearchParams({ gh: nwo, pr: `${nwo}#${it.number}` })}`;
+  const nwo = it.nwo;
+  const diff = `diff.html#${new URLSearchParams({ [host.hashKey]: nwo, pr: String(it.number) })}`;
+  const hw = `index.html#${new URLSearchParams({ [host.hashKey]: nwo, pr: `${nwo}#${it.number}` })}`;
   return `<li class="pr-row" data-repo="${escapeHtml(nwo)}" data-number="${it.number}">
-    <img class="avatar" src="${escapeHtml(it.user.avatar_url)}&s=48" alt="" title="${escapeHtml(it.user.login)}">
+    <img class="avatar" src="${escapeHtml(host.avatar(it.avatar, 48))}" alt="" title="${escapeHtml(it.author)}">
     <div class="pr-body">
       <div class="pr-title"><a href="${escapeHtml(diff)}">${escapeHtml(it.title)}</a>${it.draft ? ' <span class="tag">draft</span>' : ""}</div>
-      <div class="pr-meta muted"><span class="mono">${escapeHtml(nwo)}#${it.number}</span> · ${escapeHtml(it.user.login)} · updated ${ago(it.updated_at)} · <span class="kicad-badge">checking files…</span></div>
+      <div class="pr-meta muted"><span class="mono">${escapeHtml(nwo)}#${it.number}</span> · ${escapeHtml(it.author)} · updated ${ago(it.updatedAt)} · <span class="kicad-badge">checking files…</span></div>
     </div>
     <div class="pr-actions">
       <a class="btn small primary" href="${escapeHtml(diff)}">Visual diff</a>
       <a class="btn small" href="${escapeHtml(hw)}">Hardware</a>
-      <a class="btn small" href="${escapeHtml(it.html_url)}" title="Open on github.com">GitHub ↗</a>
+      <a class="btn small" href="${escapeHtml(it.url)}" title="Open on ${escapeHtml(host.host)}">${escapeHtml(host.name)} ↗</a>
     </div>
   </li>`;
 }
@@ -81,9 +71,9 @@ async function checkKicadFiles(rows) {
     for (let row; (row = queue.shift()); ) {
       const badge = row.querySelector(".kicad-badge");
       try {
-        const files = await api(`/repos/${row.dataset.repo}/pulls/${row.dataset.number}/files?per_page=100`);
         const [owner, repo] = row.dataset.repo.split("/");
-        const read = (path, ref) => new GitHubSource({ owner, repo, ref, sha: ref, token: token() }).readText(path);
+        const files = await host.pullFiles(owner, repo, Number(row.dataset.number), token(), { max: 1 });
+        const read = (path, ref) => host.source({ owner, repo, ref, sha: ref, token: token() }).readText(path);
         const n = (await kicadFilesChanged(files, read)).length;
         badge.textContent = n ? `${n} KiCad file${n > 1 ? "s" : ""} changed` : "no KiCad changes";
         badge.classList.toggle("has-kicad", n > 0);
@@ -108,7 +98,7 @@ async function renderLists() {
   const hasProjects = new Map(); // "owner/repo" → Promise<boolean>, once per refresh
   const removed = hidden();
   const keep = (it) => {
-    const nwo = it.repository_url.split("/").slice(-2).join("/");
+    const nwo = it.nwo;
     if (removed.has(nwo.toLowerCase())) return false;
     if (!hasProjects.has(nwo)) hasProjects.set(nwo, repoHasProjects(nwo).catch(() => true)); // unknown: show it
     return hasProjects.get(nwo);
@@ -116,9 +106,8 @@ async function renderLists() {
   for (const [i, s] of secs.entries()) {
     const ul = $(`#sec-${i}`);
     try {
-      const res = await api(`/search/issues?${new URLSearchParams({ q: s.q, sort: "updated", per_page: "30" })}`);
-      const found = res.items.filter((it) => !seen.has(it.html_url));
-      for (const it of found) seen.add(it.html_url);
+      const found = (await host.searchPullRequests(s.filter, token())).filter((it) => !seen.has(it.url));
+      for (const it of found) seen.add(it.url);
       // Only pull requests in repositories with KiCad projects.
       const flags = await Promise.all(found.map(keep));
       const items = found.filter((_, j) => flags[j]);
@@ -132,46 +121,28 @@ async function renderLists() {
 
 // ---- issues ------------------------------------------------------------------------
 
-const ISSUE_Q = `is:issue is:open archived:false label:${ISSUE_LABEL}`;
-const MAX_Q = 250; // GitHub's search rejects queries over 256 characters
-
-/** Search queries for open KiVi issues in these repositories, as few as fit. */
-function repoQueries(repos) {
-  const out = [];
-  let q = ISSUE_Q;
-  for (const r of repos) {
-    if (q !== ISSUE_Q && q.length + r.length + 6 > MAX_Q) {
-      out.push(q);
-      q = ISSUE_Q;
-    }
-    q += ` repo:${r}`;
-  }
-  if (q !== ISSUE_Q) out.push(q);
-  return out;
-}
-
-/** Where an issue opens: on its pin in the local copy if there is one, else on GitHub's default branch. */
+/** Where an issue opens: on its pin in the local copy if there is one, else on the forge's default branch. */
 function issueViewUrl(nwo, number, anchor) {
   const at = anchor?.file ? { file: anchor.file, tab: anchor.file.endsWith(".kicad_pcb") ? "pcb" : "sch", thread: String(number) } : {};
   const copy = localCopy(nwo);
-  return `index.html#${new URLSearchParams(copy ? { folder: copy, ...at } : { gh: nwo, ...at })}`;
+  return `index.html#${new URLSearchParams(copy ? { folder: copy, ...at } : { [host.hashKey]: nwo, ...at })}`;
 }
 
+/** @param {import("../forge/index.js").SearchItem} it */
 function issueRow(it) {
-  const [owner, repo] = it.repository_url.split("/").slice(-2);
-  const nwo = `${owner}/${repo}`;
+  const nwo = it.nwo;
   const { anchor } = decodeBody(it.body);
   const pin = anchor?.file ? `📍 <span class="mono">${escapeHtml(anchorLabel(anchor))}</span> in <span class="mono">${escapeHtml(anchor.file.split("/").pop())}</span>` : "not pinned";
   const hw = issueViewUrl(nwo, it.number, anchor);
   return `<li class="pr-row issue-row">
-    <img class="avatar" src="${escapeHtml(it.user.avatar_url)}&s=48" alt="" title="${escapeHtml(it.user.login)}">
+    <img class="avatar" src="${escapeHtml(host.avatar(it.avatar, 48))}" alt="" title="${escapeHtml(it.author)}">
     <div class="pr-body">
       <div class="pr-title"><a href="${escapeHtml(hw)}">${escapeHtml(it.title)}</a></div>
-      <div class="pr-meta muted"><span class="mono">${escapeHtml(nwo)}#${it.number}</span> · ${escapeHtml(it.user.login)} · updated ${ago(it.updated_at)} · ${pin}${it.comments ? ` · ${it.comments} comment${it.comments > 1 ? "s" : ""}` : ""}</div>
+      <div class="pr-meta muted"><span class="mono">${escapeHtml(nwo)}#${it.number}</span> · ${escapeHtml(it.author)} · updated ${ago(it.updatedAt)} · ${pin}${it.comments ? ` · ${it.comments} comment${it.comments > 1 ? "s" : ""}` : ""}</div>
     </div>
     <div class="pr-actions">
       <a class="btn small primary" href="${escapeHtml(hw)}"${localCopy(nwo) ? ` title="Opens the local copy"` : ""}>Hardware</a>
-      <a class="btn small" href="${escapeHtml(it.html_url)}" title="Open on github.com">GitHub ↗</a>
+      <a class="btn small" href="${escapeHtml(it.url)}" title="Open on ${escapeHtml(host.host)}">${escapeHtml(host.name)} ↗</a>
     </div>
   </li>`;
 }
@@ -182,10 +153,10 @@ async function renderIssues() {
   const repos = galleryRepos();
   const secs = [];
   if (token()) {
-    secs.push({ title: "Assigned to you", qs: [`${ISSUE_Q} assignee:@me`] });
-    secs.push({ title: "Opened by you", qs: [`${ISSUE_Q} author:@me`] });
+    secs.push({ title: "Assigned to you", filter: { label: ISSUE_LABEL, assignee: "me" } });
+    secs.push({ title: "Opened by you", filter: { label: ISSUE_LABEL, author: "me" } });
   }
-  if (repos.length) secs.push({ title: "In your projects", qs: repoQueries(repos) });
+  if (repos.length) secs.push({ title: "In your projects", filter: { label: ISSUE_LABEL, repos } });
   if (!secs.length) {
     lists.innerHTML = `<p class="inbox-note">Nothing to show yet: sign in, or add a remote project with + in Projects.</p>`;
     return;
@@ -195,13 +166,12 @@ async function renderIssues() {
   for (const [i, s] of secs.entries()) {
     const ul = $(`#isec-${i}`);
     try {
-      const found = [];
-      for (const q of s.qs) found.push(...(await api(`/search/issues?${new URLSearchParams({ q, sort: "updated", per_page: "50" })}`)).items);
+      const found = await host.searchIssues(s.filter, token());
       const items = found
-        .filter((it) => !seen.has(it.html_url) && !removed.has(it.repository_url.split("/").slice(-2).join("/").toLowerCase()))
-        .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+        .filter((it) => !seen.has(it.url) && !removed.has(it.nwo.toLowerCase()))
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
         .slice(0, 50);
-      for (const it of items) seen.add(it.html_url);
+      for (const it of items) seen.add(it.url);
       ul.innerHTML = items.length ? items.map(issueRow).join("") : `<li class="muted">None</li>`;
     } catch (e) {
       ul.innerHTML = `<li class="muted">${escapeHtml(e.message)}</li>`;

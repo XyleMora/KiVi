@@ -1,7 +1,8 @@
 // KiVi application controller: sources, project loading, tabs, deep links.
 
 import { findProjects, loadProject } from "../project.js";
-import { GitHubSource, parseGitHubSpec, makeModelResolver } from "../sources.js";
+import { makeModelResolver } from "../sources.js";
+import { forgeInHash } from "../forge/index.js";
 import { DEFAULT_MODEL_BASE } from "../pcb/board3d.js";
 
 /** 3D model sources from Settings (the account menu; older settings had a single library URL). */
@@ -23,7 +24,7 @@ class App {
     this.tab = "sch";
     this.pr = null; // pull request under review: comments in the schematic and PCB tabs
     this.store = new ReviewStore(); // its review comments, or else the repository's issues
-    this.localIssues = null; // {folder, owner, repo, prefix, commit}: a local copy's GitHub repository (desktop.js)
+    this.localIssues = null; // {folder, owner, repo, prefix, commit}: a local copy's forge repository (desktop.js)
     this.sch = new SchematicTab(this);
     this.pcb = new PcbTab(this);
     this.bom = new BomTab(this);
@@ -49,13 +50,14 @@ class App {
     $("#loading-text").textContent = msg || "";
   }
 
-  async openGitHub(spec, state = null) {
+  /** Open a forge repository from its hash spec ("owner/repo@ref:dir"). */
+  async openRemote(f, spec, state = null) {
     try {
-      this.busy("Connecting to GitHub…");
+      this.busy(`Connecting to ${f.name}…`);
       // Reviewing a pull request: show its head commit and its review comments.
-      const pr = state?.pr ? await this.resolvePr(state.pr, spec) : null;
+      const pr = state?.pr ? await this.resolvePr(f, state.pr, spec) : null;
       if (pr) spec = pr.spec;
-      const src = await GitHubSource.open(spec, settings().token);
+      const src = await f.open(spec, settings().token);
       // An earlier commit from the history menu: read at that commit, still labelled with the branch.
       if (!pr && /^[0-9a-f]{40}$/i.test(state?.commit ?? "")) src.sha = src.commit = state.commit;
       this.pr = pr;
@@ -68,23 +70,23 @@ class App {
   }
 
   /** "owner/repo#12" (or "12" with the repository from `spec`) → head commit and spec to open. */
-  async resolvePr(value, spec) {
-    const gh = parseGitHubSpec(spec);
+  async resolvePr(f, value, spec) {
+    const at = f.parseSpec(spec);
     const m = /^(?:([\w.-]+)\/([\w.-]+))?#?(\d+)$/.exec(String(value).trim());
-    if (!m || !gh) return null;
-    const owner = m[1] ?? gh.owner, repo = m[2] ?? gh.repo, number = Number(m[3]);
+    if (!m || !at) return null;
+    const owner = m[1] ?? at.owner, repo = m[2] ?? at.repo, number = Number(m[3]);
     this.busy(`Reading pull request #${number}…`);
-    const pr = await GitHubSource.api(`/repos/${owner}/${repo}/pulls/${number}`, settings().token);
-    const head = pr.head.repo ?? { owner: { login: owner }, name: repo }; // fork deleted: the base repo still has the commits
-    const path = gh.path ?? "";
+    const pr = await f.pullRequest(owner, repo, number, settings().token);
+    const path = at.path ?? "";
     return {
+      forge: f.id,
       owner, repo, number,
       headSha: pr.head.sha,
-      // Fork branches are shown as "owner:branch", like GitHub does.
-      headRef: pr.head.repo && pr.head.repo.owner.login !== owner ? pr.head.label : pr.head.ref,
+      headRef: pr.head.label,
       title: pr.title,
-      url: pr.html_url,
-      spec: `${head.owner.login}/${head.name}@${pr.head.sha}${path ? `:${path}` : ""}`,
+      url: pr.url,
+      // The head's repository: a fork's, or this one when the fork is gone.
+      spec: `${pr.head.owner}/${pr.head.repo}@${pr.head.sha}${path ? `:${path}` : ""}`,
     };
   }
 
@@ -109,7 +111,7 @@ class App {
    */
   showIssues() {
     const s = this.source;
-    if (s?.kind === "github") this.store.openIssues({ owner: s.owner, repo: s.repo, prefix: "", commit: s.sha ?? s.commit ?? null });
+    if (s?.forge) this.store.openIssues({ forge: s.forge.id, owner: s.owner, repo: s.repo, prefix: "", commit: s.sha ?? s.commit ?? null });
     else if (s && this.localIssues && s.path === this.localIssues.folder) this.store.openIssues(this.localIssues);
     else this.store.close();
   }
@@ -123,13 +125,13 @@ class App {
   /** Branch (or short commit) being viewed, for the project bar; the full address goes in the tooltip. */
   refLabel() {
     const s = this.source;
-    if (s.kind !== "github") return s.label;
+    if (!s.forge) return s.label;
     if (this.pr?.headRef) return this.pr.headRef;
     return /^[0-9a-f]{40}$/i.test(s.ref) ? s.ref.slice(0, 7) : s.ref;
   }
 
   async openSource(source, state = null) {
-    if (source.kind !== "github" || (source.sha ?? source.ref) !== this.pr?.headSha) {
+    if (!source.forge || (source.sha ?? source.ref) !== this.pr?.headSha) {
       this.pr = null;
       this.showPr();
     }
@@ -179,15 +181,15 @@ class App {
       $("#proj-name").textContent = project.name;
       // Where it comes from on the left (repository or folder); the branch is the menu on the right.
       const srcLabel = $("#proj-source");
-      srcLabel.textContent = this.source.kind === "github" ? this.source.repo : this.source.label;
+      srcLabel.textContent = this.source.forge ? this.source.repo : this.source.label;
       srcLabel.title = this.source.label;
-      if (this.source.kind === "github") {
-        this.mountGitHubBranches(entry);
-        this.mountGitHubHistory();
-        this.setGitHubDiff();
+      if (this.source.forge) {
+        this.mountForgeBranches(entry);
+        this.mountForgeHistory();
+        this.setForgeDiff();
       } else {
         // a local copy's come from desktop.js
-        for (const id of ["#branch-menu", "#history-menu"]) if ($(id)?.dataset.kind === "github") $(id).remove();
+        for (const id of ["#branch-menu", "#history-menu"]) if ($(id)?.dataset.kind === "forge") $(id).remove();
       }
       document.title = `${project.name} — KiVi`;
 
@@ -392,10 +394,10 @@ class App {
   // ---- deep links ----
 
   stateForHash() {
-    if (!this.source || this.source.kind !== "github") return null;
+    if (!this.source?.forge) return null;
     const s = this.source;
     const p = new URLSearchParams();
-    p.set("gh", `${s.owner}/${s.repo}@${s.ref}${s.dir ? `:${s.dir}` : ""}`);
+    p.set(s.forge.hashKey, `${s.owner}/${s.repo}@${s.ref}${s.dir ? `:${s.dir}` : ""}`);
     if (s.commit) p.set("commit", s.commit);
     if (this.entry) p.set("project", this.entry.pro ?? this.entry.sch ?? this.entry.pcb);
     p.set("tab", this.tab);
@@ -418,54 +420,40 @@ class App {
     setTimeout(() => (this._writingHash = false), 0);
   }
 
-  /** The branch menu of a GitHub project: the repository's branches; picking one reopens the project there. */
-  mountGitHubBranches(entry) {
+  /** The branch menu of a forge project: the repository's branches; picking one reopens the project there. */
+  mountForgeBranches(entry) {
     const s = this.source;
     const project = entry.pro ?? entry.sch ?? entry.pcb;
     const current = this.pr?.headRef ?? s.ref;
     mountBranchMenu({
-      kind: "github",
+      kind: "forge",
       branch: this.refLabel(),
       title: `${s.owner}/${s.repo} at ${this.refLabel()}`,
       listBranches: async () => {
-        const all = [];
-        for (let page = 1; page <= 5; page++) {
-          const batch = await GitHubSource.api(`/repos/${s.owner}/${s.repo}/branches?per_page=100&page=${page}`, settings().token);
-          all.push(...batch);
-          if (batch.length < 100) break;
-        }
+        const all = await s.forge.branches(s.owner, s.repo, settings().token);
         return all.map((b) => ({ name: b.name, current: b.name === current })).sort((a, b) => b.current - a.current || a.name.localeCompare(b.name));
       },
       // Through the URL, like a link: the viewer reopens the same project and tab on that branch.
       switchTo: async (name) => {
-        location.hash = new URLSearchParams({ gh: `${s.owner}/${s.repo}@${name}${s.dir ? `:${s.dir}` : ""}`, project, tab: this.tab }).toString();
+        location.hash = new URLSearchParams({ [s.forge.hashKey]: `${s.owner}/${s.repo}@${name}${s.dir ? `:${s.dir}` : ""}`, project, tab: this.tab }).toString();
       },
     });
   }
 
   /**
-   * The history menu of a GitHub project: the branch's commits; picking one reopens
+   * The history menu of a forge project: the branch's commits; picking one reopens
    * the project at that commit, through the URL (`commit=`, the branch stays in `gh=`).
    * Not for a pull request, which shows its head commit with its review comments.
    */
-  mountGitHubHistory() {
+  mountForgeHistory() {
     if (this.pr) return $("#history-menu")?.remove();
     const s = this.source;
     mountHistoryMenu({
-      kind: "github",
+      kind: "forge",
       viewing: s.commit ?? null,
       latest: `Latest on ${this.refLabel()}`,
       branch: this.refLabel(),
-      listCommits: async (offset, count) => {
-        const page = Math.floor(offset / count) + 1;
-        const batch = await GitHubSource.api(`/repos/${s.owner}/${s.repo}/commits?sha=${encodeURIComponent(s.ref)}&per_page=${count}&page=${page}`, settings().token);
-        return batch.map((c) => ({
-          sha: c.sha,
-          summary: c.commit.message.split("\n")[0],
-          author: c.commit.author?.name ?? c.author?.login ?? "",
-          time: Date.parse(c.commit.author?.date ?? c.commit.committer?.date) / 1000,
-        }));
-      },
+      listCommits: (offset, count) => s.forge.commits(s.owner, s.repo, s.ref, offset, count, settings().token),
       // The same project, tab, sheet and selection at the other commit.
       show: async (sha) => {
         const p = this.stateForHash();
@@ -477,25 +465,25 @@ class App {
   }
 
   /**
-   * The Visual diff button of a GitHub project: the pull request, the commit
+   * The Visual diff button of a forge project: the pull request, the commit
    * shown, or the branch against the default branch (the diff page then lets
    * other branches and commits be picked).
    */
-  setGitHubDiff() {
+  setForgeDiff() {
     const s = this.source;
     const at = this.pr ? { pr: String(this.pr.number) } : s.commit || /^[0-9a-f]{40}$/i.test(s.ref) ? { commit: s.commit ?? s.ref } : { head: s.ref };
     const owner = this.pr?.owner ?? s.owner, repo = this.pr?.repo ?? s.repo; // a fork's PR is diffed in the base repository
     setDiffButton({
-      href: `diff.html#${new URLSearchParams({ gh: `${owner}/${repo}`, ...at })}`,
+      href: `diff.html#${new URLSearchParams({ [s.forge.hashKey]: `${owner}/${repo}`, ...at })}`,
       title: this.pr ? `Visual diff of pull request #${this.pr.number}` : at.commit ? `Visual diff of commit ${at.commit.slice(0, 7)}` : `Visual diff of ${s.ref} against the default branch (its latest commit if it is the default); pick other branches or commits there`,
     });
   }
 
   restoreFromHash() {
     const p = new URLSearchParams(location.hash.slice(1));
-    const gh = p.get("gh");
-    if (!gh) return;
-    this.openGitHub(gh, { project: p.get("project"), tab: p.get("tab"), page: p.get("page"), sel: p.get("sel"), net: p.get("net"), file: p.get("file"), pr: p.get("pr"), thread: p.get("thread"), commit: p.get("commit") });
+    const at = forgeInHash(p);
+    if (!at) return;
+    this.openRemote(at.forge, at.value, { project: p.get("project"), tab: p.get("tab"), page: p.get("page"), sel: p.get("sel"), net: p.get("net"), file: p.get("file"), pr: p.get("pr"), thread: p.get("thread"), commit: p.get("commit") });
   }
 }
 

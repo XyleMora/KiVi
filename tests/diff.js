@@ -11,6 +11,7 @@ import { diffPcb } from "../src/diff/pcb-diff.js";
 import { diffRules } from "../src/diff/rules-diff.js";
 import { textBeforePatch } from "../src/sources.js";
 import { kicadFilesChanged } from "../src/desktop/pr-files.js";
+import { github } from "../src/forge/github.js";
 import GLib from "gi://GLib";
 
 let failures = 0;
@@ -254,13 +255,19 @@ const DEMO = kicadDemos("pic_programmer");
     { filename: "a/rules.kicad_dru", status: "modified" },
     { filename: "README.md", status: "modified" },
   ];
+  // Through the GitHub adapter, which turns /pulls/N/files entries into ChangedFiles (ref from contents_url).
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => ({ ok: true, status: 200, json: async () => (/[?&]page=1(&|$)/.test(url) ? files : []) });
+  const changed = await github.pullFiles("o", "r", 1, null);
+  globalThis.fetch = realFetch;
+  check(changed[1].path === "a/rules.kicad_pro" && changed[1].ref === "c".repeat(40) && changed[0].previous === "a/x.kicad_sch", "GitHub's PR files become ChangedFiles");
   const reads = [];
   const read = async (path, ref) => {
     reads.push([path, ref]);
     if (!heads[path]) throw new Error("404");
     return heads[path];
   };
-  const counted = (await kicadFilesChanged(files, read)).map((f) => f.filename);
+  const counted = (await kicadFilesChanged(changed, read)).map((f) => f.path);
   check(counted.join() === "a/x.kicad_sch,a/rules.kicad_pro,c/big.kicad_pro,d/broken.kicad_pro,e/new.kicad_pro,a/rules.kicad_dru", `PR files counted: ${counted.join(", ")}`);
   check(!counted.includes("b/cosmetic.kicad_pro"), "a .kicad_pro without rule changes doesn't count");
   check(reads.every(([, ref]) => ref === "c".repeat(40)) && reads.length === 3, `only the changed .kicad_pro files are read, at the PR head (${reads.length})`);

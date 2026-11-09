@@ -2,9 +2,10 @@
 // comments and KiVi issues) against a mocked API, and anchor picking/relocation on demo files.   gjs -m tests/review.js
 
 import { readText, kicadDemos } from "./gjs-fs.js";
+import GLib from "gi://GLib";
 import { encodeBody, decodeBody, anchorLabel, renderCommentText, closingNumbers } from "../src/review.js";
 import { GitHubReviews as ReviewComments, GitHubIssues as IssueComments, github } from "../src/forge/github.js";
-import { FORGES, forge, parseRepoSpec } from "../src/forge/index.js";
+import { FORGES, forge, parseRepoInput, parseRepoSpec } from "../src/forge/index.js";
 import { pickPcb, locatePcb, pickSch, locateSch } from "../src/diff/anchors.js";
 import { parsePcb } from "../src/pcb/model.js";
 import { renderPcb } from "../src/pcb/render.js";
@@ -286,13 +287,31 @@ const DEMO = kicadDemos("pic_programmer");
 // ---- the forge interface ----
 {
   // Every member of the Forge typedef in src/forge/index.js, so an adapter can be checked against it.
-  const MEMBERS = ["id", "name", "host", "hashKey", "parseSpec", "ownsUrl", "open", "source", "repo", "listRepos", "tree", "branches", "commits", "compare", "pullRequest", "pullFiles", "searchPullRequests", "searchIssues", "reviews", "issues", "user", "gitAuthor", "avatar", "web"];
+  const MEMBERS = ["id", "name", "host", "hashKey", "parseSpec", "ownsUrl", "open", "source", "repo", "listRepos", "tree", "branches", "commits", "compare", "pullRequest", "pullFiles", "searchPullRequests", "searchIssues", "reviews", "issues", "user", "gitAuthor", "avatar", "web", "auth"];
   for (const f of FORGES) {
     const missing = MEMBERS.filter((m) => f[m] === undefined);
     check(!missing.length, `${f.id} implements the forge interface${missing.length ? ` (missing ${missing.join(", ")})` : ""}`);
     check(["repo", "tree", "compare"].every((k) => typeof f.web[k] === "function") && typeof f.web.newRepo === "string", `${f.id} has its web pages`);
   }
+  // Sign-in goes through lib.rs oauth_post, which only sends to the addresses it lists.
+  const libRs = readText(GLib.build_filenamev([GLib.path_get_dirname(GLib.filename_from_uri(import.meta.url)[0]), "..", "src-tauri", "src", "lib.rs"]));
+  for (const f of FORGES) {
+    const missing = ["deviceUrl", "tokenUrl", "clientIdKey", "buildEnv", "registerUrl", "unknownClient", "refreshRejected"].filter((k) => f.auth[k] === undefined);
+    check(!missing.length, `${f.id} describes its sign-in${missing.length ? ` (missing ${missing.join(", ")})` : ""}`);
+    check([f.auth.deviceUrl, f.auth.tokenUrl].every((u) => libRs.includes(`"${u}"`)), `${f.id}'s sign-in addresses are in lib.rs OAUTH_URLS`);
+    check(libRs.includes(`"${f.auth.buildEnv}"`) && libRs.includes(`"${f.id}": {`), `${f.id}'s client ID can be built in (forge_build_config)`);
+  }
+  // Forge logos aren't shipped (GitLab's artwork isn't GPL-compatible): loaded at run time, so the CSP must allow them.
+  const csp = JSON.parse(readText(GLib.build_filenamev([GLib.path_get_dirname(GLib.filename_from_uri(import.meta.url)[0]), "..", "src-tauri", "tauri.conf.json"]))).app.security.csp["img-src"];
+  for (const f of FORGES) check(/^https:\/\//.test(f.web.logo) && csp.split(" ").includes(/^https:\/\/[^/]+/.exec(f.web.logo)[0]), `${f.id}'s logo is fetched from a host the CSP allows (${f.web.logo})`);
   check(forge() === github && forge("github") === github, "GitHub is the default forge");
+  // Dialogs with no forge choice: the address decides; a shorthand goes to the forge signed in to.
+  const gl = forge("gitlab");
+  const at = (text, pref) => { const r = parseRepoInput(text, pref); return r ? `${r.forge.id} ${r.spec.owner}/${r.spec.repo}` : null; };
+  check(at("me/board") === "github me/board" && at("me/board", gl) === "gitlab me/board", "owner/repo: the forge signed in to (GitHub signed out)");
+  check(at("hw/boards/cm5") === "gitlab hw/boards/cm5", "group/sub/project can only be GitLab");
+  check(at("https://gitlab.com/hw/cm5", github) === "gitlab hw/cm5" && at("github.com/me/board", gl) === "github me/board", "an address decides, with or without https://");
+  check(at("https://example.com/me/board") === null && at("nonsense") === null, "anything else isn't a repository");
   check(parseRepoSpec("me/models@main:3d")?.forge === github && parseRepoSpec("me/models@main:3d").spec.path === "3d", "a shorthand goes to the default forge");
   check(parseRepoSpec("https://github.com/me/models/tree/main/3d")?.spec.rest === "main/3d", "a github.com address goes to GitHub");
   check(parseRepoSpec("https://example.com/me/models") === null, "an address no forge owns isn't a repository");

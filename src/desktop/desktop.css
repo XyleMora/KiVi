@@ -93,6 +93,23 @@
 .token-row { flex-wrap: nowrap; }
 .token-row .input { flex: 1; min-width: 0; }
 
+/* Sign in → which forge: a tile per forge, its logo (loaded from the forge) above its name. */
+.forge-chooser { min-width: 360px; }
+.forge-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin: 8px 0 4px; }
+.forge-choice {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  min-height: 132px; padding: 16px 12px;
+  background: var(--surface-2); color: var(--text);
+  border: 1px solid var(--border); border-radius: 10px;
+  font: inherit; font-size: 15px; font-weight: 600; cursor: pointer;
+}
+.forge-choice:hover { border-color: var(--accent); background: #232830; }
+.forge-choice[aria-current="true"] { border-color: var(--accent); }
+.forge-logo { display: flex; width: 56px; height: 56px; }
+.forge-logo img { width: 100%; height: 100%; object-fit: contain; }
+.forge-note { font-size: 12px; font-weight: 400; }
+.forge-marks { font-size: 11px; margin-top: 8px; }
+
 .signin-code { font-size: 28px; letter-spacing: 0.12em; text-align: center; padding: 12px; border: 1px dashed var(--border); border-radius: 8px; margin: 4px 0 8px; user-select: all; }
 #settings .btn.small { align-self: flex-start; }
 

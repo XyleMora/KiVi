@@ -124,13 +124,13 @@ function findByName(index, path) {
  * @param {object} source project source
  * @param {string} projectDir
  * @param {string[]} modelSources URL prefixes, forge repositories and folders (folders go first)
- * @param {{token?: string|null, onSourceError?: (spec: string, err: Error) => void,
+ * @param {{tokenFor?: (forge: object) => string|null, onSourceError?: (spec: string, err: Error) => void,
  *   openDir?: (path: string) => object, pathVars?: Record<string, string>}} [opts] `openDir` makes
  *   a source (list/readBinary) for a folder model source; without it (in a browser) folder sources
  *   are skipped with an error. `pathVars` are the linked KiCad's path variables (name → folder);
  *   its library and third-party folders are also searched, after the folders in `modelSources`.
  */
-export function makeModelResolver(source, projectDir, modelSources = [], { token = null, onSourceError = null, openDir = null, pathVars = {} } = {}) {
+export function makeModelResolver(source, projectDir, modelSources = [], { tokenFor = () => null, onSourceError = null, openDir = null, pathVars = {} } = {}) {
   const blobCache = new Map();
   // A local folder is faster and works offline, so it goes before any web source.
   const parsed = modelSources.map(parseModelSource).filter(Boolean);
@@ -172,7 +172,7 @@ export function makeModelResolver(source, projectDir, modelSources = [], { token
             const src = openDir(m.path);
             return { source: src, dir: "", index: await modelIndex(src) };
           }
-          const src = await m.forge.open(m.repo, token);
+          const src = await m.forge.open(m.repo, tokenFor(m.forge));
           return { source: src, dir: src.dir, index: await modelIndex(src, src.dir) };
         })().catch((e) => {
           console.warn(`3D model source ${m.spec}: ${e.message}`);

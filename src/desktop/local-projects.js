@@ -1,16 +1,16 @@
 // Local projects in the gallery: folders the user added with the "+" button,
-// shown as cards next to the GitHub projects. Each folder can hold several
+// shown as cards next to the forge projects. Each folder can hold several
 // projects. A folder that isn't in a git repository becomes one (git init, on
 // main) when it is added, or read again if it was added before. It can be
-// linked to a GitHub repository (Link to GitHub…: a git remote), which enables
-// View on GitHub, the sync icon and pushing from the viewer.
+// linked to a forge repository (Link to remote…: a git remote), which enables
+// View on GitHub/GitLab, the sync icon and pushing from the viewer.
 //
 // The folders are kept in settings.localProjects (a list of paths). A folder
 // that is a clone of a repository already in the gallery isn't added: it is
 // linked to that repository's card instead (settings.localCopies, git.js).
 
-import { escapeHtml, settings, saveSettings, toast } from "../app/ui.js";
-import { forge } from "../forge/index.js";
+import { escapeHtml, settings, saveSettings, signedInForge, toast, tokenFor } from "../app/ui.js";
+import { FORGES, forge, parseRepoInput, remoteOf, repoKey, splitNwo } from "../forge/index.js";
 import { findProjects } from "../project.js";
 import { dialog, localCopy, setLocalCopy } from "./git.js";
 import { ensureFreshToken, invoke, pickFolder } from "./tauri.js";
@@ -57,7 +57,8 @@ async function scanFolder(folder) {
       // The thumbnail cache key: a new one when the board file changes.
       pcbStamp: pcb ? `${folder}\n${p.pcb}\n${pcb.size}\n${pcb.modified}` : null,
       pushed: new Date(Math.max(...own.map((f) => f.modified)) * 1000).toISOString(),
-      git: git?.owner ? { nwo: `${git.owner}/${git.repo}`, branch: git.branch, root: git.root } : null,
+      // Its forge repository: key (repoKey, for links and the gallery), forge id, "owner/repo".
+      git: remoteOf(git) ? { key: remoteOf(git).key, forge: remoteOf(git).forge.id, nwo: remoteOf(git).nwo, branch: git.branch, root: git.root } : null,
     };
   });
 }
@@ -72,14 +73,14 @@ export async function readLocalBoard(p) {
   return new TextDecoder().decode(new Uint8Array(await invoke("read_kicad_file", { dir: p.folder, path: p.pcb })));
 }
 
-/** Link a clone to the gallery card of its repository instead of adding it. */
-function adopt(nwo, root) {
-  setLocalCopy(nwo, root);
+/** Link a clone to the gallery card of its repository (its key) instead of adding it. */
+function adopt(rk, root, nwo = rk) {
+  setLocalCopy(rk, root);
   toast(`${root} is a clone of ${nwo}: its card now opens this folder`);
 }
 
 /**
- * "+": pick a folder and add its projects to the gallery. `inGallery(nwo)` tells
+ * "+": pick a folder and add its projects to the gallery. `inGallery(key)` tells
  * whether a repository already has cards there. Resolves true when something changed.
  */
 export async function addLocalProject(inGallery) {
@@ -93,8 +94,8 @@ export async function addLocalProject(inGallery) {
   if (projects[0]?.missing) throw new Error(`Couldn't read ${folder}: ${projects[0].error}`);
   if (!projects.length) throw new Error(`No KiCad project in ${folder}`);
   const git = projects[0].git;
-  if (git && inGallery(git.nwo)) {
-    adopt(git.nwo, git.root);
+  if (git && inGallery(git.key)) {
+    adopt(git.key, git.root, git.nwo);
     return true;
   }
   saveFolders([...folders(), folder]);
@@ -103,19 +104,19 @@ export async function addLocalProject(inGallery) {
 }
 
 /**
- * Local folders linked to a GitHub repository that has cards in the gallery
+ * Local folders linked to a forge repository that has cards in the gallery
  * (linked first, the repository added after, or listed by Reload) become that
- * repository's local copy, so the project shows once, as the GitHub card.
+ * repository's local copy, so the project shows once, as the forge's card.
  * `locals` are localProjects() entries. Returns true when something changed.
  */
 export function adoptLinkedFolders(locals, inGallery) {
   let changed = false;
   for (const p of locals) {
-    if (!p.git || !inGallery(p.git.nwo) || !folders().some((f) => sameFolder(f, p.folder))) continue;
-    const copy = localCopy(p.git.nwo);
+    if (!p.git || !inGallery(p.git.key) || !folders().some((f) => sameFolder(f, p.folder))) continue;
+    const copy = localCopy(p.git.key);
     if (copy && !sameFolder(copy, p.git.root)) continue; // another clone is that card's copy: keep both
     saveFolders(folders().filter((f) => !sameFolder(f, p.folder)));
-    if (!copy) setLocalCopy(p.git.nwo, p.git.root);
+    if (!copy) setLocalCopy(p.git.key, p.git.root);
     toast(`${p.folder} is linked to ${p.git.nwo}: its card now opens this folder`);
     changed = true;
   }
@@ -129,48 +130,62 @@ export function removeLocalProject(folder) {
 }
 
 /**
- * Link to GitHub…: ask for the repository and add it as the folder's git remote
- * (git_link_github). The repository must exist; an empty one is best, since
- * KiVi can't merge a history GitHub already has. Resolves true once linked.
+ * Link to remote…: ask for a forge repository and add it as the folder's git
+ * remote (git_link_remote). Its address says which forge it's on; a shorthand
+ * (owner/repo) goes to the forge signed in to (parseRepoInput), shown under the
+ * box as it's typed. The repository must exist; an empty one is best, since
+ * KiVi can't merge a history the forge already has. Resolves true once linked.
  */
 export function linkLocalProject(p, inGallery) {
-  const host = forge();
+  const preferred = forge(signedInForge() ?? undefined);
+  const create = FORGES.map((f) => `<a href="${escapeHtml(f.web.newRepo)}">${escapeHtml(f.name)}</a>`).join(" or ");
   return new Promise((resolve) => {
     const dlg = dialog(`<form method="dialog" class="settings">
-      <h2>Link to GitHub</h2>
-      <p class="muted settings-hint">Adds the repository as a git remote of <code>${escapeHtml(p.folder)}</code>. Nothing is uploaded until you commit and push from the project's branch menu. Use an empty repository: <a href="${escapeHtml(host.web.newRepo)}">create one on GitHub</a>.</p>
-      <label class="field-label" for="link-repo">GitHub repository</label>
-      <input id="link-repo" class="input mono" required spellcheck="false" autocomplete="off" placeholder="owner/repo or ${escapeHtml(host.web.repo("owner/repo"))}">
+      <h2>Link to a remote repository</h2>
+      <p class="muted settings-hint">Adds the repository as a git remote of <code>${escapeHtml(p.folder)}</code>. Nothing is uploaded until you commit and push from the project's branch menu. Use an empty repository: create one on ${create}.</p>
+      <label class="field-label" for="link-repo">Repository</label>
+      <input id="link-repo" class="input mono" required spellcheck="false" autocomplete="off" placeholder="${escapeHtml(`owner/repo, ${FORGES.map((f) => f.web.repo("owner/repo")).join(" or ")}`)}">
+      <p class="muted settings-hint" id="link-where">&nbsp;</p>
       <p class="muted settings-hint error-text" id="link-error" hidden></p>
       <div class="row end gap"><button value="cancel" class="btn" formnovalidate>Cancel</button><button value="ok" class="btn primary">Link</button></div>
     </form>`);
     const box = dlg.querySelector("#link-repo");
+    const where = dlg.querySelector("#link-where");
     const error = dlg.querySelector("#link-error");
     const form = dlg.querySelector("form");
+    // Where the repository will be looked for, as it's typed.
+    box.addEventListener("input", () => {
+      const at = parseRepoInput(box.value, preferred);
+      where.textContent = at ? `On ${at.forge.name}: ${at.spec.owner}/${at.spec.repo}` : "\u00a0";
+    });
     // Checked before the dialog closes, so a typo can be fixed in place.
     form.addEventListener("submit", async (e) => {
       if (e.submitter?.value !== "ok") return;
       e.preventDefault();
-      const gh = host.parseSpec(box.value.trim());
       const fail = (msg) => {
         error.textContent = msg;
         error.hidden = false;
       };
-      if (!gh || gh.ref || gh.path || gh.rest) return fail(`Enter the repository as owner/repo or its ${host.host} address`);
+      const at = parseRepoInput(box.value, preferred);
+      const gh = at?.spec;
+      if (!gh || gh.ref || gh.path || gh.rest) return fail(`Enter the repository as owner/repo or its address (${FORGES.map((f) => f.host).join(", ")})`);
+      const host = at.forge;
       try {
         // Its real name and case, and whether this account can see it.
-        const r = await host.repo(`${gh.owner}/${gh.repo}`, await ensureFreshToken());
-        const [owner, repo] = r.nwo.split("/");
-        const info = await invoke("git_link_github", { path: p.folder, owner, repo });
+        const r = await host.repo(`${gh.owner}/${gh.repo}`, await ensureFreshToken(host));
+        const { owner, repo } = splitNwo(r.nwo);
+        const info = await invoke("git_link_remote", { path: p.folder, host: host.host, owner, repo });
         dlg.close("linked");
-        if (inGallery(r.nwo)) {
+        const rk = repoKey(host, r.nwo);
+        if (inGallery(rk)) {
           // The repository has cards already: the folder becomes their local copy.
           saveFolders(folders().filter((f) => !sameFolder(f, p.folder)));
-          adopt(r.nwo, info.root);
-        } else toast(`Linked ${p.folder} to ${r.nwo}`);
+          adopt(rk, info.root, r.nwo);
+        } else toast(`Linked ${p.folder} to ${r.nwo} on ${host.name}`);
         resolve(true);
       } catch (err) {
-        fail(err.status === 404 ? `${gh.owner}/${gh.repo} isn't on ${host.name}, or this account can't see it` : String(err.message ?? err));
+        const why = tokenFor(host) ? "or this account can't see it" : `or it's private: sign in to ${host.name} to link it`;
+        fail(err.status === 404 ? `${gh.owner}/${gh.repo} isn't on ${host.name}, ${why}` : String(err.message ?? err));
       }
     });
     dlg.addEventListener("close", () => dlg.returnValue !== "linked" && resolve(false));

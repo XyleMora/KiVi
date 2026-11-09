@@ -1,10 +1,11 @@
 # KiVi — Tauri 2 desktop app
 
-KiVi renders KiCad 6–10 projects (schematic, PCB, 3D, BOM) from GitHub
-repositories or local folders, with a project gallery, a pull request inbox,
-a visual diff and review comments pinned to parts/nets that are stored as
-ordinary GitHub PR review comments. GitHub stays the backend for source
-control, diffs and review comments.
+KiVi renders KiCad 6–10 projects (schematic, PCB, 3D, BOM) from GitHub and
+GitLab (gitlab.com) repositories or local folders, with a project gallery, a
+pull/merge request inbox, a visual diff and review comments pinned to
+parts/nets that are stored as ordinary PR review comments (GitHub) or MR file
+discussions (GitLab). The forge stays the backend for source control, diffs
+and review comments.
 
 README.md is the user-facing pitch and developer reference (build, layout,
 test commands); `docs/README.md` is the user guide (every feature, GitHub App
@@ -49,7 +50,8 @@ README doesn't: conventions, environment and pitfalls.
   glides to the Top or Bottom preset around it (`Board3D.focusOn(box, side)`,
   `onView` presses the preset button). Clicks inside a view never move it.
 - **Forges** (`src/forge/`): every GitHub request (REST, GraphQL, raw files,
-  search) and github.com link is in `src/forge/github.js`; the rest of the app
+  search) and github.com link is in `src/forge/github.js`, every GitLab one in
+  `src/forge/gitlab.js` (REST v4; gitlab.com only, the user's choice); the rest of the app
   talks to a forge object only (`forge()` / `forgeInHash()` / `parseRepoSpec()`
   from `src/forge/index.js`, whose JSDoc typedefs are the interface: `Forge`,
   `Source`, `RepoInfo`, `PullRequest`, `ChangedFile`, `Comparison`,
@@ -57,12 +59,30 @@ README doesn't: conventions, environment and pitfalls.
   GitHub JSON. Forge sources carry `source.forge` (app code tests that, not
   `kind === "github"`); page hashes use `forge.hashKey` (`gh=`); review
   stores and diff specs carry `forge` (an id, GitHub by default). A new forge
-  = a new adapter added to `FORGES` (`tests/review.js` checks each one has
-  every member). Not forge-neutral yet: tokens and sign-in (settings `token`,
-  the GitHub App device flow in tauri.js, which uses `github` directly), the
-  Rust git commands (github.com URLs in git.rs/git_http.rs, `git_link_github`)
-  and most UI wording ("GitHub"). No DOM or Tauri in `src/forge/`: it runs
-  under gjs.
+  = a new adapter added to `FORGES`, its sign-in URLs to lib.rs `OAUTH_URLS`
+  and its host to git.rs `FORGE_HOSTS` (`tests/review.js` checks each one has
+  every member and its sign-in URLs are allowed). Tokens and sign-in are per
+  forge (see Signing in). UI text names the forge (`f.name`, `f.words`:
+  "pull request"/"merge request", `#12`/`!12`, "Fixes #N"/"Closes #N";
+  `forgeNames()` = "GitHub or GitLab"). No DOM or Tauri in `src/forge/`: it
+  runs under gjs.
+- Repository keys (`repoKey`/`parseRepoKey`, forge/index.js): settings
+  `watchRepos`, `hiddenRepos`, `localCopies`, the gallery index and
+  `kivi.kicadRepos` hold "owner/repo" for GitHub (as earlier versions saved
+  them, no migration) and "gitlab:group/sub/project" for GitLab. GitLab
+  namespaces may hold "/": owner = everything before the last "/"
+  (`splitNwo`); `gl=` links and `pr=group/sub/project#5` parse that way.
+- GitLab specifics (gitlab.js): the API answers CORS for any origin, so pages
+  call it directly; raw web URLs don't, so files come from
+  `/repository/files/…/raw?lfs=true`. Trees are listed 100 entries per request
+  (keyset pages via `Link` headers; sizes not listed, so no "too large"
+  thumbnail check). MR comments = file discussions (`position_type: "file"`
+  with the MR's `diff_refs`); signed out GitLab answers 401 for discussions
+  and notes, also on public projects (`readsNeedSignIn`; issue comments say
+  so). Gallery signed in: member projects, Reporter+, not archived (the
+  user's choice). Unauthenticated gitlab.com rate-limits per IP
+  (`unauthenticated_traffic_per_ip`, hit easily while testing; Retry-After
+  isn't exposed through CORS).
 - `src/desktop/` holds the Tauri integration; it's a no-op when
   `window.__TAURI__` is missing (`isDesktop`), which is what lets the pages run
   in a plain headless browser for tests.
@@ -75,7 +95,7 @@ README doesn't: conventions, environment and pitfalls.
   each loads on first show, since they cost API requests). There's no Watched drawer or
   recent folders list any more (the user's choice): repositories are added
   with "+" → Remote project… (`watchRepos`). **Reload** (`#reload`) clears
-  `hiddenRepos` and lists every repository again, so removed GitHub
+  `hiddenRepos` and lists every repository again, so removed GitHub/GitLab
   repositories come back (the user's choice; local projects stay removed).
   - **Projects** (`src/desktop/projects.js` + `thumb-worker.js`): a card grid of
     every `.kicad_pro` in reachable repositories, with board thumbnails. Caches:
@@ -84,11 +104,11 @@ README doesn't: conventions, environment and pitfalls.
     SHA). 48 cards per page; boards over 30 MB get no thumbnail.
   - **"+" menu** (`src/desktop/add-project.js`, `#add-project`, a
     `<details class="menu">`, desktop only): **Local project…** or **Remote
-    project…** (a GitHub repository, checked to exist, be visible, have
+    project…** (a GitHub or GitLab repository, no forge picker (`parseRepoInput`), checked to exist, be visible, have
     projects and not be in the gallery, then added to `watchRepos`). It
     replaced the address bar, removed from all three pages (the user's choice):
     pages open only from the gallery, the PR list, drops, the CLI and hashes.
-    GitHub cards have **Remove from projects** (`removeRepo`): the whole
+    Forge cards have **Remove from projects** (`removeRepo`): the whole
     repository leaves the gallery and PR list: added to settings
     `hiddenRepos` (listRepos and the PR list skip those) but kept in
     `watchRepos`, so Reload brings it back; `watchRepo` (Remote project…) also
@@ -103,19 +123,30 @@ README doesn't: conventions, environment and pitfalls.
     its projects become cards (`p.local`, `localCardHtml` in projects.js) read
     through `scan_kicad_folder` / `read_kicad_file` (lib.rs, KiCad design files
     only); thumbnails are cached by path, size and change time. Their menu: no
-    Download, View on GitHub greyed out (`aria-disabled`) until linked, **Link
-    to GitHub…** = `git_link_github` (git.rs: `git init` on main if still needed,
-    then remote origin, or `github` when origin points elsewhere; the repository
-    must exist via the API), **Remove from projects**. A clone of a repository
+    Download, View on GitHub/GitLab greyed out (`aria-disabled`) until linked,
+    **Link to remote…** (no forge picker, the user's choice: `parseRepoInput`,
+    forge/index.js, takes the forge from the address, a shorthand goes to the
+    forge signed in to, "group/sub/project" to GitLab; shown under the box as
+    it's typed; Remote project… works the same) = `git_link_remote` (git.rs:
+    `git init` on main if still needed, then remote origin, or `github`/`gitlab`
+    when origin points elsewhere; the repository must exist via the API),
+    **Remove from projects**. A clone of a repository
     in the gallery is linked to that card (`localCopies`) instead of added, and
     a local card whose folder is such a linked copy isn't shown; a local
     folder linked to GitHub first, whose repository joins the gallery later
     (Remote project…, Reload, app access), is turned into that card's copy
     the same way (`adoptLinkedFolders`, after each scan) (the user's
     design: "+" button, no Download, greyed View on GitHub, Link = add remote).
-  - **Pull requests**: the GitHub search API, with a KiCad-files-changed badge
+  - Every view gathers all forges: those signed in, plus remote projects
+    (keys grouped by forge); every forge card gets a `.forge-tag` with its
+    forge's name (GitHub too, the user's choice), and so does a local card
+    linked to a forge. A forge that fails leaves a note, the others still show
+    (projects.js `listRepos` errors, inbox.js `gather`).
+  - **Pull requests**: the GitHub search API (GitLab: `/merge_requests` with
+    `reviewer_username` / `scope=created_by_me`, per project for remote
+    projects), with a KiCad-files-changed badge
     per PR (from `/pulls/N/files`) and buttons to the visual diff, the viewer
-    at the PR head, and github.com. Only PRs in repositories with KiCad
+    at the PR head, and the forge's page. Only PRs in repositories with KiCad
     projects (the user's choice), by `repoHasProjects` (projects.js): the
     gallery's index if it has the repository, else `/repos/x` plus a tree scan,
     cached in localStorage `kivi.kicadRepos` by `pushed_at` and default branch;
@@ -123,15 +154,16 @@ README doesn't: conventions, environment and pitfalls.
 - `src/desktop/tauri.js`: `TauriSource` (a project folder read through Rust;
   the only local source), `onDrop` (Tauri takes file drops itself and reports
   paths as `tauri://drag-drop`; the page's HTML drop events get no files), link routing (http(s) links open in the system browser, `target=_blank` app
-  links navigate in place), GitHub sign-in dialog, token refresh.
+  links navigate in place), the folder chooser (`pick_folder`), the forge chooser
+  (`chooseForge`) and sign-in dialog (`signInTo`), token refresh.
 - `src/desktop/account.js`: the header shared by all three pages. `initHeader()`
   adds the home icons (the home page has its own switch) and the account menu
   (`<details class="menu">`, closed on outside click or Escape): sign in,
-  profile, repository access, Settings, sign out. It owns the only Settings
+  profile, repository access, Settings, sign out (see Signing in). It owns the only Settings
   dialog (dark schematic `schDark`, `modelSources`, `loadModels`) and fires
   `kivi:settings` on save (the schematic tab applies dark mode live). Shared
-  app code asks for a sign-in with `window.dispatchEvent(new Event("kivi:signin"))`
-  (the review panel's "Sign in with GitHub" links), so it needs no Tauri import.
+  app code asks for a sign-in with `window.dispatchEvent(new CustomEvent("kivi:signin", {detail: {forge}}))`
+  (the review panel's "Sign in to GitHub/GitLab" links), so it needs no Tauri import.
   Signing in or out reloads the viewer/diff page and refreshes the home page.
 - `src/desktop/desktop.js`: loaded after `main.js` / `diff.js`. Mounts the
   header, adds drag and drop, live reload on
@@ -150,25 +182,47 @@ README doesn't: conventions, environment and pitfalls.
   - `list_folder`
   - `read_file` (raw bytes, restricted to the open folder)
   - `startup_folder` (CLI argument, handled once per session by the inbox)
-  - `github_client_id` / `github_app_slug` (compile-time env)
-  - `github_device_start` / `github_device_poll` / `github_device_refresh` (device
-    flow; github.com/login/* has no CORS, hence Rust; reqwest with rustls)
+  - `forge_build_config` (compile-time client IDs per forge id)
+  - `oauth_post(url, form)` (device-flow steps; only the URLs in `OAUTH_URLS`;
+    github.com/login/* has no CORS, hence Rust; reqwest with rustls)
 
-## GitHub sign-in (a GitHub App, not an OAuth App)
+## Signing in (per forge; GitHub = a GitHub App, not an OAuth App)
 
-- Build-time env: `KIVI_GITHUB_CLIENT_ID=Iv23li…` and
+- One device flow for every forge (`signInTo(f)`, `ensureFreshToken(f)`,
+  `ensureFreshTokens()` in tauri.js); what differs is the adapter's `auth`
+  (`ForgeAuth` in forge/index.js: endpoints, scope, error codes, how to
+  register an app). Its two URLs must be in lib.rs `OAUTH_URLS`.
+- Accounts: settings `accounts[forgeId] = {token, auth: {clientId, token,
+  refreshToken, expires, refreshExpires}}`; read with `tokenFor(f)` (ui.js).
+  Settings of earlier versions (`token` + `githubAuth`) are migrated when read
+  (`migrate`, ui.js). An account whose `auth.token` isn't its token (pasted by
+  earlier versions) is removed when a page loads. Tokens are refreshed by
+  `ensureFreshToken(f)` (timer, page load, window focus).
+- **One forge signed in at a time** (the user's choice): a successful sign-in
+  replaces `accounts` with that forge's alone (the code step says it signs you
+  out of the other); `migrate` (ui.js) keeps the newest (`auth.signedInAt`) if
+  settings hold more; `signedInForge()` (ui.js) names it. The account menu:
+  signed out "Sign in" (→ `chooseForge()`, tauri.js: a tile per forge with its
+  logo and name) + Settings; signed in, that account's profile, Repository
+  access (GitHub App), Settings, then Sign out. `kivi:signin` with
+  `detail.forge` (an id) skips the chooser; without it the chooser opens.
+- Forge logos are **never shipped** (the user's choice; GitLab's artwork is CC
+  BY-NC-SA, not GPL-compatible): `forge.web.logo` is loaded at run time
+  (GitHub's white mark from github.githubassets.com, GitLab's
+  `logo-square.svg` from its gitlab-artwork repository, in its own colours,
+  never recoloured); its host must be in the CSP `img-src` (tests/review.js
+  checks); a logo that fails leaves the name only. The chooser carries the
+  trademark line ("GITLAB is a trademark of GitLab Inc." is required by
+  GitLab's trademark guidelines).
+- GitHub build-time env: `KIVI_GITHUB_CLIENT_ID=Iv23li…` and
   `KIVI_GITHUB_APP_SLUG=<url-name>`. Otherwise the dialog asks and stores
   `githubAppClientId` / `githubAppSlug` in settings (a new key on purpose: an
   old OAuth App `oauthClientId` is ignored, so the user is asked again).
-- **Sign-in is the only way to give GitHub access**: there's no token field. The
-  token goes to settings `token` (read by every page) with `githubAuth` (refresh
-  token, expiry times, and the token it belongs to). A `token` without a
-  matching `githubAuth` (pasted in Settings by earlier versions) is removed when
-  a page loads (`tauri.js`). User tokens expire after 8 h and are refreshed by
-  `ensureFreshToken()` (timer, page load, window focus).
-- Status: the dialog flow was tested headless with a mocked `window.__TAURI__`.
-  A real sign-in against GitHub hasn't been confirmed; ask the user whether a
-  GitHub App is registered before assuming it works.
+- **Sign-in is the only way to give access** (the user's choice, for GitLab
+  too): there's no token field.
+- Status: the dialog flow was tested headless with a mocked `window.__TAURI__`
+  (migration, refresh, sign-out, device flow). A real GitHub sign-in was
+  checked by hand on macOS before the accounts change.
 
 ## Visual diff engines (`src/diff/`)
 
@@ -265,10 +319,15 @@ README doesn't: conventions, environment and pitfalls.
   features) and `git_http.rs`: libgit2's HTTPS transport replaced by reqwest
   (rustls, blocking client), so no OpenSSL (libssl-dev isn't installed here and
   needs sudo). The token rides in the URL's user part
-  (`https://x-access-token:TOKEN@github.com/…`), which git_http.rs moves into an
-  Authorization header; clones keep the plain URL, errors are scrubbed of it.
-  GitHub is always reached at `https://github.com/<owner>/<repo>.git`, whatever
-  the clone's remote says. Commands: `git_info`, `git_status`, `git_clone`
+  (`https://x-access-token:TOKEN@github.com/…`, `https://oauth2:TOKEN@gitlab.com/…`),
+  which git_http.rs moves into a basic Authorization header; clones keep the
+  plain URL, errors are scrubbed of it. Commands take `host, owner, repo`
+  (`ForgeRepo::new` refuses hosts not in `FORGE_HOSTS`, so tokens go nowhere
+  else); a forge is always reached at `https://<host>/<owner>/<repo>.git`,
+  whatever the clone's remote says (`forge_repo` parses HTTPS, ssh:// and
+  scp-like remotes, GitLab subgroups included). `git_info` returns `host`;
+  JS turns it into a forge with `remoteOf` (git.js `gitInfo`). Messages name
+  the forge (`forge_label`; "the remote" for a local path). Commands: `git_info`, `git_status`, `git_clone`
   (emits `git-progress`), `git_create_branch`, `git_local_changes` (merge base
   with origin/HEAD, main or master ↔ working files incl. untracked, renames),
   `git_read` / `git_list` (rev "" = working files), `git_fetch` (prunes branches deleted on GitHub, like `--prune`; pull fetches the same way), `git_commit`,
@@ -277,7 +336,7 @@ README doesn't: conventions, environment and pitfalls.
   both → outcome "diverged", nothing touched), `git_move_commits` (after a
   diverged pull: new branch at HEAD, checked out, old branch set to GitHub's),
   `git_remote_state`, `git_branches`, `git_switch_branch`,
-  `git_link_github`, `git_init`, `git_log`; all run
+  `git_link_remote`, `git_init`, `git_log`; all run
   on a blocking thread.
 - Branch menu `#branch-menu` (`src/app/branch-menu.js`, shared, the user's
   design): the same button and branch list for GitHub projects (main.js
@@ -326,7 +385,7 @@ README doesn't: conventions, environment and pitfalls.
   menu, the dialogs,
   and `localGitApi()` which desktop.js hands to `kiviDiff.attachLocalGit()` for
   `diff.html#local=<folder>` (diff.js stays free of Tauri).
-- Links: settings `localCopies` {"owner/repo" lower case → folder}. Linking
+- Links: settings `localCopies` {repository key, lower case → folder}. Linking
   accepts only existing clones of that repository (the user's choice). A linked
   card always opens the local copy (`index.html#folder=…&project=…&tab=…`, the
   user's choice; no separate "Open local copy" item).
@@ -339,8 +398,9 @@ README doesn't: conventions, environment and pitfalls.
 - The user chose: built-in git, KiVi makes the commits, link existing clones
   only, diff against the merge base with main.
 - Tested: `cargo test` (local bare repositories: branch, edit, diff, commit,
-  push, rejected push) and `cargo test -- --ignored clone_over_https` (needs the
-  network; clones octocat/Hello-World through git_http.rs). Pushing over HTTPS
+  push, rejected push) and `cargo test -- --ignored clone_over_https
+  clone_gitlab_over_https` (needs the network; clones octocat/Hello-World and
+  gitlab-examples/maven/simple-maven-example, a subgroup, through git_http.rs). Pushing over HTTPS
   needs a token with *Contents: Read and write* and has only been tested against
   local repositories and mocks. The UI was checked headless with mocked commands.
 
@@ -482,6 +542,7 @@ gjs -m tests/run.js                          # parse+render all KiCad demos
 gjs -m tests/diff.js
 gjs -m tests/nets.js
 gjs -m tests/review.js                       # GitHub adapter and forge interface, mocked
+gjs -m tests/gitlab.js                       # GitLab adapter, mocked
 gjs -m tests/models.js                       # 3D model path resolution order
 cargo test --manifest-path src-tauri/Cargo.toml --lib   # Rust: model folders, git (needs dist/web)
 tests/smoke.sh                               # pages load cleanly, viewer opens pic_programmer (~15 s)

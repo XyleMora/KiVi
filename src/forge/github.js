@@ -36,7 +36,7 @@ async function request(path, { token = null, method = "GET", body, fetch: fetchF
 }
 
 function readError(r, data) {
-  const msg = r.status === 403 && r.headers?.get?.("x-ratelimit-remaining") === "0" ? "GitHub API rate limit reached — sign in with GitHub for a higher limit" : data.message || r.statusText;
+  const msg = r.status === 403 && r.headers?.get?.("x-ratelimit-remaining") === "0" ? "GitHub API rate limit reached — sign in to GitHub for a higher limit" : data.message || r.statusText;
   const err = new Error(`GitHub ${r.status}: ${msg}`);
   err.status = r.status;
   return err;
@@ -56,7 +56,7 @@ function validationError(e) {
 
 function githubError(status, data, headers, what) {
   let msg = data?.message || `HTTP ${status}`;
-  if (status === 403 && headers?.get?.("x-ratelimit-remaining") === "0") msg = "API rate limit reached — sign in with GitHub for a higher limit";
+  if (status === 403 && headers?.get?.("x-ratelimit-remaining") === "0") msg = "API rate limit reached — sign in to GitHub for a higher limit";
   else if (status === 401) msg = "GitHub ended the sign-in; sign in again";
   else if (status === 403 || status === 404) msg += ` — the token needs write access to ${what}`;
   else if (status === 422 && data?.errors?.length) msg += `: ${data.errors.map(validationError).join("; ")}`;
@@ -664,7 +664,7 @@ export class GitHubReviews {
     const pr = await this.request("GET", `/repos/${this.owner}/${this.repo}/pulls/${this.pr}`); // the description as it is now
     const body = String(pr.body ?? "").trimEnd();
     if (closingNumbers(body).has(n)) return;
-    await this.request("PATCH", `/repos/${this.owner}/${this.repo}/pulls/${this.pr}`, { body: `${body ? `${body}\n\n` : ""}Fixes #${n}` });
+    await this.request("PATCH", `/repos/${this.owner}/${this.repo}/pulls/${this.pr}`, { body: `${body ? `${body}\n\n` : ""}${github.words.closes(n)}` });
   }
 }
 
@@ -795,6 +795,16 @@ export const github = {
   name: "GitHub",
   host: "github.com",
   hashKey: "gh", // index.html#gh=owner/repo@ref:dir, diff.html#gh=owner/repo&pr=…
+  /** How the forge names things, for UI text. */
+  words: {
+    pr: "pull request",
+    prs: "pull requests",
+    prShort: "PR",
+    /** A pull request's reference ("#12"). */
+    prRef: (n) => `#${n}`,
+    /** What a description says to close an issue on merge. */
+    closes: (n) => `Fixes #${n}`,
+  },
 
   parseSpec,
   /** Whether an http(s) address is on this forge (a 3D model source may be any URL). */
@@ -821,15 +831,44 @@ export const github = {
   avatar,
   hasAppInstallation,
 
+  /**
+   * Signing in: a GitHub App with device flow (src/desktop/tauri.js runs the
+   * steps). Its user tokens (ghu_…) last 8 hours and come with a single-use
+   * refresh token (ghr_…, 6 months); they only reach repositories the App is
+   * installed on.
+   */
+  auth: {
+    deviceUrl: `${WEB}/login/device/code`,
+    tokenUrl: `${WEB}/login/oauth/access_token`,
+    scope: null, // a GitHub App's permissions are set on the App
+    appName: "GitHub App",
+    idLabel: "Client ID",
+    idPlaceholder: "Iv23li…",
+    clientIdKey: "githubAppClientId", // settings keys for an app entered in the dialog
+    appSlugKey: "githubAppSlug",
+    buildEnv: "KIVI_GITHUB_CLIENT_ID",
+    registerUrl: `${WEB}/settings/apps/new`,
+    registerHint: "with <em>Enable Device Flow</em> ticked",
+    /** The device-code request was refused because the client ID is wrong. */
+    unknownClient: (res) => res.error === "Not Found",
+    explain: (res) => (res.error === "device_flow_disabled" ? "tick “Enable Device Flow” in the GitHub App's settings, then try again" : null),
+    /** A refresh was refused for good: sign in again. */
+    refreshRejected: (res) => res.error === "bad_refresh_token",
+  },
+
   /** github.com pages KiVi links to. */
   web: {
+    /**
+     * GitHub's mark (white, for KiVi's dark UI), loaded from GitHub when the
+     * sign-in chooser opens: KiVi doesn't ship forge logos (the user's choice).
+     */
+    logo: "https://github.githubassets.com/favicons/favicon-dark.svg",
     repo: (nwo) => `${WEB}/${nwo}`,
     /** A folder of a branch (no branch: the repository's front page). */
     tree: (nwo, branch = null, dir = "") => `${WEB}/${nwo}${branch ? `/tree/${encPath(branch)}${dir ? `/${encPath(dir)}` : ""}` : ""}`,
     /** Where a pushed branch's pull request is opened. */
     compare: (nwo, branch) => `${WEB}/${nwo}/compare/${encodeURIComponent(branch)}?expand=1`,
     newRepo: `${WEB}/new`,
-    newApp: `${WEB}/settings/apps/new`,
     /** The GitHub App's install / repository access page. */
     appInstall: (slug) => `${WEB}/apps/${encodeURIComponent(slug)}/installations/new`,
   },

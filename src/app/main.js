@@ -2,7 +2,7 @@
 
 import { findProjects, loadProject } from "../project.js";
 import { makeModelResolver } from "../sources.js";
-import { forgeInHash } from "../forge/index.js";
+import { forge, forgeInHash } from "../forge/index.js";
 import { DEFAULT_MODEL_BASE } from "../pcb/board3d.js";
 
 /** 3D model sources from Settings (the account menu; older settings had a single library URL). */
@@ -14,7 +14,7 @@ import { ReviewStore } from "./review-ui.js";
 import { mountBranchMenu } from "./branch-menu.js";
 import { mountHistoryMenu } from "./history-menu.js";
 import { setDiffButton } from "./diff-button.js";
-import { $, toast, settings } from "./ui.js";
+import { $, toast, settings, tokenFor } from "./ui.js";
 
 class App {
   constructor() {
@@ -57,7 +57,7 @@ class App {
       // Reviewing a pull request: show its head commit and its review comments.
       const pr = state?.pr ? await this.resolvePr(f, state.pr, spec) : null;
       if (pr) spec = pr.spec;
-      const src = await f.open(spec, settings().token);
+      const src = await f.open(spec, tokenFor(f));
       // An earlier commit from the history menu: read at that commit, still labelled with the branch.
       if (!pr && /^[0-9a-f]{40}$/i.test(state?.commit ?? "")) src.sha = src.commit = state.commit;
       this.pr = pr;
@@ -69,14 +69,15 @@ class App {
     }
   }
 
-  /** "owner/repo#12" (or "12" with the repository from `spec`) → head commit and spec to open. */
+  /** "owner/repo#12" (or "12", "!12" with the repository from `spec`) → head commit and spec to open. */
   async resolvePr(f, value, spec) {
     const at = f.parseSpec(spec);
-    const m = /^(?:([\w.-]+)\/([\w.-]+))?#?(\d+)$/.exec(String(value).trim());
+    // GitLab paths may hold subgroups ("group/sub/project#12").
+    const m = /^(?:(.+)\/([\w.-]+))?[#!]?(\d+)$/.exec(String(value).trim());
     if (!m || !at) return null;
     const owner = m[1] ?? at.owner, repo = m[2] ?? at.repo, number = Number(m[3]);
-    this.busy(`Reading pull request #${number}…`);
-    const pr = await f.pullRequest(owner, repo, number, settings().token);
+    this.busy(`Reading ${f.words.pr} ${f.words.prRef(number)}…`);
+    const pr = await f.pullRequest(owner, repo, number, tokenFor(f));
     const path = at.path ?? "";
     return {
       forge: f.id,
@@ -95,8 +96,9 @@ class App {
     if (this.pr) {
       chip.hidden = false;
       chip.href = this.pr.url;
-      chip.title = `Viewing the head of pull request #${this.pr.number}: ${this.pr.title}`;
-      chip.innerHTML = `PR #${this.pr.number} <span class="mono muted">${this.pr.headSha.slice(0, 7)}</span>`;
+      const w = forge(this.pr.forge).words;
+      chip.title = `Viewing the head of ${w.pr} ${w.prRef(this.pr.number)}: ${this.pr.title}`;
+      chip.innerHTML = `${w.prShort} ${w.prRef(this.pr.number)} <span class="mono muted">${this.pr.headSha.slice(0, 7)}</span>`;
       if (this.store.pr?.number !== this.pr.number || this.store.pr?.headSha !== this.pr.headSha || this.store.pr?.repo !== this.pr.repo) this.store.open(this.pr);
     } else {
       chip.hidden = true;
@@ -254,7 +256,7 @@ class App {
       const resolver =
         s.loadModels !== false
           ? makeModelResolver(this.source, this.entry.dir, modelSources(s), {
-              token: s.token,
+              tokenFor,
               onSourceError: (spec, e) => toast(`3D model source ${spec}: ${e.message}`, true),
               openDir: this.openModelDir, // set by the desktop app (src/desktop/desktop.js)
               pathVars: s.kicad?.vars ?? {}, // the KiCad linked in the desktop app's Settings
@@ -430,7 +432,7 @@ class App {
       branch: this.refLabel(),
       title: `${s.owner}/${s.repo} at ${this.refLabel()}`,
       listBranches: async () => {
-        const all = await s.forge.branches(s.owner, s.repo, settings().token);
+        const all = await s.forge.branches(s.owner, s.repo, tokenFor(s.forge));
         return all.map((b) => ({ name: b.name, current: b.name === current })).sort((a, b) => b.current - a.current || a.name.localeCompare(b.name));
       },
       // Through the URL, like a link: the viewer reopens the same project and tab on that branch.
@@ -453,7 +455,7 @@ class App {
       viewing: s.commit ?? null,
       latest: `Latest on ${this.refLabel()}`,
       branch: this.refLabel(),
-      listCommits: (offset, count) => s.forge.commits(s.owner, s.repo, s.ref, offset, count, settings().token),
+      listCommits: (offset, count) => s.forge.commits(s.owner, s.repo, s.ref, offset, count, tokenFor(s.forge)),
       // The same project, tab, sheet and selection at the other commit.
       show: async (sha) => {
         const p = this.stateForHash();
@@ -475,7 +477,7 @@ class App {
     const owner = this.pr?.owner ?? s.owner, repo = this.pr?.repo ?? s.repo; // a fork's PR is diffed in the base repository
     setDiffButton({
       href: `diff.html#${new URLSearchParams({ [s.forge.hashKey]: `${owner}/${repo}`, ...at })}`,
-      title: this.pr ? `Visual diff of pull request #${this.pr.number}` : at.commit ? `Visual diff of commit ${at.commit.slice(0, 7)}` : `Visual diff of ${s.ref} against the default branch (its latest commit if it is the default); pick other branches or commits there`,
+      title: this.pr ? `Visual diff of ${s.forge.words.pr} ${s.forge.words.prRef(this.pr.number)}` : at.commit ? `Visual diff of commit ${at.commit.slice(0, 7)}` : `Visual diff of ${s.ref} against the default branch (its latest commit if it is the default); pick other branches or commits there`,
     });
   }
 

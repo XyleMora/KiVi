@@ -15,6 +15,7 @@ import { forge } from "../forge/index.js";
 import { initHeader } from "./account.js";
 import { ICONS } from "./icons.js";
 import { galleryRepos, initProjects, repoHasProjects } from "./projects.js";
+import { initCardZoom } from "./card-zoom.js";
 import { localCopy } from "./git.js";
 import { ISSUE_LABEL, decodeBody, anchorLabel } from "../review.js";
 import { kicadFilesChanged } from "./pr-files.js";
@@ -196,6 +197,7 @@ const projects = initProjects({
   },
 });
 const loaded = new Set(); // tabs fetched since the last refresh
+initCardZoom($("#home-projects"), $("#projects"));
 
 function showHomeTab(name) {
   if (!TITLES[name]) name = "projects";

@@ -1,6 +1,21 @@
+# Python virtual environment and cache
+.venv/
+__pycache__/
+*.pyc
+
+# IDE settings
+.idea
+.vscode
+.code
+
+# AI agents configurations
+.claude/
+.agents/
+.codex/
+
+# Other
 dist/
 src-tauri/target/
 src-tauri/gen/
 tests/kicad-demos/
 *.tmp.png
-__pycache__/

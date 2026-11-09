@@ -134,8 +134,18 @@ export function onDrop({ enter, leave, drop }) {
   });
 }
 
+/**
+ * Ask for a folder with the system's own chooser. On Linux that's the desktop
+ * portal's (KDE: the Dolphin-style dialog), through picker.rs, since the dialog
+ * plugin always shows GTK's; elsewhere, and if that fails, the dialog plugin.
+ * @returns {Promise<string|null>} the folder, or null when cancelled
+ */
 export async function pickFolder(title = "Open KiCad project folder", defaultPath = undefined) {
-  return T.dialog.open({ directory: true, title, defaultPath });
+  try {
+    return await invoke("pick_folder", { title, defaultPath: defaultPath ?? null });
+  } catch {
+    return T.dialog.open({ directory: true, title, defaultPath });
+  }
 }
 
 // ---- KiCad -----------------------------------------------------------------------

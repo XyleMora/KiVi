@@ -137,6 +137,13 @@ README doesn't: conventions, environment and pitfalls.
   header, adds drag and drop, live reload on
   `folder-changed` (keeps tab, sheet and selection) and
   `index.html#folder=<path>[&project=…][&commit=<sha>]`.
+- Folder chooser (`pickFolder`, tauri.js → `pick_folder` in
+  `src-tauri/src/picker.rs`): on Linux GTK's `FileChooserNative` with
+  `GTK_USE_PORTAL=1` (set at start-up, removed for children by
+  `clean_child_env`), so the desktop's own dialog shows (KDE: Dolphin's);
+  the dialog plugin's rfd is GTK3-only. Elsewhere / on failure: the plugin.
+- Gallery zoom: Ctrl + wheel in Projects scales the card grid (CSS `zoom`,
+  `src/desktop/card-zoom.js`, localStorage `kivi.cardZoom`), Ctrl+0 resets.
 - `src-tauri/src/lib.rs` commands:
   - `open_folder` (lists the folder and starts a 500 ms debounced watcher that
     emits `folder-changed` for KiCad and model files)

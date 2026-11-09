@@ -5,6 +5,7 @@
 mod git;
 mod git_http;
 mod kicad;
+mod picker;
 
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -269,11 +270,14 @@ async fn github_device_refresh(client_id: String, refresh_token: String) -> Resu
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(target_os = "linux")]
+    picker::use_portal(); // before any other thread starts
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(Workspace::default())
         .invoke_handler(tauri::generate_handler![
+            picker::pick_folder,
             open_folder,
             list_folder,
             read_file,

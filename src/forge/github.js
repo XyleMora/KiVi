@@ -36,7 +36,7 @@ async function request(path, { token = null, method = "GET", body, fetch: fetchF
 }
 
 function readError(r, data) {
-  const msg = r.status === 403 && r.headers?.get?.("x-ratelimit-remaining") === "0" ? "GitHub API rate limit reached — sign in with GitHub for a higher limit" : data.message || r.statusText;
+  const msg = r.status === 403 && r.headers?.get?.("x-ratelimit-remaining") === "0" ? "GitHub API rate limit reached — sign in to GitHub for a higher limit" : data.message || r.statusText;
   const err = new Error(`GitHub ${r.status}: ${msg}`);
   err.status = r.status;
   return err;
@@ -56,7 +56,7 @@ function validationError(e) {
 
 function githubError(status, data, headers, what) {
   let msg = data?.message || `HTTP ${status}`;
-  if (status === 403 && headers?.get?.("x-ratelimit-remaining") === "0") msg = "API rate limit reached — sign in with GitHub for a higher limit";
+  if (status === 403 && headers?.get?.("x-ratelimit-remaining") === "0") msg = "API rate limit reached — sign in to GitHub for a higher limit";
   else if (status === 401) msg = "GitHub ended the sign-in; sign in again";
   else if (status === 403 || status === 404) msg += ` — the token needs write access to ${what}`;
   else if (status === 422 && data?.errors?.length) msg += `: ${data.errors.map(validationError).join("; ")}`;

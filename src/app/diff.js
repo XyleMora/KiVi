@@ -263,7 +263,7 @@ class DiffApp {
       refPicker({
         current: cmp.base.ref ?? cmp.base.sha?.slice(0, 7) ?? "(none)",
         value: baseValue,
-        hint: `A branch: the changes since the after side left it, like a ${local ? "pull request" : forge(spec.forge).words.pr}. A commit: compared with it as it is.`,
+        hint: `A branch: the changes since the after side left it, like a ${local ? "pull or merge request" : forge(spec.forge).words.pr}. A commit: compared with it as it is.`,
         commitsOf: !sha.test(baseValue ?? "") ? baseValue : headBranch,
         branches,
         commits,

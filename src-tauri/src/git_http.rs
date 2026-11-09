@@ -105,7 +105,7 @@ impl Stream {
         }
         let gitlab = self.url.starts_with("https://gitlab.com/");
         let why = match (status.as_u16(), gitlab) {
-            (401, false) => "GitHub asked for authentication: sign in to KiVi",
+            (401, false) => "GitHub asked for authentication: sign in to GitHub in KiVi",
             (403, false) => "GitHub refused access: the KiVi app may lack write access to this repository (Contents: read and write), or isn't installed on it",
             (401, true) => "GitLab asked for authentication: sign in to GitLab in KiVi",
             (403, true) => "GitLab refused access: your account needs the Developer role on this project, or the branch is protected",

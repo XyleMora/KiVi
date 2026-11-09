@@ -275,8 +275,8 @@ function thumbHtml(p) {
       : `<span class="thumb-note pending">Rendering board…</span>`;
 }
 
-/** The forge's name next to a repository, for any but the default forge (GitHub cards look as they always did). */
-const forgeTag = (f) => (f === FORGES[0] ? "" : ` <span class="tag forge-tag">${escapeHtml(f.name)}</span>`);
+/** The forge's name next to a repository, on every forge card (the user's choice), and on local cards linked to one. */
+const forgeTag = (f) => (f ? ` <span class="tag forge-tag">${escapeHtml(f.name)}</span>` : "");
 
 function cardHtml(p) {
   if (p.local) return localCardHtml(p);
@@ -332,7 +332,7 @@ function relativeTo(root, folder) {
  */
 function localCardHtml(p) {
   const remove = `<button type="button" data-local="remove" title="${escapeHtml(`Take ${p.folder} off the gallery (the folder is kept)`)}">Remove from projects</button>`;
-  const meta = `<div class="project-meta muted" title="${escapeHtml(p.folder)}">${FOLDER_ICON}<span>${escapeHtml(p.folder)}</span></div>`;
+  const meta = `<div class="project-meta muted" title="${escapeHtml(p.folder)}">${FOLDER_ICON}<span>${escapeHtml(p.folder)}</span>${p.git ? forgeTag(forge(p.git.forge)) : ""}</div>`;
   if (p.missing) {
     return `<li class="project-card" data-key="${escapeHtml(p.key)}">
       <div class="project-thumb"><span class="thumb-note">Folder not found</span></div>

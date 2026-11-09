@@ -95,7 +95,7 @@ README doesn't: conventions, environment and pitfalls.
   each loads on first show, since they cost API requests). There's no Watched drawer or
   recent folders list any more (the user's choice): repositories are added
   with "+" → Remote project… (`watchRepos`). **Reload** (`#reload`) clears
-  `hiddenRepos` and lists every repository again, so removed GitHub
+  `hiddenRepos` and lists every repository again, so removed GitHub/GitLab
   repositories come back (the user's choice; local projects stay removed).
   - **Projects** (`src/desktop/projects.js` + `thumb-worker.js`): a card grid of
     every `.kicad_pro` in reachable repositories, with board thumbnails. Caches:
@@ -104,11 +104,11 @@ README doesn't: conventions, environment and pitfalls.
     SHA). 48 cards per page; boards over 30 MB get no thumbnail.
   - **"+" menu** (`src/desktop/add-project.js`, `#add-project`, a
     `<details class="menu">`, desktop only): **Local project…** or **Remote
-    project…** (a GitHub repository, checked to exist, be visible, have
+    project…** (a GitHub or GitLab repository, no forge picker (`parseRepoInput`), checked to exist, be visible, have
     projects and not be in the gallery, then added to `watchRepos`). It
     replaced the address bar, removed from all three pages (the user's choice):
     pages open only from the gallery, the PR list, drops, the CLI and hashes.
-    GitHub cards have **Remove from projects** (`removeRepo`): the whole
+    Forge cards have **Remove from projects** (`removeRepo`): the whole
     repository leaves the gallery and PR list: added to settings
     `hiddenRepos` (listRepos and the PR list skip those) but kept in
     `watchRepos`, so Reload brings it back; `watchRepo` (Remote project…) also
@@ -124,8 +124,10 @@ README doesn't: conventions, environment and pitfalls.
     through `scan_kicad_folder` / `read_kicad_file` (lib.rs, KiCad design files
     only); thumbnails are cached by path, size and change time. Their menu: no
     Download, View on GitHub/GitLab greyed out (`aria-disabled`) until linked,
-    **Link to remote…** (forge picker, `forgePicker`/`pickedForge` in
-    local-projects.js, also used by Remote project…) = `git_link_remote` (git.rs:
+    **Link to remote…** (no forge picker, the user's choice: `parseRepoInput`,
+    forge/index.js, takes the forge from the address, a shorthand goes to the
+    forge signed in to, "group/sub/project" to GitLab; shown under the box as
+    it's typed; Remote project… works the same) = `git_link_remote` (git.rs:
     `git init` on main if still needed, then remote origin, or `github`/`gitlab`
     when origin points elsewhere; the repository must exist via the API),
     **Remove from projects**. A clone of a repository
@@ -136,14 +138,15 @@ README doesn't: conventions, environment and pitfalls.
     the same way (`adoptLinkedFolders`, after each scan) (the user's
     design: "+" button, no Download, greyed View on GitHub, Link = add remote).
   - Every view gathers all forges: those signed in, plus remote projects
-    (keys grouped by forge); GitLab cards get a `.forge-tag`, GitHub cards look
-    as before. A forge that fails leaves a note, the others still show
+    (keys grouped by forge); every forge card gets a `.forge-tag` with its
+    forge's name (GitHub too, the user's choice), and so does a local card
+    linked to a forge. A forge that fails leaves a note, the others still show
     (projects.js `listRepos` errors, inbox.js `gather`).
   - **Pull requests**: the GitHub search API (GitLab: `/merge_requests` with
     `reviewer_username` / `scope=created_by_me`, per project for remote
     projects), with a KiCad-files-changed badge
     per PR (from `/pulls/N/files`) and buttons to the visual diff, the viewer
-    at the PR head, and github.com. Only PRs in repositories with KiCad
+    at the PR head, and the forge's page. Only PRs in repositories with KiCad
     projects (the user's choice), by `repoHasProjects` (projects.js): the
     gallery's index if it has the repository, else `/repos/x` plus a tree scan,
     cached in localStorage `kivi.kicadRepos` by `pushed_at` and default branch;
@@ -151,15 +154,16 @@ README doesn't: conventions, environment and pitfalls.
 - `src/desktop/tauri.js`: `TauriSource` (a project folder read through Rust;
   the only local source), `onDrop` (Tauri takes file drops itself and reports
   paths as `tauri://drag-drop`; the page's HTML drop events get no files), link routing (http(s) links open in the system browser, `target=_blank` app
-  links navigate in place), GitHub sign-in dialog, token refresh.
+  links navigate in place), the folder chooser (`pick_folder`), the forge chooser
+  (`chooseForge`) and sign-in dialog (`signInTo`), token refresh.
 - `src/desktop/account.js`: the header shared by all three pages. `initHeader()`
   adds the home icons (the home page has its own switch) and the account menu
   (`<details class="menu">`, closed on outside click or Escape): sign in,
-  profile, repository access, Settings, sign out. It owns the only Settings
+  profile, repository access, Settings, sign out (see Signing in). It owns the only Settings
   dialog (dark schematic `schDark`, `modelSources`, `loadModels`) and fires
   `kivi:settings` on save (the schematic tab applies dark mode live). Shared
-  app code asks for a sign-in with `window.dispatchEvent(new Event("kivi:signin"))`
-  (the review panel's "Sign in with GitHub" links), so it needs no Tauri import.
+  app code asks for a sign-in with `window.dispatchEvent(new CustomEvent("kivi:signin", {detail: {forge}}))`
+  (the review panel's "Sign in to GitHub/GitLab" links), so it needs no Tauri import.
   Signing in or out reloads the viewer/diff page and refreshes the home page.
 - `src/desktop/desktop.js`: loaded after `main.js` / `diff.js`. Mounts the
   header, adds drag and drop, live reload on
@@ -194,9 +198,22 @@ README doesn't: conventions, environment and pitfalls.
   (`migrate`, ui.js). An account whose `auth.token` isn't its token (pasted by
   earlier versions) is removed when a page loads. Tokens are refreshed by
   `ensureFreshToken(f)` (timer, page load, window focus).
-- Sign-in requests: `kivi:signin` with `detail.forge` (an id; none = default).
-  The account menu has a section per forge (sign in / profile / Repository
-  access for a GitHub App / sign out), then Settings.
+- **One forge signed in at a time** (the user's choice): a successful sign-in
+  replaces `accounts` with that forge's alone (the code step says it signs you
+  out of the other); `migrate` (ui.js) keeps the newest (`auth.signedInAt`) if
+  settings hold more; `signedInForge()` (ui.js) names it. The account menu:
+  signed out "Sign in" (→ `chooseForge()`, tauri.js: a tile per forge with its
+  logo and name) + Settings; signed in, that account's profile, Repository
+  access (GitHub App), Settings, then Sign out. `kivi:signin` with
+  `detail.forge` (an id) skips the chooser; without it the chooser opens.
+- Forge logos are **never shipped** (the user's choice; GitLab's artwork is CC
+  BY-NC-SA, not GPL-compatible): `forge.web.logo` is loaded at run time
+  (GitHub's white mark from github.githubassets.com, GitLab's
+  `logo-square.svg` from its gitlab-artwork repository, in its own colours,
+  never recoloured); its host must be in the CSP `img-src` (tests/review.js
+  checks); a logo that fails leaves the name only. The chooser carries the
+  trademark line ("GITLAB is a trademark of GitLab Inc." is required by
+  GitLab's trademark guidelines).
 - GitHub build-time env: `KIVI_GITHUB_CLIENT_ID=Iv23li…` and
   `KIVI_GITHUB_APP_SLUG=<url-name>`. Otherwise the dialog asks and stores
   `githubAppClientId` / `githubAppSlug` in settings (a new key on purpose: an

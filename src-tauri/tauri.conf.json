@@ -25,7 +25,7 @@
         "default-src": "'self'",
         "script-src": "'self' 'wasm-unsafe-eval'",
         "style-src": "'self' 'unsafe-inline'",
-        "img-src": "'self' data: blob: https://avatars.githubusercontent.com https://gitlab.com https://secure.gravatar.com",
+        "img-src": "'self' data: blob: https://avatars.githubusercontent.com https://github.githubassets.com https://gitlab.com https://secure.gravatar.com",
         "connect-src": "'self' ipc: http://ipc.localhost blob: data: https:",
         "worker-src": "'self' blob:"
       }

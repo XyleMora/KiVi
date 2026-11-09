@@ -369,6 +369,9 @@ async function commits(owner, repo, ref, offset, count, token = null) {
  */
 async function pullRequest(owner, repo, number, token = null) {
   const { mr, refs } = await diffRefs(nwoOf(owner, repo), number, token);
+  // A fork's branch reads "namespace:branch", as GitHub's do (one more request, forks only).
+  const fork = mr.source_project_id !== mr.target_project_id;
+  const forkNs = fork ? (await request(`/projects/${mr.source_project_id}`, { token }).catch(() => null))?.namespace?.full_path : null;
   return {
     owner, repo,
     number: mr.iid,
@@ -376,7 +379,7 @@ async function pullRequest(owner, repo, number, token = null) {
     body: mr.description ?? "",
     url: mr.web_url,
     base: { owner, repo, sha: refs.base_sha, ref: mr.target_branch },
-    head: { owner, repo, sha: refs.head_sha, ref: mr.source_branch, label: mr.source_project_id !== mr.target_project_id ? `fork:${mr.source_branch}` : mr.source_branch },
+    head: { owner, repo, sha: refs.head_sha, ref: mr.source_branch, label: fork ? `${forkNs ?? "fork"}:${mr.source_branch}` : mr.source_branch },
   };
 }
 
@@ -755,6 +758,12 @@ export const gitlab = {
 
   /** gitlab.com pages KiVi links to. */
   web: {
+    /**
+     * GitLab's tanuki, loaded from GitLab's artwork repository when the sign-in
+     * chooser opens: its artwork is CC BY-NC-SA, not GPL-compatible, so KiVi
+     * doesn't ship it (no logo offline, only the name).
+     */
+    logo: "https://gitlab.com/gitlab-com/gitlab-artwork/-/raw/master/logo/logo-square.svg",
     repo: (nwo) => `${WEB}/${nwo}`,
     /** A folder of a branch (no branch: the project's front page). */
     tree: (nwo, branch = null, dir = "") => `${WEB}/${nwo}${branch ? `/-/tree/${encPath(branch)}${dir ? `/${encPath(dir)}` : ""}` : ""}`,

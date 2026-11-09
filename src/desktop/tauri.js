@@ -2,7 +2,7 @@
 // (the pages served to a headless test browser) `isDesktop` is false and nothing
 // gets wired up.
 
-import { settings, saveSettings, toast, tokenFor } from "../app/ui.js";
+import { settings, saveSettings, signedInForge, toast, tokenFor } from "../app/ui.js";
 import { FORGES, forge } from "../forge/index.js";
 
 const T = window.__TAURI__;
@@ -245,6 +245,7 @@ function account(res, clientId) {
       refreshToken: res.refresh_token ?? null,
       expires: res.expires_in ? now + res.expires_in * 1000 : null,
       refreshExpires: res.refresh_token_expires_in ? now + res.refresh_token_expires_in * 1000 : null,
+      signedInAt: now, // which account stays, should settings ever hold two (ui.js migrate)
     },
   };
 }
@@ -354,6 +355,11 @@ const signinHtml = (f) => `
     <p>Enter this code on ${escapeHtml(f.name)}:</p>
     <div class="signin-code mono" id="signin-code"></div>
     <p class="muted settings-hint" id="signin-status">Waiting for you to approve KiVi on ${escapeHtml(f.host)}…</p>
+    ${
+      signedInForge() && signedInForge() !== f.id
+        ? `<p class="muted settings-hint">KiVi is signed in to one forge at a time: this signs you out of ${escapeHtml(forge(signedInForge()).name)}.</p>`
+        : ""
+    }
   </div>
   <div data-step="install" hidden>
     <p>Signed in. Now choose which repositories KiVi may read:</p>
@@ -367,6 +373,46 @@ const signinHtml = (f) => `
 </form>`;
 
 const escapeHtml = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+
+const FORGE_TRADEMARKS = "GitHub is a trademark of GitHub, Inc. GITLAB is a trademark of GitLab Inc. KiVi isn't affiliated with either.";
+
+/**
+ * The sign-in chooser: one button per forge, with its logo loaded from the
+ * forge itself (KiVi ships no forge logos, the user's choice; offline, or if a
+ * logo can't load, the button shows only the name). Resolves with the forge
+ * chosen, or null.
+ * @returns {Promise<import("../forge/index.js").Forge|null>}
+ */
+export function chooseForge() {
+  document.querySelector("#forge-chooser")?.remove();
+  const current = signedInForge();
+  const dlg = document.createElement("dialog");
+  dlg.id = "forge-chooser";
+  dlg.innerHTML = `<form method="dialog" class="settings forge-chooser">
+    <h2>Sign in</h2>
+    <p class="muted settings-hint">Choose where your projects are.${current ? ` KiVi is signed in to one at a time: you're signed in to ${escapeHtml(forge(current).name)} now.` : ""}</p>
+    <div class="forge-choices">${FORGES.map(
+      (f) => `<button type="submit" value="${escapeHtml(f.id)}" class="forge-choice"${f.id === current ? ' aria-current="true"' : ""}>
+        <span class="forge-logo"><img alt="" src="${escapeHtml(f.web.logo)}" referrerpolicy="no-referrer"></span>
+        <span class="forge-name">${escapeHtml(f.name)}</span>
+        ${f.id === current ? `<span class="muted forge-note">signed in</span>` : ""}
+      </button>`,
+    ).join("")}</div>
+    <p class="muted forge-marks">${escapeHtml(FORGE_TRADEMARKS)}</p>
+    <div class="row end gap"><button value="cancel" class="btn" formnovalidate>Cancel</button></div>
+  </form>`;
+  // Not loaded (offline, blocked): the button keeps just the name.
+  for (const img of dlg.querySelectorAll(".forge-logo img")) img.addEventListener("error", () => img.parentElement.remove());
+  document.body.appendChild(dlg);
+  dlg.showModal();
+  return new Promise((resolve) =>
+    dlg.addEventListener("close", () => {
+      const f = FORGES.find((x) => x.id === dlg.returnValue) ?? null;
+      dlg.remove();
+      resolve(f);
+    }),
+  );
+}
 
 /**
  * Device flow: show a code, open the forge's device page, poll until approved,
@@ -426,7 +472,9 @@ export async function signInTo(f) {
       if (cancelled) break;
       const res = await oauth(f.auth.tokenUrl, { client_id: clientId, device_code: code.device_code, grant_type: DEVICE_GRANT });
       if (res.access_token) {
-        saveSettings(withAccount(settings(), f.id, account(res, clientId)));
+        // One forge at a time: this account replaces any other.
+        for (const other of FORGES) if (other !== f) clearTimeout(refreshTimers.get(other.id));
+        saveSettings({ ...settings(), accounts: { [f.id]: account(res, clientId) } });
         scheduleRefresh(f);
         toast(`Signed in to ${f.name}`);
         await offerInstall(f, dlg, step, go, res.access_token);

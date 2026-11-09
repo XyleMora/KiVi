@@ -93,10 +93,14 @@ const diffs = [
   const m = mock({
     [`GET ${P}/merge_requests/5/diffs?`]: () => reply(200, diffs),
     [`GET ${P}/merge_requests/5`]: () => reply(200, mrJson),
+    [`GET ${API}/projects/2`]: () => reply(200, { namespace: { full_path: "alice" } }),
   });
   await withFetch(m.fetch, async () => {
     const pr = await gitlab.pullRequest("hw/boards", "cm5", 5);
     check(pr.head.sha === HEAD && pr.base.sha === BASE && pr.head.label === "usbc" && pr.base.ref === "main", "a merge request: head, merge base, branches");
+    mrJson.source_project_id = 2; // from a fork
+    check((await gitlab.pullRequest("hw/boards", "cm5", 5)).head.label === "alice:usbc", "a fork's branch reads namespace:branch");
+    mrJson.source_project_id = 1;
     const files = await gitlab.pullFiles("hw/boards", "cm5", 5);
     check(files[1].status === "renamed" && files[1].previous === "board/old.kicad_sch" && files[2].status === "added" && files[0].ref === HEAD && files[0].patch.startsWith("@@"), "its diffs become ChangedFiles, read at the head");
     const counted = await kicadFilesChanged(files, async () => "");

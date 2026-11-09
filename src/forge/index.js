@@ -92,6 +92,30 @@ export function parseRepoSpec(text) {
 }
 
 /**
+ * A repository typed into a dialog, with no forge chosen: an address
+ * (`https://gitlab.com/…`, also without `https://`) goes to its forge; a
+ * shorthand to `preferred` (the forge signed in to) when it can take it, else
+ * the first that can ("group/sub/project" is GitLab's only).
+ * @param {string} text
+ * @param {Forge} [preferred]
+ * @returns {{forge: Forge, spec: RepoSpec} | null}
+ */
+export function parseRepoInput(text, preferred = FORGES[0]) {
+  text = String(text ?? "").trim();
+  const url = /^https?:\/\//i.test(text) ? text : /^(www\.)?[a-z0-9-]+(\.[a-z0-9-]+)+\//i.test(text) ? `https://${text}` : null;
+  if (url) {
+    const f = FORGES.find((x) => x.ownsUrl(url));
+    const spec = f?.parseSpec(url);
+    return spec ? { forge: f, spec } : null;
+  }
+  for (const f of [preferred, ...FORGES.filter((x) => x !== preferred)]) {
+    const spec = f.parseSpec(text);
+    if (spec) return { forge: f, spec };
+  }
+  return null;
+}
+
+/**
  * @typedef {object} RepoSpec  a parsed repository address
  * @property {string} owner
  * @property {string} repo
@@ -211,7 +235,8 @@ export function parseRepoSpec(text) {
  * @property {(token: string) => Promise<boolean|null>} [hasAppInstallation]
  * @property {{repo: (nwo: string) => string, tree: (nwo: string, branch?: string|null, dir?: string) => string,
  *   compare: (nwo: string, branch: string) => string, newRepo: string,
- *   appInstall?: (slug: string) => string}} web  the forge's own pages
+ *   appInstall?: (slug: string) => string, logo: string}} web  the forge's own pages; `logo`: its
+ *   logo's address, loaded at run time (never shipped; the host must be in the CSP's img-src)
  * @property {ForgeAuth} auth
  *
  * @typedef {object} ForgeAuth  signing in with OAuth device flow (src/desktop/tauri.js runs it;

@@ -1,21 +1,22 @@
 // Header shared by every desktop page: the projects / pull requests icons and
-// the account menu (per forge: profile, repository access, sign in/out; then
-// Settings), plus the Settings dialog. Forge access is only through signing in
-// (device flow, src/desktop/tauri.js); there is no token to paste.
+// the account menu (Sign in, which asks which forge, or the one account signed
+// in: profile, repository access; then Settings and Sign out), plus the
+// Settings dialog. Forge access is only through signing in (device flow,
+// src/desktop/tauri.js), to one forge at a time; there is no token to paste.
 //
 // Other code asks for a sign-in with
 // `window.dispatchEvent(new CustomEvent("kivi:signin", {detail: {forge: id}}))`
 // (the review panel does, so it needs no Tauri imports; no detail = the default
-// forge), and hears about saved settings through the "kivi:settings" event.
+// forge chooser), and hears about saved settings through the "kivi:settings" event.
 //
 // Settings → KiCad links an installed KiCad (settings.kicad, from kicad_inspect):
 // "Open in KiCad" uses its program, and the 3D view its path variables.
 
-import { $, escapeHtml, settings, saveSettings, toast, tokenFor } from "../app/ui.js";
+import { $, escapeHtml, settings, saveSettings, signedInForge, toast, tokenFor } from "../app/ui.js";
 import { parseModelSource } from "../sources.js";
-import { FORGES, forge } from "../forge/index.js";
+import { forge } from "../forge/index.js";
 import { ICONS } from "./icons.js";
-import { appInstallUrl, inspectKicad, pickFolder, signInTo, signOut as signOutOf } from "./tauri.js";
+import { appInstallUrl, chooseForge, inspectKicad, pickFolder, signInTo, signOut as signOutOf } from "./tauri.js";
 
 // Where KiCad usually is, as the path box's example and the folder picker's start.
 const KICAD_HINT = /Windows/.test(navigator.userAgent)
@@ -193,9 +194,13 @@ export function initHeader({ homeLinks = true, onAccountChange = () => location.
     }
   }
 
-  /** Sign in to a forge (an id or forge object; the default forge if none). */
+  /**
+   * Sign in: to the forge named (an id or forge object), else to the one
+   * chosen in the forge chooser. One forge at a time: it replaces any other.
+   */
   async function signIn(f) {
-    f = typeof f === "string" || !f ? forge(f ?? undefined) : f;
+    f = typeof f === "string" ? forge(f) : f ?? (await chooseForge());
+    if (!f) return;
     try {
       if (await signInTo(f)) onAccountChange();
     } catch (e) {
@@ -208,59 +213,56 @@ export function initHeader({ homeLinks = true, onAccountChange = () => location.
     onAccountChange();
   }
 
-  /** One forge's part of the menu: who is signed in (or why not), and its actions. */
-  async function forgeSection(f, many) {
-    const token = tokenFor(f);
-    const signInItem = ["signIn", `Sign in to ${f.name}`, "signin", null, f.id];
-    if (!token) return { face: null, head: many ? `<div><strong>${escapeHtml(f.name)}</strong><span class="muted">Not signed in</span></div>` : null, items: [signInItem] };
-    let me = null, error = null;
-    try {
-      me = await f.user(token);
-    } catch (e) {
-      error = e;
-    }
-    if (!me) {
-      return {
-        face: `<span class="tag warn">signed out</span>`,
-        head: `<div><strong>${escapeHtml(f.name)} ended the sign-in</strong><span class="muted">${escapeHtml(error.message)}</span></div>`,
-        items: [signInItem, ["signOut", `Sign out of ${f.name}`, "signout", null, f.id]],
-      };
-    }
-    const access = await appInstallUrl(f);
-    return {
-      face: `<img class="avatar" src="${escapeHtml(f.avatar(me.avatar, 64))}" alt=""><span class="account-login">${escapeHtml(me.login)}</span>`,
-      head: `<img class="avatar avatar-lg" src="${escapeHtml(f.avatar(me.avatar, 80))}" alt=""><div><strong>${escapeHtml(me.login)}</strong><span class="muted">${escapeHtml(me.name ? `${me.name} · ${f.name}` : f.name)}</span></div>`,
-      items: [["person", `Your ${f.name} profile`, null, me.url], ...(access ? [["key", "Repository access", null, access]] : []), ["signOut", `Sign out of ${f.name}`, "signout", null, f.id]],
-    };
-  }
-
   async function renderAccount() {
     const settingsItem = ["gear", "Settings", "settings"];
-    const signedIn = FORGES.filter((f) => tokenFor(f));
-    if (!signedIn.length) {
-      // Signed out everywhere: one "Not signed in" head, then a sign-in per forge.
+    const signInItem = ["signIn", "Sign in", "signin"];
+    const id = signedInForge();
+    if (!id) {
       el.innerHTML = accountMenu(
         `<span class="avatar avatar-blank">${ICONS.person}</span>`,
-        [{ head: `<div><strong>Not signed in</strong><span class="muted">Public repositories only</span></div>`, items: FORGES.map((f) => ["signIn", `Sign in to ${f.name}`, "signin", null, f.id]) }],
+        [{ head: `<div><strong>Not signed in</strong><span class="muted">Public repositories only</span></div>`, items: [signInItem] }],
         [settingsItem],
       );
     } else {
-      const sections = await Promise.all(FORGES.map((f) => forgeSection(f, FORGES.length > 1)));
-      // The header shows the first account signed in (or its warning).
-      const face = sections.find((x) => x.face)?.face ?? `<span class="avatar avatar-blank">${ICONS.person}</span>`;
-      el.innerHTML = accountMenu(face, sections, [settingsItem]);
+      const f = forge(id);
+      let me = null, error = null;
+      try {
+        me = await f.user(tokenFor(f));
+      } catch (e) {
+        error = e;
+      }
+      const signOutItem = ["signOut", "Sign out", "signout", null, f.id];
+      if (!me) {
+        el.innerHTML = accountMenu(
+          `<span class="tag warn">signed out</span>`,
+          [{ head: `<div><strong>${escapeHtml(f.name)} ended the sign-in</strong><span class="muted">${escapeHtml(error.message)}</span></div>`, items: [["signIn", "Sign in again", "signin", null, f.id], settingsItem] }],
+          [signOutItem],
+        );
+      } else {
+        const access = await appInstallUrl(f);
+        el.innerHTML = accountMenu(
+          `<img class="avatar" src="${escapeHtml(f.avatar(me.avatar, 64))}" alt=""><span class="account-login">${escapeHtml(me.login)}</span>`,
+          [
+            {
+              head: `<img class="avatar avatar-lg" src="${escapeHtml(f.avatar(me.avatar, 80))}" alt=""><div><strong>${escapeHtml(me.login)}</strong><span class="muted">${escapeHtml(me.name ? `${me.name} · ${f.name}` : f.name)}</span></div>`,
+              items: [["person", `Your ${f.name} profile`, null, me.url], ...(access ? [["key", "Repository access", null, access]] : []), settingsItem],
+            },
+          ],
+          [signOutItem],
+        );
+      }
     }
     for (const b of el.querySelectorAll("[data-act]")) {
       b.addEventListener("click", () => {
         b.closest("details").open = false;
-        if (b.dataset.act === "signin") signIn(b.dataset.forge);
+        if (b.dataset.act === "signin") signIn(b.dataset.forge || null);
         if (b.dataset.act === "settings") openSettings();
         if (b.dataset.act === "signout") signOut(forge(b.dataset.forge));
       });
     }
   }
 
-  window.addEventListener("kivi:signin", (e) => signIn(e.detail?.forge));
+  window.addEventListener("kivi:signin", (e) => signIn(e.detail?.forge ?? null));
   return { renderAccount, signIn };
 }
 

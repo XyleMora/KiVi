@@ -5,21 +5,21 @@
 [![Built with Claude Code](https://img.shields.io/badge/Built_with-Claude_Code-D97757?logo=claude&logoColor=white)](https://claude.com/claude-code)
 
 **KiVi turns the KiCad projects in your GitHub and GitLab repositories, or on
-your disk, into something you can actually look at.** GitHub shows a changed
+your disk, into something you can actually look at.** Any source control forge shows a changed
 `.kicad_pcb` as thousands of lines of S-expressions; reviewing it usually
 means checking out both versions and flipping between KiCad windows. In KiVi,
 schematics, boards and 3D views open in seconds, a visual diff tells you what
 changed in KiCad terms, and comments pinned to parts and nets make a board
 change as easy to review as a code change.
 
-- **Nothing to set up on a server.** GitHub or GitLab (gitlab.com) stays your
+- **Nothing to set up on a server.** GitHub or GitLab stays your
   source control, diff and review system; KiVi is a desktop app that parses
   and renders everything locally.
 - **Nothing to install.** One `.AppImage` on Linux, one `.exe` on Windows,
   one `.dmg` on macOS.
 - **No account needed to play around.** Public repositories work signed out;
-  sign in to GitHub or GitLab (or both) for private repositories and the full
-  review features.
+  sign in to GitHub or GitLab (one at a time) for private repositories and the
+  full review features.
 - **You are in control of access.** GitHub sign-in uses a GitHub App with
   fine-grained permissions, and you choose which repositories it can read;
   GitLab sign-in uses an OAuth application.
@@ -77,17 +77,18 @@ reports it once, with both LEDs that use it and the nets that changed.
 ![Visual diff of a schematic: the LED library symbol's swapped pins and the nets that changed](docs/screenshots/diff-library-symbol.png)
 
 **💬 Review where the problem is.** Press **C** and click a footprint, pad,
-net or symbol to comment on it. Comments are ordinary GitHub pull request
-review comments, so your team sees them on github.com too, and they stay
-pinned to the part across later pushes. Outside a pull request the same pin
-opens a GitHub issue: a hardware change request that a later pull request can
-close ([see how](#reviewing-hardware-pull-requests-and-issues)).
+net or symbol to comment on it. Comments are ordinary pull request review
+comments on GitHub (discussions on a merge request's file on GitLab), so your
+team sees them there too, and they stay pinned to the part across later
+pushes. Outside a pull request the same pin opens an issue: a hardware change
+request that a later pull request can close
+([see how](#reviewing-hardware-pull-requests-and-issues)).
 
 ![PCB at a pull request's head: review comment 1 open on U405, change request #12 pinned in green](docs/screenshots/review-comment.png)
 
 **🌿 Git without the git.** Download a project, make a branch, edit in KiCad
-(KiVi reloads as you save), then commit, push and open a pull request from one
-menu, with git built in. KiCad files don't merge reliably as text, so KiVi
+(KiVi reloads as you save), then commit, push and open a pull or merge request
+from one menu, with git built in. KiCad files don't merge reliably as text, so KiVi
 never merges a file both sides changed; it keeps your work safe on a branch
 instead.
 
@@ -109,11 +110,12 @@ lives only in KiVi:
 | | Review comment | Change request |
 |---|---|---|
 | **For** | Discussing a proposed change before it's merged | Asking for a change to the design as it is |
-| **Made in** | A pull request: its visual diff, or the viewer at its head (**Hardware**) | A branch of a GitHub project, or a local copy linked to GitHub |
+| **Made in** | A pull request: its visual diff, or the viewer at its head (**Hardware**) | A branch of a GitHub or GitLab project, or a local copy linked to one |
 | **How** | Press **C** (**Comment**) and click | Press **C** (**Request change**), click, give it a title |
 | **On GitHub it's** | A review comment on the `.kicad_sch` / `.kicad_pcb` file, in the pull request's conversation and *Files changed* | An issue labelled `kivi`, in the repository's Issues |
-| **Done when** | Resolved, in KiVi or on GitHub | Closed; a pull request whose description says "Fixes #N" closes it when merged |
-| **Listed in** | The pull request's side panel | The schematic and PCB side panels, KiVi's home **Issues** view, GitHub |
+| **On GitLab it's** | A discussion on that file of the merge request, in its *Overview* and *Changes* | An issue labelled `kivi`, in the project's Issues |
+| **Done when** | Resolved, in KiVi or on the forge | Closed; a pull request whose description says "Fixes #N" ("Closes #N" on GitLab) closes it when merged |
+| **Listed in** | The pull request's side panel | The schematic and PCB side panels, KiVi's home **Issues** view, the forge |
 | **Pins** | Numbered 1, 2, 3… in orange | Issue numbers (#12) in green |
 
 ### Reviewing a pull request
@@ -138,7 +140,8 @@ lives only in KiVi:
 1. **Pin a request to the hardware.** In the viewer on any branch, press
    **C**, click the part, pad or net, and give the request a title: here #12
    asks to move the HDMI connector J501, and has a reply underneath. Anyone
-   with access to the repository sees it in KiVi or in GitHub's Issues.
+   with access to the repository sees it in KiVi or in the repository's
+   Issues on GitHub or GitLab.
 
    ![PCB with change request #12 open on the HDMI connector J501](docs/screenshots/viewer-issues.png)
 
@@ -153,7 +156,8 @@ lives only in KiVi:
    *closes with this PR*: the reviewer sees the request next to the change
    that answers it, and GitHub closes the issue when the pull request is
    merged. For the other issues, **Close with this PR** adds the "Fixes #N"
-   line for you (signed in).
+   line for you (signed in). GitLab works the same, with merge requests and
+   "Closes #N".
 
    ![Visual diff of the pull request with issue #9 open on M701: closes when this pull request is merged](docs/screenshots/pr-closes-issue.png)
 
@@ -169,19 +173,21 @@ lives only in KiVi:
    [build it](#building) yourself.
 2. **Add a public project.** In **Projects**, click **+** → **Remote
    project…** and enter `greatscottgadgets/hackrf` (the HackRF One software
-   defined radio), or any public repository with KiCad projects. No sign-in
-   needed.
+   defined radio, on GitHub), `https://gitlab.com/riglol/lapod` (LVDS
+   breakout boards, on GitLab), or any public repository with KiCad projects.
+   No sign-in needed.
 3. **Look around.** Open its card: click parts in the schematic, cross-probe
    to the PCB, measure something, spin it in 3D.
 4. **See what changed.** Open **History** in the project bar, pick a commit
    that touched the hardware and press **Visual diff**. In your own
-   repositories, the pull request icon in the header lists the open pull
-   requests the same way.
+   repositories, the pull request icon in the header lists the open pull (or
+   merge) requests the same way.
 5. **Bring your own.** **+** → **Local project…** adds a folder from your
    computer. Edit it in KiCad, save, and press **Visual diff** to see your
    uncommitted changes the way a reviewer would.
-6. **Sign in** (account menu, top right) to see your private repositories
-   and the pull requests waiting for your review, and to comment.
+6. **Sign in** (account menu, top right, then GitHub or GitLab) to see your
+   private repositories and the pull requests waiting for your review, and to
+   comment. KiVi is signed in to one of them at a time.
 
 ### Help us test it
 
@@ -296,9 +302,10 @@ src/geom.js             matrices, arcs, bounding boxes
 src/text.js             text layout (KiCad metrics, markup, escapes)
 src/drawing-sheet.js    .kicad_wks parser/renderer, built-in default sheet
 src/project.js          project discovery, hierarchy walk, page numbering
-src/forge/              code hosts: the forge interface (index.js) and the GitHub
-                        adapter (github.js: every API request, comparisons, review
-                        comments, issues, search, github.com links)
+src/forge/              code hosts: the forge interface (index.js) and one adapter
+                        per forge (github.js, gitlab.js: every API request,
+                        comparisons, review comments, issues, lists, sign-in
+                        details, web links)
 src/sources.js          text before a patch, 3D model path resolution
 src/diff/               semantic schematic, net, board and design rule diffs, comment anchors
 src/review.js           comment markers and the thread shape (review comments and
@@ -311,21 +318,23 @@ src/app/                UI: tabs, pan/zoom viewport, inspectors, BOM, diff page,
                         branch and history menus, measuring
 src/desktop/
   tauri.js              TauriSource (folder on disk), GitRevSource (it at a commit), drag and drop, link routing,
-                        sign-in, token refresh
+                        folder chooser, sign-in (forge chooser, device flow), token refresh
   desktop.js            additions to the viewer and diff pages
   account.js            header on every page: home icons, account menu, Settings dialog
-  inbox.js, desktop.css home screen: view switch, pull requests, issues
+  inbox.js, desktop.css home screen: view switch, pull/merge requests, issues
+  card-zoom.js          Ctrl + wheel resizes the gallery's cards
   projects.js           project gallery: repository scan, caches, cards
   thumb-worker.js       board thumbnails (parse + render off the main thread)
   git.js                local copies: download/link, branch and history menus, commit, push, pull
   add-project.js        the "+" menu: local project, remote project (settings `watchRepos`)
-  local-projects.js     local project folders in the gallery, Link to GitHub…
+  local-projects.js     local project folders in the gallery, Link to remote…
   icons.js              header and menu icons (repository / pull request follow Octicons)
 src-tauri/              Rust app
   src/lib.rs            commands: open_folder, list_folder, read_file, startup_folder,
-                        model folders, github_client_id, github_app_slug,
-                        github_device_start/poll/refresh
-  src/git.rs            git commands (clone, branch, local changes, commit, push, pull, fetch with prune)
+                        model folders, forge_build_config, oauth_post (sign-in)
+  src/picker.rs         the folder chooser through the desktop portal (Linux)
+  src/git.rs            git commands (clone, branch, local changes, commit, push, pull, fetch with prune),
+                        GitHub and GitLab remotes (tokens only to their hosts)
   src/git_http.rs       git over HTTPS through reqwest (no OpenSSL)
   src/kicad.rs          linking KiCad (program, version, path variables), Open in KiCad
   tauri.conf.json       window, CSP, bundle targets
@@ -469,3 +478,9 @@ changing `Cargo.lock` or `vendor/` (CI fails if it's out of date). The AppImage
 also bundles system libraries (GTK, WebKitGTK, GStreamer…) from the build
 machine; each release lists them with their licences and sources in
 `appimage-libraries.md`.
+
+The GitHub and GitLab logos in the sign-in dialog aren't part of KiVi: they're
+loaded from GitHub and GitLab when the dialog opens (GitLab's artwork is
+licensed CC BY-NC-SA, which isn't GPL-compatible, so KiVi doesn't ship it).
+GitHub is a trademark of GitHub, Inc. and GITLAB is a trademark of GitLab
+Inc.; KiVi isn't affiliated with either.

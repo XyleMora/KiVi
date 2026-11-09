@@ -858,6 +858,11 @@ export const github = {
 
   /** github.com pages KiVi links to. */
   web: {
+    /**
+     * GitHub's mark (white, for KiVi's dark UI), loaded from GitHub when the
+     * sign-in chooser opens: KiVi doesn't ship forge logos (the user's choice).
+     */
+    logo: "https://github.githubassets.com/favicons/favicon-dark.svg",
     repo: (nwo) => `${WEB}/${nwo}`,
     /** A folder of a branch (no branch: the repository's front page). */
     tree: (nwo, branch = null, dir = "") => `${WEB}/${nwo}${branch ? `/tree/${encPath(branch)}${dir ? `/${encPath(dir)}` : ""}` : ""}`,

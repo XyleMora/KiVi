@@ -43,11 +43,25 @@ export function settings() {
  * (`token`, `githubAuth`) moved to `accounts.github` = {token, auth}.
  */
 function migrate(s) {
-  if (!("token" in s) && !("githubAuth" in s)) return s;
-  const { token, githubAuth, ...rest } = s;
-  const accounts = { ...(rest.accounts ?? {}) };
-  if (token && !accounts.github) accounts.github = { token, auth: githubAuth ?? null };
-  return { ...rest, accounts };
+  if ("token" in s || "githubAuth" in s) {
+    const { token, githubAuth, ...rest } = s;
+    const accounts = { ...(rest.accounts ?? {}) };
+    if (token && !accounts.github) accounts.github = { token, auth: githubAuth ?? null };
+    s = { ...rest, accounts };
+  }
+  // One forge signed in at a time (the user's choice): settings from builds that
+  // allowed more keep the account signed in last (the first one, if none says when).
+  const ids = Object.keys(s.accounts ?? {}).filter((id) => s.accounts[id]?.token);
+  if (ids.length > 1) {
+    const last = ids.reduce((a, b) => ((s.accounts[b].auth?.signedInAt ?? 0) > (s.accounts[a].auth?.signedInAt ?? 0) ? b : a));
+    s = { ...s, accounts: { [last]: s.accounts[last] } };
+  }
+  return s;
+}
+
+/** The forge id signed in to, or null (one at a time). */
+export function signedInForge() {
+  return Object.keys(settings().accounts ?? {}).find((id) => settings().accounts[id]?.token) ?? null;
 }
 
 /**

@@ -4,10 +4,9 @@
 // by key: see repoKey in ../forge/index.js).
 // It replaced the address bar the pages used to have.
 
-import { escapeHtml, settings, saveSettings, tokenFor } from "../app/ui.js";
-import { forgeNames, repoKey } from "../forge/index.js";
+import { escapeHtml, settings, saveSettings, signedInForge, tokenFor } from "../app/ui.js";
+import { FORGES, forge, forgeNames, parseRepoInput, repoKey } from "../forge/index.js";
 import { dialog } from "./git.js";
-import { forgePicker, pickedForge } from "./local-projects.js";
 import { ICONS } from "./icons.js";
 import { ensureFreshToken } from "./tauri.js";
 
@@ -59,27 +58,32 @@ export function removeRepo(key) {
 }
 
 /**
- * Remote project…: ask for a GitHub repository and watch it, so the gallery lists
- * its projects. Checked first: it must exist, be visible to this account, have
- * KiCad projects (`hasProjects`) and not be in the gallery already (`inGallery`).
+ * Remote project…: ask for a repository and watch it, so the gallery lists its
+ * projects. Its address says which forge it's on; a shorthand (owner/repo) goes
+ * to the forge signed in to (parseRepoInput), shown under the box as it's
+ * typed. Checked first: it must exist, be visible to this account, have KiCad
+ * projects (`hasProjects`) and not be in the gallery already (`inGallery`).
  * Resolves with the repository's key once added, or null.
  */
 export function addRemoteProject({ inGallery, hasProjects }) {
+  const preferred = forge(signedInForge() ?? undefined);
   return new Promise((resolve) => {
     const dlg = dialog(`<form method="dialog" class="settings">
       <h2>Add a remote project</h2>
-      <p class="muted settings-hint">A ${escapeHtml(forgeNames())} repository with KiCad projects. Its projects join the gallery and its pull (merge) requests the list of them. Remove from projects in a card's menu takes it off again, until the next Reload.<span id="remote-signed-out"></span></p>
-      ${forgePicker("remote-forge")}
+      <p class="muted settings-hint">A ${escapeHtml(forgeNames())} repository with KiCad projects. Its projects join the gallery and its pull or merge requests the list of them. Remove from projects in a card's menu takes it off again, until the next Reload.</p>
       <label class="field-label" for="remote-repo">Repository</label>
-      <input id="remote-repo" class="input mono" required spellcheck="false" autocomplete="off">
+      <input id="remote-repo" class="input mono" required spellcheck="false" autocomplete="off" placeholder="${escapeHtml(`owner/repo, ${FORGES.map((f) => f.web.repo("owner/repo")).join(" or ")}`)}">
+      <p class="muted settings-hint" id="remote-where">&nbsp;</p>
       <p class="muted settings-hint error-text" id="remote-error" hidden></p>
       <div class="row end gap"><button value="cancel" class="btn" formnovalidate>Cancel</button><button value="ok" class="btn primary">Add</button></div>
     </form>`);
     const box = dlg.querySelector("#remote-repo");
+    const where = dlg.querySelector("#remote-where");
     const error = dlg.querySelector("#remote-error");
-    const picked = pickedForge(dlg, "remote-forge", (host) => {
-      box.placeholder = `owner/repo or ${host.web.repo("owner/repo")}`;
-      dlg.querySelector("#remote-signed-out").textContent = tokenFor(host) ? "" : ` Signed out of ${host.name}, only public repositories can be added.`;
+    // Where the repository will be looked for, as it's typed.
+    box.addEventListener("input", () => {
+      const at = parseRepoInput(box.value, preferred);
+      where.textContent = at ? `On ${at.forge.name}: ${at.spec.owner}/${at.spec.repo}` : "\u00a0";
     });
     const add = dlg.querySelector('button[value="ok"]');
     const fail = (msg) => {
@@ -90,9 +94,9 @@ export function addRemoteProject({ inGallery, hasProjects }) {
     dlg.querySelector("form").addEventListener("submit", async (e) => {
       if (e.submitter?.value !== "ok") return;
       e.preventDefault();
-      const host = picked();
-      const gh = host.parseSpec(box.value.trim());
-      if (!gh) return fail(`Enter the repository as owner/repo or its ${host.host} address`);
+      const at = parseRepoInput(box.value, preferred);
+      if (!at) return fail(`Enter the repository as owner/repo or its address (${FORGES.map((f) => f.host).join(", ")})`);
+      const { forge: host, spec: gh } = at;
       error.hidden = true;
       add.disabled = true;
       try {
@@ -105,7 +109,9 @@ export function addRemoteProject({ inGallery, hasProjects }) {
         dlg.close("added");
         resolve(key);
       } catch (err) {
-        fail(err.status === 404 ? `${gh.owner}/${gh.repo} isn't on ${host.name}, or this account can't see it` : String(err.message ?? err));
+        // Not found: a typo, or private and not visible to this sign-in (or signed out).
+        const why = tokenFor(host) ? "or this account can't see it" : `or it's private: sign in to ${host.name} to add it`;
+        fail(err.status === 404 ? `${gh.owner}/${gh.repo} isn't on ${host.name}, ${why}` : String(err.message ?? err));
       } finally {
         add.disabled = false;
       }

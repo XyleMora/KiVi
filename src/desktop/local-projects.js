@@ -9,8 +9,8 @@
 // that is a clone of a repository already in the gallery isn't added: it is
 // linked to that repository's card instead (settings.localCopies, git.js).
 
-import { escapeHtml, settings, saveSettings, toast } from "../app/ui.js";
-import { FORGES, forge, remoteOf, repoKey, splitNwo } from "../forge/index.js";
+import { escapeHtml, settings, saveSettings, signedInForge, toast, tokenFor } from "../app/ui.js";
+import { FORGES, forge, parseRepoInput, remoteOf, repoKey, splitNwo } from "../forge/index.js";
 import { findProjects } from "../project.js";
 import { dialog, localCopy, setLocalCopy } from "./git.js";
 import { ensureFreshToken, invoke, pickFolder } from "./tauri.js";
@@ -131,40 +131,45 @@ export function removeLocalProject(folder) {
 
 /**
  * Link to remote…: ask for a forge repository and add it as the folder's git
- * remote (git_link_remote). The repository must exist; an empty one is best,
- * since KiVi can't merge a history the forge already has. Resolves true once linked.
+ * remote (git_link_remote). Its address says which forge it's on; a shorthand
+ * (owner/repo) goes to the forge signed in to (parseRepoInput), shown under the
+ * box as it's typed. The repository must exist; an empty one is best, since
+ * KiVi can't merge a history the forge already has. Resolves true once linked.
  */
 export function linkLocalProject(p, inGallery) {
+  const preferred = forge(signedInForge() ?? undefined);
+  const create = FORGES.map((f) => `<a href="${escapeHtml(f.web.newRepo)}">${escapeHtml(f.name)}</a>`).join(" or ");
   return new Promise((resolve) => {
     const dlg = dialog(`<form method="dialog" class="settings">
       <h2>Link to a remote repository</h2>
-      <p class="muted settings-hint">Adds the repository as a git remote of <code>${escapeHtml(p.folder)}</code>. Nothing is uploaded until you commit and push from the project's branch menu. Use an empty repository: <a id="link-new" href="">create one</a>.</p>
-      ${forgePicker("link-forge")}
+      <p class="muted settings-hint">Adds the repository as a git remote of <code>${escapeHtml(p.folder)}</code>. Nothing is uploaded until you commit and push from the project's branch menu. Use an empty repository: create one on ${create}.</p>
       <label class="field-label" for="link-repo">Repository</label>
-      <input id="link-repo" class="input mono" required spellcheck="false" autocomplete="off">
+      <input id="link-repo" class="input mono" required spellcheck="false" autocomplete="off" placeholder="${escapeHtml(`owner/repo, ${FORGES.map((f) => f.web.repo("owner/repo")).join(" or ")}`)}">
+      <p class="muted settings-hint" id="link-where">&nbsp;</p>
       <p class="muted settings-hint error-text" id="link-error" hidden></p>
       <div class="row end gap"><button value="cancel" class="btn" formnovalidate>Cancel</button><button value="ok" class="btn primary">Link</button></div>
     </form>`);
     const box = dlg.querySelector("#link-repo");
+    const where = dlg.querySelector("#link-where");
     const error = dlg.querySelector("#link-error");
     const form = dlg.querySelector("form");
-    const picked = pickedForge(dlg, "link-forge", (host) => {
-      box.placeholder = `owner/repo or ${host.web.repo("owner/repo")}`;
-      const a = dlg.querySelector("#link-new");
-      a.href = host.web.newRepo;
-      a.textContent = `create one on ${host.name}`;
+    // Where the repository will be looked for, as it's typed.
+    box.addEventListener("input", () => {
+      const at = parseRepoInput(box.value, preferred);
+      where.textContent = at ? `On ${at.forge.name}: ${at.spec.owner}/${at.spec.repo}` : "\u00a0";
     });
     // Checked before the dialog closes, so a typo can be fixed in place.
     form.addEventListener("submit", async (e) => {
       if (e.submitter?.value !== "ok") return;
       e.preventDefault();
-      const host = picked();
-      const gh = host.parseSpec(box.value.trim());
       const fail = (msg) => {
         error.textContent = msg;
         error.hidden = false;
       };
-      if (!gh || gh.ref || gh.path || gh.rest) return fail(`Enter the repository as owner/repo or its ${host.host} address`);
+      const at = parseRepoInput(box.value, preferred);
+      const gh = at?.spec;
+      if (!gh || gh.ref || gh.path || gh.rest) return fail(`Enter the repository as owner/repo or its address (${FORGES.map((f) => f.host).join(", ")})`);
+      const host = at.forge;
       try {
         // Its real name and case, and whether this account can see it.
         const r = await host.repo(`${gh.owner}/${gh.repo}`, await ensureFreshToken(host));
@@ -179,25 +184,10 @@ export function linkLocalProject(p, inGallery) {
         } else toast(`Linked ${p.folder} to ${r.nwo} on ${host.name}`);
         resolve(true);
       } catch (err) {
-        fail(err.status === 404 ? `${gh.owner}/${gh.repo} isn't on ${host.name}, or this account can't see it` : String(err.message ?? err));
+        const why = tokenFor(host) ? "or this account can't see it" : `or it's private: sign in to ${host.name} to link it`;
+        fail(err.status === 404 ? `${gh.owner}/${gh.repo} isn't on ${host.name}, ${why}` : String(err.message ?? err));
       }
     });
     dlg.addEventListener("close", () => dlg.returnValue !== "linked" && resolve(false));
   });
-}
-
-/** A forge choice for a dialog (hidden with one forge). */
-export function forgePicker(id) {
-  if (FORGES.length < 2) return "";
-  return `<label class="field-label" for="${id}">Where</label>
-    <select id="${id}" class="input">${FORGES.map((f) => `<option value="${f.id}">${escapeHtml(f.name)}</option>`).join("")}</select>`;
-}
-
-/** The forge chosen with forgePicker (the default one without it); `onChange` runs now and on every change. */
-export function pickedForge(dlg, id, onChange = () => {}) {
-  const sel = dlg.querySelector(`#${id}`);
-  const get = () => forge(sel?.value || undefined);
-  sel?.addEventListener("change", () => onChange(get()));
-  onChange(get());
-  return get;
 }

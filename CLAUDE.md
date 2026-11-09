@@ -557,7 +557,11 @@ tests/smoke.sh                               # pages load cleanly, viewer opens 
   with a hint if they're missing. This machine's connection is slow
   (~0.2 MB/s): a full fetch takes ~6 min here.
 - CI is `.github/workflows/ci.yml` (see README): tests and Rust tests (with the notices check) on PRs and main → Linux, Windows and macOS builds (artifacts; tags and manual runs only, the user's choice to save Actions minutes on the private repo)
-  → GitHub Release on `v*` tags. Keep its commands in sync with this list;
+  → GitHub Release on `v*` tags. The release version is the tag's (the user's
+  choice): every build job and the source archive run `tools/set_version.py
+  <tag>` first (tauri.conf.json, Cargo.toml [package], the kivi-desktop entry
+  of Cargo.lock); the files in the repository aren't bumped and only matter for
+  local and manual builds. Keep its commands in sync with this list;
   it was written without a way to run it locally (no act/actionlint here), so
   the first run on GitHub is its real test.
 - `kicad-cli` (KiCad's own SVG export, for `tools/compare.py`) is the one

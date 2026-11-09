@@ -454,11 +454,16 @@ ok    diff
    `KiVi_<version>_universal.dmg` (Apple Silicon and Intel; `LICENSE` and
    `THIRD-PARTY-NOTICES.md` are inside the app). Not code-signed or notarised.
 
-Pushing a tag `v<version>` (matching `version` in `src-tauri/tauri.conf.json`,
-checked) runs all five and publishes a GitHub Release with the AppImage, the
+Pushing a tag `v<version>` (for example `v0.2.0`) runs all five and publishes a
+GitHub Release. The version comes from the tag: each build first runs
+`tools/set_version.py`, which writes it into `src-tauri/tauri.conf.json`,
+`src-tauri/Cargo.toml` and `src-tauri/Cargo.lock`, so there's nothing to bump
+by hand (the versions in the repository are only for local and manual builds;
+a tag that isn't `v<major>.<minor>.<patch>`, optionally with `-beta.1` and the
+like, fails the build). The release has the AppImage, the
 Windows `.exe`, the macOS `.dmg`, `LICENSE`, `THIRD-PARTY-NOTICES.md`,
 `appimage-libraries.md` and `KiVi_<version>_source.tar.gz` (`git archive` of
-the tag). Merges don't build, so run the workflow by hand on `main` before
+the tag, with the version written in). Merges don't build, so run the workflow by hand on `main` before
 tagging and check all three builds pass.
 
 ## Licence

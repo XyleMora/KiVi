@@ -2022,6 +2022,7 @@ name = "kivi-desktop"
 version = "0.1.0"
 dependencies = [
  "git2",
+ "gtk",
  "notify",
  "notify-debouncer-mini",
  "reqwest 0.12.28",

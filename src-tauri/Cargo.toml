@@ -29,6 +29,10 @@ git2 = { version = "0.20", default-features = false, features = ["vendored-libgi
 notify = "6"
 notify-debouncer-mini = "0.4"
 
+# The folder chooser through the desktop portal (picker.rs). The same GTK as Tauri's.
+[target.'cfg(target_os = "linux")'.dependencies]
+gtk = "0.18"
+
 [profile.release]
 codegen-units = 1
 lto = true

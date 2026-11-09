@@ -182,8 +182,9 @@ pub fn kicad_open(program: String, project: String) -> Result<(), String> {
 
 /// The AppImage's launcher points GTK, GIO and XDG_DATA_DIRS into the image
 /// (`$APPDIR/usr/…`). KiCad must start with the system's own, so those entries
-/// are dropped from what the child inherits.
+/// are dropped from what the child inherits (and KiVi's own GTK_USE_PORTAL, picker.rs).
 fn outside_appimage(cmd: &mut Command) {
+    crate::picker::clean_child_env(cmd);
     let Some(appdir) = std::env::var("APPDIR").ok().filter(|d| !d.is_empty()) else { return };
     for (k, v) in appimage_env_fixes(&appdir, std::env::vars()) {
         match v {

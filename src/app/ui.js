@@ -32,10 +32,31 @@ let memory = null; // used when localStorage is unavailable (private mode, sandb
 export function settings() {
   if (memory) return memory;
   try {
-    return JSON.parse(localStorage.getItem(KEY) ?? "{}");
+    return migrate(JSON.parse(localStorage.getItem(KEY) ?? "{}"));
   } catch {
     return {};
   }
+}
+
+/**
+ * Settings saved by earlier versions, in today's shape: the GitHub token
+ * (`token`, `githubAuth`) moved to `accounts.github` = {token, auth}.
+ */
+function migrate(s) {
+  if (!("token" in s) && !("githubAuth" in s)) return s;
+  const { token, githubAuth, ...rest } = s;
+  const accounts = { ...(rest.accounts ?? {}) };
+  if (token && !accounts.github) accounts.github = { token, auth: githubAuth ?? null };
+  return { ...rest, accounts };
+}
+
+/**
+ * The signed-in token for a forge (a forge object or its id), or null. Fresh
+ * enough for page loads; the desktop app keeps it refreshed (ensureFreshToken).
+ * @param {{id: string}|string} [f]
+ */
+export function tokenFor(f = "github") {
+  return settings().accounts?.[typeof f === "string" ? f : f.id]?.token ?? null;
 }
 
 export function saveSettings(s) {

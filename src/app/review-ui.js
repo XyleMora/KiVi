@@ -28,7 +28,7 @@ import { ISSUE_LABEL, anchorLabel, anchorKind, renderCommentText } from "../revi
 import { forge } from "../forge/index.js";
 import { trackPath, circlePath } from "../pcb/shapes.js";
 import { f } from "../geom.js";
-import { $, toast, settings, collapsible } from "./ui.js";
+import { $, toast, collapsible, tokenFor } from "./ui.js";
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const BUBBLE = { dx: 12, dy: -14, r: 10 }; // pin bubble centre and radius in screen px, tip at the anchor
@@ -36,10 +36,12 @@ const BUBBLE = { dx: 12, dy: -14, r: 10 }; // pin bubble centre and radius in sc
 export const COMMENT_ICON =
   '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2.5 3.5h11v7h-6l-3 2.5v-2.5h-2z" stroke-linejoin="round"/></svg>';
 
-// What the panel calls things: review comments in a pull request, issues elsewhere.
+const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
+// What the panel calls things: review comments in a pull (merge) request, issues elsewhere.
 const WORDS = {
-  pr: { title: "Comments", button: "Comment", what: "comment", resolved: "Resolved", resolve: "Resolve", unresolve: "Unresolve", posted: "Posted to the pull request", item: "comments" },
-  issues: { title: "Issues", button: "Request change", what: "change request", resolved: "Closed", resolve: "Close issue", unresolve: "Reopen", posted: "Opens a GitHub issue", item: "issues" },
+  pr: (f) => ({ title: "Comments", button: "Comment", what: "comment", resolved: "Resolved", resolve: "Resolve", unresolve: "Unresolve", posted: `Posted to the ${f.words.pr}`, item: "comments" }),
+  issues: (f) => ({ title: "Issues", button: "Request change", what: "change request", resolved: "Closed", resolve: "Close issue", unresolve: "Reopen", posted: `Opens a ${f.name} issue`, item: "issues" }),
 };
 
 /**
@@ -73,13 +75,18 @@ export class ReviewStore {
     return !!this.api?.canWrite;
   }
 
+  /** The forge the threads are on (the default one before anything is open). */
+  get host() {
+    return this.forge ?? forge();
+  }
+
   get words() {
-    return WORDS[this.kind];
+    return WORDS[this.kind](this.host);
   }
 
   /** Wording for one thread: an issue reads as an issue in a pull request too. */
   wordsFor(t) {
-    return t?.issue ? WORDS.issues : WORDS.pr;
+    return (t?.issue ? WORDS.issues : WORDS.pr)(this.host);
   }
 
   /** The API a thread's replies, resolving and deleting go to. */
@@ -97,8 +104,9 @@ export class ReviewStore {
 
   /** @param {{owner: string, repo: string, number: number, headSha: string, forge?: string}} pr  `forge`: its id, GitHub by default */
   async open(pr) {
-    const token = settings().token ?? null;
     const f = forge(pr.forge);
+    const token = tokenFor(f);
+    this.forge = f;
     this.pr = pr;
     this.issues = null;
     this.kind = "pr";
@@ -133,7 +141,7 @@ export class ReviewStore {
 
   /** Wording for a new pin on `path`. */
   wordsAt(path) {
-    return WORDS[this.kindFor(path)];
+    return WORDS[this.kindFor(path)](this.host);
   }
 
   /**
@@ -148,6 +156,7 @@ export class ReviewStore {
     const same = this.kind === "issues" && this.api && this.issues.forge === f.id && this.issues.owner === owner && this.issues.repo === repo && this.issues.prefix === prefix;
     this.issues = { forge: f.id, owner, repo, prefix, commit };
     if (same) return;
+    this.forge = f;
     this.pr = null;
     this.changed = null;
     this.kind = "issues";
@@ -155,7 +164,7 @@ export class ReviewStore {
     this.closing = new Set();
     this.loadedAt = 0;
     this.error = this.issueError = null;
-    this.api = this.issueApi = f.issues({ owner, repo, token: settings().token ?? null });
+    this.api = this.issueApi = f.issues({ owner, repo, token: tokenFor(f) });
     this.emit();
     await this.reload();
   }
@@ -289,7 +298,7 @@ export class ReviewPanel {
     this.root.innerHTML = `
       <div class="row between">
         ${collapsed ? `<button class="cm-head-btn" aria-label="Comments"><span class="panel-title cm-title-text">Comments</span><span class="cm-count"></span></button>` : `<div class="panel-title"><span class="cm-title-text">Comments</span> <span class="cm-count"></span></div>`}
-        <button class="btn icon cm-refresh" aria-label="Reload" title="Reload from GitHub"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M13 8a5 5 0 1 1-1.6-3.7M13 2.5v3h-3"/></svg></button>
+        <button class="btn icon cm-refresh" aria-label="Reload" title="Reload"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M13 8a5 5 0 1 1-1.6-3.7M13 2.5v3h-3"/></svg></button>
       </div>
       <div class="cm-body">
         <div class="seg cm-filter" role="group" aria-label="Show comments">
@@ -393,7 +402,8 @@ export class ReviewPanel {
 
   /** Labels that differ between pull request comments and issues. */
   applyWords() {
-    const w = this.store.words, nw = this.store.wordsAt(this.host.commentPath());
+    const path = this.host.commentPath();
+    const w = this.store.words, nw = this.store.wordsAt(path);
     const title = this.store.kind === "pr" && this.store.threads.some((t) => t.issue) ? "Comments & issues" : w.title;
     if (this.wordsKind === title + nw.button) return;
     this.wordsKind = title + nw.button;
@@ -401,7 +411,8 @@ export class ReviewPanel {
     this.q(".cm-resolved-label").textContent = w.resolved;
     this.q(".cm-head-btn")?.setAttribute("aria-label", title);
     // New pins on a file the pull request doesn't change are issues (kindFor).
-    const elsewhere = nw !== w ? ` (pull request #${this.store.pr.number} doesn't change this file, so GitHub takes no review comments on it)` : "";
+    const H = this.store.host;
+    const elsewhere = this.store.kindFor(path) !== this.store.kind ? ` (${H.words.pr} ${H.words.prRef(this.store.pr.number)} doesn't change this file, so ${H.name} takes no review comments on it)` : "";
     this.modeButton.title = `${nw.button === "Comment" ? "Comment on" : "Request a change to"} a part, pad, net or spot (C)${elsewhere}`;
     const label = this.modeButton.querySelector("span");
     if (label) label.textContent = nw.button;
@@ -558,12 +569,13 @@ export class ReviewPanel {
     const a = this.active;
     if (!a) return;
     const canWrite = this.store.canWrite;
-    const tokenNote = (what) => `<div class="cm-note"><button class="link" data-act="signin">Sign in with GitHub</button> to ${what}.</div>`;
+    const H = this.store.host;
+    const tokenNote = (what) => `<div class="cm-note"><button class="link" data-act="signin">Sign in to ${esc(H.name)}</button> to ${what}.</div>`;
     let html;
     if (a.kind === "draft") {
       const what = a.anchor.type === "point" ? "this spot" : anchorLabel(a.anchor);
       const path = this.host.commentPath(a), issues = this.store.kindFor(path) === "issues", w = this.store.wordsAt(path);
-      const elsewhere = issues && this.store.kind === "pr" ? `<div class="cm-note">Pull request #${this.store.pr.number} doesn't change this file, so GitHub takes no review comments on it: this opens a change request instead.</div>` : "";
+      const elsewhere = issues && this.store.kind === "pr" ? `<div class="cm-note">${cap(H.words.pr)} ${H.words.prRef(this.store.pr.number)} doesn't change this file, so ${esc(H.name)} takes no review comments on it: this opens a change request instead.</div>` : "";
       html = `${this.head(a.anchor, null)}
         ${
           canWrite
@@ -580,8 +592,8 @@ export class ReviewPanel {
       if (pl?.note) notes.push(pl.note);
       else if (pl?.side && !pl.found) notes.push(`Not found in this version of the file — shown where it was${t.commit ? ` (requested at <span class="mono">${esc(t.commit.slice(0, 7))}</span>)` : ""}.`);
       if (t.loadingReplies || t.repliesPending) notes.push("Loading comments…");
-      if (t.repliesError) notes.push(`Comments couldn't be loaded: ${esc(t.repliesError)}`);
-      if (closes) notes.push(t.isResolved ? "Linked to this pull request." : "Closes when this pull request is merged.");
+      if (t.repliesError) notes.push(t.repliesPending === false && !this.store.canWrite && /signed in/.test(t.repliesError) ? `${esc(t.repliesError)}.` : `Comments couldn't be loaded: ${esc(t.repliesError)}`);
+      if (closes) notes.push(t.isResolved ? `Linked to this ${H.words.pr}.` : `Closes when this ${H.words.pr} is merged.`);
       if (!t.anchor && t.line) notes.push(`Comment on line ${t.line} of <span class="mono">${esc(t.path.split("/").pop())}</span>.`);
       html = `${this.head(t.anchor, t)}
         ${t.title ? `<div class="cm-issue-title">${esc(t.title)}</div>` : ""}
@@ -595,8 +607,8 @@ export class ReviewPanel {
           .join("")}</ol>
         ${canWrite && t.canReply !== false ? `<textarea class="input cm-input" rows="2" placeholder="${t.issue ? "Comment…" : "Reply…"}" aria-label="${t.issue ? "Comment" : "Reply"}"></textarea>` : canWrite ? "" : tokenNote(t.issue ? "comment and close" : "reply and resolve")}
         <div class="cm-actions">
-          <a href="${esc(t.comments.at(-1).url)}" target="_blank" rel="noopener" class="cm-gh">View on GitHub</a>
-          ${inPr && !closes && !t.isResolved && canWrite ? `<button class="btn" data-act="link" title="Add “Fixes #${t.number}” to the pull request's description: GitHub closes the issue when it's merged">Close with this PR</button>` : ""}
+          <a href="${esc(t.comments.at(-1).url)}" target="_blank" rel="noopener" class="cm-gh">View on ${esc(H.name)}</a>
+          ${inPr && !closes && !t.isResolved && canWrite ? `<button class="btn" data-act="link" title="Add “${esc(H.words.closes(t.number))}” to the ${H.words.pr}'s description: ${esc(H.name)} closes the issue when it's merged">Close with this ${H.words.prShort}</button>` : ""}
           ${t.isResolved ? (t.canUnresolve ? `<button class="btn" data-act="unresolve">${tw.unresolve}</button>` : "") : t.canResolve ? `<button class="btn" data-act="resolve">${tw.resolve}</button>` : ""}
           ${canWrite && t.canReply !== false ? `<button class="btn primary" data-act="reply" disabled>${t.issue ? "Comment" : "Reply"}</button>` : ""}
         </div>`;
@@ -660,7 +672,7 @@ export class ReviewPanel {
     if (what === "cancel") return this.close();
     if (what === "signin") {
       this.close();
-      return window.dispatchEvent(new Event("kivi:signin")); // the account menu (src/desktop/account.js) handles it
+      return window.dispatchEvent(new CustomEvent("kivi:signin", { detail: { forge: this.store.forge?.id } })); // the account menu (src/desktop/account.js) handles it
     }
     const busy = (on) => {
       for (const b of this.pop.querySelectorAll("button")) b.disabled = on;
@@ -675,9 +687,9 @@ export class ReviewPanel {
         await this.store.reload();
         const t = this.store.byRoot(created.key);
         if (!t || !this.openThread(t, { view: a.view })) this.close();
-        if (!created.key.startsWith("i")) toast("Comment posted to the pull request");
+        if (!created.key.startsWith("i")) toast(`Comment posted to the ${this.store.host.words.pr}`);
         // Without write access GitHub drops the label, and KiVi lists only labelled issues.
-        else if (created.labelled === false) toast(`Issue #${created.id} opened, but GitHub didn't add the "${ISSUE_LABEL}" label (that needs write access), so it won't show here: ask a maintainer to add it`, true);
+        else if (created.labelled === false) toast(`Issue #${created.id} opened, but ${this.store.host.name} didn't add the "${ISSUE_LABEL}" label (that needs write access), so it won't show here: ask a maintainer to add it`, true);
         else toast(`Issue #${created.id} opened`);
       } else if (what === "reply") {
         await this.store.apiFor(a.thread).reply(a.thread, ta.value);
@@ -689,9 +701,9 @@ export class ReviewPanel {
         await this.store.reload();
       } else if (what === "link") {
         await this.store.linkToPr(a.thread);
-        toast(`This pull request now closes issue #${a.thread.number} when it's merged`);
+        toast(`This ${this.store.host.words.pr} now closes issue #${a.thread.number} when it's merged`);
       } else if (what === "delete") {
-        if (!confirm("Delete this comment on GitHub?")) return busy(false);
+        if (!confirm(`Delete this comment on ${this.store.host.name}?`)) return busy(false);
         await this.store.apiFor(a.thread).remove(Number(el.dataset.id));
         await this.store.reload();
       }
@@ -719,8 +731,10 @@ export class ReviewPanel {
         ? `Issues couldn't be loaded: ${esc(this.store.issueError)}`
       : this.store.loading && !this.store.loadedAt
         ? "Loading…"
+        : this.store.enabled && !this.store.canWrite && this.store.api?.readsNeedSignIn && this.store.kind === "pr"
+          ? `${esc(this.store.host.name)} shows comments only when you're signed in. <button class="link" data-act="signin">Sign in to ${esc(this.store.host.name)}</button> to read and write them.`
         : this.store.enabled && !this.store.canWrite
-          ? `Read-only. <button class="link" data-act="signin">Sign in with GitHub</button> to ${this.store.kind === "issues" ? "request changes" : "comment and resolve"}.`
+          ? `Read-only. <button class="link" data-act="signin">Sign in to ${esc(this.store.host.name)}</button> to ${this.store.kind === "issues" ? "request changes" : "comment and resolve"}.`
           : "";
     status.querySelector("[data-act=signin]")?.addEventListener("click", () => this.act("signin"));
     if (!shown.length) {
@@ -738,7 +752,7 @@ export class ReviewPanel {
         const num = `${t.issue ? "#" : ""}${t.number}`;
         const inPr = t.issue && this.store.kind === "pr";
         const cur = this.active?.kind === "thread" && this.active.thread === t;
-        const extra = [inPr ? (this.store.closing.has(t.number) ? "issue · closes with this PR" : "issue") : "", t.anchor?.side === "base" ? "before" : "", where && !here ? where : "", pl?.side && !pl.found ? "not in this version" : ""].filter(Boolean).join(" · ");
+        const extra = [inPr ? (this.store.closing.has(t.number) ? `issue · closes with this ${this.store.host.words.prShort}` : "issue") : "", t.anchor?.side === "base" ? "before" : "", where && !here ? where : "", pl?.side && !pl.found ? "not in this version" : ""].filter(Boolean).join(" · ");
         return `<li><button data-root="${esc(t.key)}" class="cm-item${t.isResolved ? " resolved" : ""}"${cur ? " aria-current" : ""}>
           <span class="cm-num${t.issue ? " issue" : ""}">${t.isResolved ? "✓" : num}</span>
           <span class="cbody"><span class="clabel">${label ? `<span class="mono">${esc(label)}</span> ` : ""}<span class="ctype">${esc(kind)}${extra ? ` · ${esc(extra)}` : ""}</span></span>

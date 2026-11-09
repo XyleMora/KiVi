@@ -5,22 +5,23 @@ tour, see the [main README](../README.md).
 
 ## Projects
 
-The home screen finds every `.kicad_pro` in the repositories you can reach
-and shows each as a card. The filter narrows the grid by project, repository
-or folder name as you type; a card's `⋯` menu opens the schematic, PCB, 3D
-view, BOM or GitHub directly. The header's three icons switch between
+The home screen finds every `.kicad_pro` in the GitHub and GitLab
+repositories you can reach and shows each as a card (GitLab ones with a
+GitLab tag). The filter narrows the grid by project, repository, folder or
+forge name as you type; a card's `⋯` menu opens the schematic, PCB, 3D view,
+BOM or the repository's page on GitHub or GitLab directly. The header's three icons switch between
 **Projects**, **Pull requests** and **Issues**.
 
 The **+** button at the bottom right adds a project:
 
-- **Remote project…** asks for a GitHub repository (`owner/repo` or its
-  github.com address), checks that it exists, that your account can see it,
+- **Remote project…** asks where (GitHub or GitLab) and for the repository
+  (`owner/repo`, `group/sub/project`, or its address), checks that it exists, that your account can see it,
   that it has KiCad projects and that it isn't in the gallery yet, then adds
   it: its projects join the gallery and its pull requests the pull request
   list.
 - **Local project…** adds a folder on this computer; each KiCad project in it
-  gets a card (with a folder icon and its path), listed with the GitHub
-  projects by date of the last change. Thumbnails are re-rendered when the
+  gets a card (with a folder icon and its path), listed with the GitHub and
+  GitLab projects by date of the last change. Thumbnails are re-rendered when the
   board changes. A folder that isn't in a git repository becomes one when
   it's added (`git init`, on `main`, with a `.gitignore` leaving out KiCad's
   working files: local history `.history/`, lock files `~*.lck`, backups,
@@ -31,22 +32,23 @@ The **+** button at the bottom right adds a project:
 Projects also open from a folder dropped on the window, or given on the
 command line (`./KiVi_*.AppImage /path/to/project`).
 
-**Remove from projects** in a GitHub card's `⋯` menu takes its whole
+**Remove from projects** in a GitHub or GitLab card's `⋯` menu takes its whole
 repository off the gallery and the pull request list. **Reload**, next to the
 page title, lists every repository again, including removed ones. A local
 card's **Remove from projects** leaves the folder on disk.
 
-A local card's `⋯` menu also has **Open in KiCad**, **View on GitHub** (greyed
-out until linked) and **Link to GitHub…**:
+A local card's `⋯` menu also has **Open in KiCad**, **View on GitHub** or
+**View on GitLab** (greyed out until linked) and **Link to remote…**:
 
-- **Link to GitHub…** asks for a repository, checks that it exists and that
-  your account can see it, and adds it as the folder's git remote (`origin`,
-  or `github` if origin points elsewhere). Nothing is uploaded: open the
-  project and use **Commit…** and **Push…** from its branch menu. Use an empty
-  repository, since KiVi can't combine your history with one GitHub already
-  has.
-- Once linked, the card gets the sync icon and View on GitHub, and the branch
-  menu gets **Push…**.
+- **Link to remote…** asks where (GitHub or GitLab) and for a repository,
+  checks that it exists and that your account can see it, and adds it as the
+  folder's git remote (`origin`, or `github` / `gitlab` if origin points
+  elsewhere). Nothing is uploaded: open the project and use **Commit…** and
+  **Push…** from its branch menu. Use an empty repository, since KiVi can't
+  combine your history with one the forge already has.
+- Once linked, the card gets the sync icon and View on GitHub or GitLab, and
+  the branch menu gets **Push…**. A clone of a GitLab project is recognised
+  the same way, whatever its remote's address form (HTTPS or SSH).
 - A folder that is a clone of a repository already in the gallery doesn't get
   a card of its own: it becomes that repository's local copy.
 
@@ -274,7 +276,16 @@ found. Linking is never automatic; an empty box unlinks it.
   aren't on this computer (a GitHub project without a local copy: **Download**
   or **Link** it first), and for projects without a `.kicad_pro`.
 
-## GitHub sign-in
+## Signing in to GitHub and GitLab
+
+KiVi works with GitHub and with GitLab (gitlab.com). You can be signed in to
+either or both: the account menu has a part for each (sign in, profile, sign
+out), and the gallery, the pull request list and the issue list show both
+together, with a GitLab tag on GitLab projects. In GitLab's words a pull
+request is a merge request (`!5`), and a review comment a discussion on a
+file. Sign-in is the only way to give KiVi access: there is no token to paste.
+
+### GitHub
 
 Sign-in uses a GitHub App (free, no server). Signing in from the account menu
 shows a one-time code (like `WDJB-MJHT`) and a **Copy code and open GitHub**
@@ -300,6 +311,28 @@ accounts yet, it then offers **Install on GitHub** to choose the repositories.
 - Without signing in, GitHub allows 60 API requests an hour from your network;
   a large gallery uses them up quickly. Signed in, the limit is 5,000.
 
+### GitLab
+
+Sign-in uses an OAuth application on gitlab.com (free, no server), with the
+same one-time code: **Copy code and open GitLab**, paste it on gitlab.com and
+approve KiVi. KiVi builds have the application built in
+(`KIVI_GITLAB_CLIENT_ID`); otherwise the dialog asks for its Application ID.
+To register one: gitlab.com → Preferences → **Applications** → *Add new
+application*, any name and redirect URI, **Confidential unticked**, scopes
+**api** and **write_repository**.
+
+- Signed in, the gallery lists every project you're a member of (Reporter or
+  above, not archived); **Remove from projects** hides one, as for GitHub.
+- Tokens expire after 2 hours and are renewed automatically, like GitHub's.
+- Merge requests, review comments, issues and pushing need the matching role
+  on the project: Reporter for issues, Developer for comments on merge
+  requests and for pushing (protected branches may need more).
+- Signed out, GitLab shows public projects and their merge requests and
+  issues, but **no comments** (it answers those only to signed-in users), and
+  it limits requests from your network tightly (a few hundred every few
+  minutes); a big repository is listed 100 files per request.
+- Only gitlab.com for now, not self-hosted GitLab servers.
+
 ## Links into the viewer
 
 ```
@@ -313,11 +346,15 @@ diff.html#gh=owner/repo&commit=<sha>                      … of a commit
 diff.html#gh=owner/repo&base=main&head=feature&file=hw/board.kicad_pcb
 diff.html#gh=owner/repo&head=feature                      … against the default branch
 diff.html#local=/path/to/copy[&base=<ref>][&head=<ref>]   a local copy (no head: its working files)
+index.html#gl=group/sub/project@main:hardware&tab=pcb     a GitLab project (any gh= link works with gl=)
+index.html#gl=group/project&pr=group/project%235          … at merge request !5's head
+diff.html#gl=group/project&pr=5                           visual diff of merge request !5
 inbox.html#projects, #prs, #issues                        home screen views
 ```
 
 `gh=` takes `owner/repo`, `owner/repo@branch:path/to/project` or any
-`https://github.com/owner/repo/tree/<ref>/<path>` URL.
+`https://github.com/owner/repo/tree/<ref>/<path>` URL; `gl=` the same for
+GitLab (`group/sub/project`, or `https://gitlab.com/group/project/-/tree/<ref>/<path>`).
 
 ## How the gallery stays fast
 

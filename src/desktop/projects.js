@@ -10,8 +10,8 @@
 //   - thumbnails (IndexedDB), keyed by the board file's git blob SHA, so a board
 //     is fetched and rendered once per version.
 
-import { escapeHtml, settings, toast } from "../app/ui.js";
-import { forge } from "../forge/index.js";
+import { escapeHtml, settings, toast, tokenFor } from "../app/ui.js";
+import { FORGES, forge, forgeNames, parseRepoKey, repoKey } from "../forge/index.js";
 import { findProjects } from "../project.js";
 import { cloneProject, forgetSync, knownSync, linkProject, localCopy, localViewUrl, syncState, unlinkLocalCopy } from "./git.js";
 import { kicadAction, openInKicad, projectPath } from "./tauri.js";
@@ -22,17 +22,43 @@ const INDEX_KEY = "kivi.projectIndex";
 const THUMB_W = 640, THUMB_H = 400;
 const PAGE = 48; // cards rendered at a time; more as the end of the grid scrolls into view
 const MAX_PREVIEW = 30e6; // bytes; bigger boards (KiCad's 85 MB Jetson demo) take minutes and a lot of memory to parse
-const token = () => settings().token ?? null;
-// The forge the gallery lists; its repositories are named "owner/repo".
-const host = forge();
-
 // ---- repositories and projects ------------------------------------------------------
+// Repositories of every forge are kept by key (repoKey: "owner/repo" on GitHub,
+// "gitlab:group/project" on GitLab), in the index and in settings.watchRepos /
+// hiddenRepos.
 
-/** Repositories to scan: the signed-in account's, then remote projects, less those removed from projects. */
-function listRepos() {
+/** Repository keys grouped by forge: Map forge id → [nwo]. */
+function byForge(keys) {
+  const out = new Map();
+  for (const k of keys) {
+    const r = parseRepoKey(k);
+    if (r) out.set(r.forge.id, [...(out.get(r.forge.id) ?? []), r.nwo]);
+  }
+  return out;
+}
+
+/**
+ * Repositories to scan, from every forge: the signed-in account's, then remote
+ * projects, less those removed from projects. Each is a RepoInfo plus `forge`
+ * and `key`. A forge that can't be listed is reported in `errors`, the others still are.
+ */
+async function listRepos() {
+  const watched = byForge(settings().watchRepos ?? []);
   // Removed from the gallery by the user (Remove from projects), until added again.
-  const hidden = new Set((settings().hiddenRepos ?? []).map((h) => h.toLowerCase()));
-  return host.listRepos(token(), { watched: settings().watchRepos ?? [], hidden });
+  const hidden = byForge(settings().hiddenRepos ?? []);
+  const out = [];
+  out.errors = [];
+  await Promise.all(
+    FORGES.filter((f) => tokenFor(f) || watched.has(f.id)).map(async (f) => {
+      try {
+        const repos = await f.listRepos(tokenFor(f), { watched: watched.get(f.id) ?? [], hidden: new Set((hidden.get(f.id) ?? []).map((h) => h.toLowerCase())) });
+        for (const r of repos) out.push({ ...r, forge: f, key: repoKey(f, r.nwo) });
+      } catch (e) {
+        out.errors.push(`${f.name}: ${e.message}`);
+      }
+    }),
+  );
+  return out;
 }
 
 function loadIndex() {
@@ -50,16 +76,16 @@ function saveIndex(index) {
   }
 }
 
-/** Projects of one repository at its default branch (one tree request). @param {import("../forge/index.js").RepoInfo} r */
+/** Projects of one repository at its default branch (one tree listing). @param {import("../forge/index.js").RepoInfo & {forge: object}} r */
 async function scanRepo(r) {
-  const tree = await host.tree(r.nwo, r.defaultBranch, token());
+  const tree = await r.forge.tree(r.nwo, r.defaultBranch, tokenFor(r.forge));
   const blobs = new Map(tree.files.filter((e) => /\.kicad_(pro|sch|pcb)$/.test(e.path)).map((e) => [e.path, e]));
   // Without a .kicad_pro, findProjects lists every loose schematic (sub-sheets too); keep only boards then.
   const projects = findProjects([...blobs.keys()])
     .filter((p) => p.pro || p.pcb)
-    .map((p) => ({ name: p.name, dir: p.dir, pro: p.pro, sch: p.sch, pcb: p.pcb, pcbSha: blobs.get(p.pcb)?.sha ?? null, pcbSize: blobs.get(p.pcb)?.size ?? 0 }));
+    .map((p) => ({ name: p.name, dir: p.dir, pro: p.pro, sch: p.sch, pcb: p.pcb, pcbSha: blobs.get(p.pcb)?.sha ?? null, pcbSize: blobs.get(p.pcb)?.size ?? null })); // null: not listed (GitLab)
   return {
-    repo: { nwo: r.nwo, private: r.private, archived: r.archived },
+    repo: { nwo: r.nwo, private: r.private, archived: r.archived, forge: r.forge.id },
     pushed: r.pushedAt,
     branch: r.defaultBranch,
     truncated: !!tree.truncated,
@@ -69,29 +95,29 @@ async function scanRepo(r) {
 
 // ---- repositories with projects (the pull request list) ---------------------------------
 
-const KICAD_REPOS_KEY = "kivi.kicadRepos"; // {"owner/repo": {pushed, branch, has}}
+const KICAD_REPOS_KEY = "kivi.kicadRepos"; // {repository key: {pushed, branch, has}}
 
 /**
- * Repositories in the gallery with KiCad projects, as last scanned (the
+ * Repositories (keys) in the gallery with KiCad projects, as last scanned (the
  * project index), plus remote projects, less those removed from projects. No
  * requests: the Issues view searches these.
  */
 export function galleryRepos() {
   const hidden = new Set((settings().hiddenRepos ?? []).map((h) => h.toLowerCase()));
   const out = new Map();
-  for (const [nwo, e] of Object.entries(loadIndex())) if (e?.projects?.length || e?.truncated) out.set(nwo.toLowerCase(), nwo);
-  for (const nwo of settings().watchRepos ?? []) if (!out.has(nwo.toLowerCase())) out.set(nwo.toLowerCase(), nwo);
-  return [...out].filter(([k]) => !hidden.has(k)).map(([, nwo]) => nwo);
+  for (const [k, e] of Object.entries(loadIndex())) if (e?.projects?.length || e?.truncated) out.set(k.toLowerCase(), k);
+  for (const k of settings().watchRepos ?? []) if (!out.has(k.toLowerCase())) out.set(k.toLowerCase(), k);
+  return [...out].filter(([k]) => !hidden.has(k)).map(([, k]) => k);
 }
 
 /**
- * Whether a repository has KiCad projects (as the gallery counts them), for
- * showing only its pull requests. The gallery's index answers without a
- * request; other repositories cost one request (two when pushed to since the
- * last check) and are remembered. Rejects when GitHub can't tell (not cached).
+ * Whether a repository (its key) has KiCad projects (as the gallery counts
+ * them), for showing only its pull requests. The gallery's index answers
+ * without a request; other repositories cost one request (more when pushed to
+ * since the last check) and are remembered. Rejects when the forge can't tell (not cached).
  */
-export async function repoHasProjects(nwo) {
-  const known = loadIndex()[nwo];
+export async function repoHasProjects(key) {
+  const known = loadIndex()[key];
   if (known) return known.projects.length > 0 || known.truncated;
   let cache;
   try {
@@ -99,15 +125,17 @@ export async function repoHasProjects(nwo) {
   } catch {
     cache = {};
   }
-  const r = await host.repo(nwo, token());
-  const hit = cache[r.nwo];
+  const { forge: f, nwo } = parseRepoKey(key);
+  const r = { ...(await f.repo(nwo, tokenFor(f))), forge: f };
+  const k = repoKey(f, r.nwo);
+  const hit = cache[k];
   if (hit && hit.pushed === r.pushedAt && hit.branch === r.defaultBranch) return hit.has;
   const scanned = await scanRepo(r);
   // A truncated tree may hide projects: show its pull requests rather than lose them.
   const has = scanned.projects.length > 0 || scanned.truncated;
   try {
     cache = JSON.parse(localStorage.getItem(KICAD_REPOS_KEY) ?? "{}"); // other checks ran meanwhile
-    localStorage.setItem(KICAD_REPOS_KEY, JSON.stringify({ ...cache, [r.nwo]: { pushed: r.pushedAt, branch: r.defaultBranch, has } }));
+    localStorage.setItem(KICAD_REPOS_KEY, JSON.stringify({ ...cache, [k]: { pushed: r.pushedAt, branch: r.defaultBranch, has } }));
   } catch {
     /* storage unavailable: checked again next time */
   }
@@ -192,7 +220,7 @@ function pump() {
   }
 }
 
-/** The thumbnail cache key: the board's blob SHA on GitHub, or its path, size and time on disk. */
+/** The thumbnail cache key: the board's git blob SHA on its forge, or its path, size and time on disk. */
 const thumbKey = (p) => p.pcbSha ?? p.pcbStamp ?? null;
 
 /** Object URL of a project's board thumbnail (cached, rendered on first use). */
@@ -204,8 +232,8 @@ function thumbnail(p) {
       let blob = await idb("readonly", (s) => s.get(k));
       if (!blob) {
         blob = await limited(async () => {
-          const [owner, repo] = p.local ? [] : p.nwo.split("/");
-          const text = p.local ? await readLocalBoard(p) : await host.source({ owner, repo, ref: p.branch, token: token() }).readText(p.pcb);
+          const r = p.local ? null : parseRepoKey(p.repoKey);
+          const text = p.local ? await readLocalBoard(p) : await r.forge.source({ owner: r.owner, repo: r.repo, ref: p.branch, token: tokenFor(r.forge) }).readText(p.pcb);
           return rasterize(await renderInWorker(text, p.pcb));
         });
         await idb("readwrite", (s) => s.put(blob, k));
@@ -247,13 +275,17 @@ function thumbHtml(p) {
       : `<span class="thumb-note pending">Rendering board…</span>`;
 }
 
+/** The forge's name next to a repository, for any but the default forge (GitHub cards look as they always did). */
+const forgeTag = (f) => (f === FORGES[0] ? "" : ` <span class="tag forge-tag">${escapeHtml(f.name)}</span>`);
+
 function cardHtml(p) {
   if (p.local) return localCardHtml(p);
+  const f = forge(p.forge);
   const spec = `${p.nwo}@${p.branch}:${p.pro ?? p.pcb}`;
-  const local = localCopy(p.nwo);
-  // A linked project always opens from its local copy; otherwise from GitHub.
-  const view = (tab) => (local ? localViewUrl(local, p.pro ?? p.pcb, tab) : `index.html#${new URLSearchParams({ [host.hashKey]: spec, ...(tab && { tab }) })}`);
-  const web = host.web.tree(p.nwo, p.branch, p.dir);
+  const local = localCopy(p.repoKey);
+  // A linked project always opens from its local copy; otherwise from its forge.
+  const view = (tab) => (local ? localViewUrl(local, p.pro ?? p.pcb, tab) : `index.html#${new URLSearchParams({ [f.hashKey]: spec, ...(tab && { tab }) })}`);
+  const web = f.web.tree(p.nwo, p.branch, p.dir);
   const thumb = thumbHtml(p);
   const where = p.dir ? `${p.nwo}/${p.dir}` : p.nwo;
   // Linked: the views above open the copy; otherwise download the repository or link a clone.
@@ -274,14 +306,14 @@ function cardHtml(p) {
             ${p.pcb ? `<a href="${escapeHtml(view("pcb"))}">PCB</a><a href="${escapeHtml(view("3d"))}">3D view</a>` : ""}
             <a href="${escapeHtml(view("bom"))}">Bill of materials</a>
             <button type="button" data-kicad aria-disabled="${!kicad.ok}" title="${escapeHtml(kicad.title)}">Open in KiCad</button>
-            <a href="${escapeHtml(web)}">View on ${escapeHtml(host.name)}</a>
+            <a href="${escapeHtml(web)}">View on ${escapeHtml(f.name)}</a>
             <hr>
             ${localItems}
-            <button type="button" data-repo="remove" title="${escapeHtml(`Stop showing ${p.nwo} in the gallery and the pull request list${p.repoCount > 1 ? ` (all its ${p.repoCount} projects)` : ""}; Reload brings it back`)}">Remove from projects</button>
+            <button type="button" data-repo="remove" title="${escapeHtml(`Stop showing ${p.nwo} in the gallery and the ${f.words.pr} list${p.repoCount > 1 ? ` (all its ${p.repoCount} projects)` : ""}; Reload brings it back`)}">Remove from projects</button>
           </div>
         </details>
       </div>
-      <div class="project-meta muted" title="${escapeHtml(`${where} @ ${p.branch}`)}">${p.private ? LOCK_ICON : ""}<span>${escapeHtml(where)}</span>${p.archived ? ` <span class="tag">archived</span>` : ""}</div>
+      <div class="project-meta muted" title="${escapeHtml(`${where} @ ${p.branch}`)}">${p.private ? LOCK_ICON : ""}<span>${escapeHtml(where)}</span>${forgeTag(f)}${p.archived ? ` <span class="tag">archived</span>` : ""}</div>
       <div class="project-meta muted">${escapeHtml(when(p.pushed))}</div>
     </div>
   </li>`;
@@ -316,13 +348,15 @@ function localCardHtml(p) {
   const kicad = kicadAction(projectPath(p.folder, p.pro ?? p.pcb));
   // The project's place in the repository, on the branch checked out.
   const sub = p.git ? [relativeTo(p.git.root, p.folder), p.dir].filter(Boolean).join("/") : "";
-  const github = p.git
-    ? `<a href="${escapeHtml(host.web.tree(p.git.nwo, p.git.branch, sub))}">View on ${escapeHtml(host.name)}</a>`
-    : `<button type="button" aria-disabled="true" title="Not linked to GitHub yet: use Link to GitHub…">View on GitHub</button>`;
-  const link = p.git ? "" : `<button type="button" data-local="link" title="Add a GitHub repository as this folder's git remote">Link to GitHub…</button>`;
-  const known = p.git ? knownSync(p.git.nwo, p.git.root) : { color: "grey", title: "Not linked to GitHub: Link to GitHub… from the ⋯ menu" };
-  const syncTitle = known?.title ?? `Checking ${p.git.root} against GitHub…`;
-  const sync = `<span class="sync-icon ${known ? `sync-${known.color}` : "sync-pending"}"${p.git ? ` data-sync="${escapeHtml(p.git.nwo)}" data-folder="${escapeHtml(p.git.root)}"` : ""} role="img" aria-label="${escapeHtml(syncTitle)}" title="${escapeHtml(syncTitle)}">${SYNC_ICON}</span>`;
+  const f = p.git ? forge(p.git.forge) : null;
+  const names = forgeNames();
+  const web = f
+    ? `<a href="${escapeHtml(f.web.tree(p.git.nwo, p.git.branch, sub))}">View on ${escapeHtml(f.name)}</a>`
+    : `<button type="button" aria-disabled="true" title="Not linked to ${escapeHtml(names)} yet: use Link to remote…">View on ${escapeHtml(names.includes(" or ") ? "the web" : names)}</button>`;
+  const link = p.git ? "" : `<button type="button" data-local="link" title="Add a ${escapeHtml(names)} repository as this folder's git remote">Link to remote…</button>`;
+  const known = p.git ? knownSync(p.git.key, p.git.root) : { color: "grey", title: `Not linked to ${names}: Link to remote… from the ⋯ menu` };
+  const syncTitle = known?.title ?? `Checking ${p.git.root} against ${f.name}…`;
+  const sync = `<span class="sync-icon ${known ? `sync-${known.color}` : "sync-pending"}"${p.git ? ` data-sync="${escapeHtml(p.git.key)}" data-folder="${escapeHtml(p.git.root)}"` : ""} role="img" aria-label="${escapeHtml(syncTitle)}" title="${escapeHtml(syncTitle)}">${SYNC_ICON}</span>`;
   return `<li class="project-card" data-key="${escapeHtml(p.key)}">
     <a class="project-thumb" href="${escapeHtml(view())}" tabindex="-1" aria-hidden="true">${thumbHtml(p)}</a>
     <div class="project-info">
@@ -335,7 +369,7 @@ function localCardHtml(p) {
             ${p.pcb ? `<a href="${escapeHtml(view("pcb"))}">PCB</a><a href="${escapeHtml(view("3d"))}">3D view</a>` : ""}
             <a href="${escapeHtml(view("bom"))}">Bill of materials</a>
             <button type="button" data-kicad aria-disabled="${!kicad.ok}" title="${escapeHtml(kicad.title)}">Open in KiCad</button>
-            ${github}
+            ${web}
             <hr>
             ${link}${remove}
           </div>
@@ -349,19 +383,19 @@ function localCardHtml(p) {
 
 /** The sync icon: grey without a local copy, else the last known state (checked after rendering). */
 function syncIconHtml(p, local) {
-  const known = local ? knownSync(p.nwo) : { color: "grey", title: "Not on this computer: Download or Link it from the ⋯ menu" };
+  const known = local ? knownSync(p.repoKey) : { color: "grey", title: "Not on this computer: Download or Link it from the ⋯ menu" };
   const cls = known ? `sync-${known.color}` : "sync-pending";
-  const title = known?.title ?? `Checking ${local} against GitHub…`;
-  return `<span class="sync-icon ${cls}" data-sync="${escapeHtml(p.nwo)}" role="img" aria-label="${escapeHtml(title)}" title="${escapeHtml(title)}">${SYNC_ICON}</span>`;
+  const title = known?.title ?? `Checking ${local} against ${forge(p.forge).name}…`;
+  return `<span class="sync-icon ${cls}" data-sync="${escapeHtml(p.repoKey)}" role="img" aria-label="${escapeHtml(title)}" title="${escapeHtml(title)}">${SYNC_ICON}</span>`;
 }
 
 /** Check the linked copies shown in the grid and colour their icons (one check per repository). */
 function updateSyncIcons(grid) {
   for (const el of grid.querySelectorAll(".sync-icon[data-sync]")) {
-    const nwo = el.dataset.sync;
-    const folder = el.dataset.folder ?? localCopy(nwo); // a local project's, or a GitHub card's copy
+    const rk = el.dataset.sync; // the repository's key
+    const folder = el.dataset.folder ?? localCopy(rk); // a local project's, or a forge card's copy
     if (!folder) continue;
-    syncState(nwo, folder).then(({ color, title }) => {
+    syncState(rk, folder).then(({ color, title }) => {
       el.className = `sync-icon sync-${color}`;
       el.title = title;
       el.setAttribute("aria-label", title);
@@ -416,15 +450,15 @@ export function initProjects({ grid, status, filter, add = null, onWatched = nul
   );
 
   /** Whether a repository has cards in the gallery (then a clone of it is linked, not added). */
-  const inGallery = (nwo) => Object.values(index).some((r) => r.repo.nwo.toLowerCase() === nwo.toLowerCase() && r.projects.length);
+  const inGallery = (key) => Object.entries(index).some(([k, r]) => k.toLowerCase() === key.toLowerCase() && r.projects.length);
 
   function projects() {
     const out = [];
-    for (const r of Object.values(index))
-      for (const p of r.projects) out.push({ ...p, ...r.repo, branch: r.branch, pushed: r.pushed, repoCount: r.projects.length, key: `${r.repo.nwo}:${p.pro ?? p.pcb}` });
+    for (const [k, r] of Object.entries(index))
+      for (const p of r.projects) out.push({ ...p, ...r.repo, forge: r.repo.forge ?? FORGES[0].id, repoKey: k, branch: r.branch, pushed: r.pushed, repoCount: r.projects.length, key: `${k}:${p.pro ?? p.pcb}` });
     // A local folder that is also a repository card's linked copy shows as that card only.
     const copies = new Set(Object.values(settings().localCopies ?? {}).map((f) => f.replace(/[\\/]+$/, "")));
-    for (const p of locals) if (!(p.git && inGallery(p.git.nwo) && copies.has(p.git.root.replace(/[\\/]+$/, "")))) out.push({ ...p, pushed: p.pushed ?? "" });
+    for (const p of locals) if (!(p.git && inGallery(p.git.key) && copies.has(p.git.root.replace(/[\\/]+$/, "")))) out.push({ ...p, pushed: p.pushed ?? "" });
     const where = (p) => p.nwo ?? p.folder;
     const file = (p) => p.pro ?? p.pcb ?? "";
     return out.sort((a, b) => b.pushed.localeCompare(a.pushed) || where(a).localeCompare(where(b)) || file(a).localeCompare(file(b)));
@@ -435,7 +469,7 @@ export function initProjects({ grid, status, filter, add = null, onWatched = nul
     const all = projects();
     byKey = new Map(all.map((p) => [p.key, p]));
     const q = filter.value.trim().toLowerCase();
-    const shown = q ? all.filter((p) => `${p.name} ${p.nwo ?? p.folder} ${p.dir ?? ""}`.toLowerCase().includes(q)) : all;
+    const shown = q ? all.filter((p) => `${p.name} ${p.nwo ?? p.folder} ${p.dir ?? ""} ${p.local ? "" : forge(p.forge).name}`.toLowerCase().includes(q)) : all;
     observer.disconnect();
     more.disconnect();
     const page = shown.slice(0, limit);
@@ -491,11 +525,11 @@ export function initProjects({ grid, status, filter, add = null, onWatched = nul
     const p = b && byKey.get(b.closest(".project-card")?.dataset.key);
     if (!p) return;
     b.closest("details").open = false;
-    openInKicad(projectPath(p.local ? p.folder : localCopy(p.nwo), p.pro)).catch((err) => toast(err.message ?? String(err), true));
+    openInKicad(projectPath(p.local ? p.folder : localCopy(p.repoKey), p.pro)).catch((err) => toast(err.message ?? String(err), true));
   });
 
-  // "+": a local project folder, or a GitHub repository (watched, then scanned like
-  // the others). A local card's menu links it to GitHub or removes it.
+  // "+": a local project folder, or a forge repository (watched, then scanned like
+  // the others). A local card's menu links it to a forge or removes it.
   const afterLocalChange = async () => {
     forgetSync();
     await loadLocals();
@@ -511,9 +545,9 @@ export function initProjects({ grid, status, filter, add = null, onWatched = nul
         }
       },
       remote: async () => {
-        const nwo = await addRemoteProject({ inGallery, hasProjects: repoHasProjects });
-        if (!nwo) return;
-        toast(`Added ${nwo}`);
+        const added = await addRemoteProject({ inGallery, hasProjects: repoHasProjects });
+        if (!added) return;
+        toast(`Added ${parseRepoKey(added).nwo}`);
         if (onWatched) onWatched(true);
         else refresh();
       },
@@ -525,8 +559,8 @@ export function initProjects({ grid, status, filter, add = null, onWatched = nul
     const p = b && byKey.get(b.closest(".project-card")?.dataset.key);
     if (!p) return;
     b.closest("details").open = false;
-    removeRepo(p.nwo);
-    delete index[p.nwo];
+    removeRepo(p.repoKey);
+    delete index[p.repoKey];
     saveIndex(index);
     render();
     toast(`Removed ${p.nwo}${p.repoCount > 1 ? ` (${p.repoCount} projects)` : ""}; Reload brings it back`);
@@ -555,13 +589,13 @@ export function initProjects({ grid, status, filter, add = null, onWatched = nul
     if (!p) return;
     b.closest("details").open = false;
     try {
-      forgetSync(p.nwo);
+      forgetSync(p.repoKey);
       if (b.dataset.git === "unlink") {
-        unlinkLocalCopy(p.nwo);
+        unlinkLocalCopy(p.repoKey);
         toast(`Unlinked ${p.nwo}; the folder is untouched`);
         return render();
       }
-      const folder = b.dataset.git === "clone" ? await cloneProject(p.nwo) : await linkProject(p.nwo);
+      const folder = b.dataset.git === "clone" ? await cloneProject(p.repoKey) : await linkProject(p.repoKey);
       if (folder) location.href = localViewUrl(folder, p.pro ?? p.pcb);
     } catch (err) {
       toast(err.message ?? String(err), true);
@@ -573,7 +607,7 @@ export function initProjects({ grid, status, filter, add = null, onWatched = nul
     forgetSync(); // Reload checks the local copies again too
     loadLocals();
     render();
-    if (!token() && !(settings().watchRepos ?? []).length) {
+    if (!FORGES.some((f) => tokenFor(f)) && !(settings().watchRepos ?? []).length) {
       index = {};
       status.textContent = "Sign in to list the projects in your repositories, or add a public repository with + → Remote project….";
       scan = 0;
@@ -588,19 +622,20 @@ export function initProjects({ grid, status, filter, add = null, onWatched = nul
       return;
     }
     if (id !== scan) return;
-    // Forget repositories that are no longer reachable.
-    const names = new Set(repos.map((r) => r.nwo));
-    for (const k of Object.keys(index)) if (!names.has(k)) delete index[k];
+    // Forget repositories that are no longer reachable (not those of a forge that couldn't be listed).
+    const keys = new Set(repos.map((r) => r.key));
+    const failedForges = new Set(repos.errors.map((e) => e.split(":")[0]));
+    for (const k of Object.keys(index)) if (!keys.has(k) && !failedForges.has(parseRepoKey(k)?.forge.name)) delete index[k];
     queueRender();
 
-    const todo = repos.filter((r) => index[r.nwo]?.pushed !== r.pushedAt || index[r.nwo]?.branch !== r.defaultBranch);
+    const todo = repos.filter((r) => index[r.key]?.pushed !== r.pushedAt || index[r.key]?.branch !== r.defaultBranch);
     let done = 0, failed = 0, stop = null;
     const progress = () => (status.textContent = `Scanning repositories… ${done} of ${todo.length}`);
     if (todo.length) progress();
     const work = async () => {
       for (let r; !stop && id === scan && (r = todo.shift()); ) {
         try {
-          index[r.nwo] = await scanRepo(r);
+          index[r.key] = await scanRepo(r);
           queueRender();
         } catch (e) {
           failed++; // keep the previous result, if any; don't cache the failure
@@ -615,12 +650,13 @@ export function initProjects({ grid, status, filter, add = null, onWatched = nul
     saveIndex(index);
     scan = 0;
     adoptLinkedFolders(locals, inGallery); // a repository just listed may be a local folder's remote
-    const all = projects().filter((p) => !p.local); // the status counts GitHub's
-    const inRepos = new Set(all.map((p) => p.nwo)).size;
+    const all = projects().filter((p) => !p.local); // the status counts the forges'
+    const inRepos = new Set(all.map((p) => p.repoKey)).size;
     status.textContent = stop
       ? `Stopped: ${stop.message}`
       : `${all.length} project${all.length === 1 ? "" : "s"} in ${inRepos} of ${repos.length} repositor${repos.length === 1 ? "y" : "ies"}` +
         (failed ? ` · ${failed} couldn't be read` : "") +
+        (repos.errors.length ? ` · couldn't list ${repos.errors.join("; ")}` : "") +
         (Object.values(index).some((r) => r.truncated) ? " · some repositories are too large to list completely" : "");
     render();
   }

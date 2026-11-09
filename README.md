@@ -4,23 +4,25 @@
 
 [![Built with Claude Code](https://img.shields.io/badge/Built_with-Claude_Code-D97757?logo=claude&logoColor=white)](https://claude.com/claude-code)
 
-**KiVi turns the KiCad projects in your GitHub repositories, or on your disk,
-into something you can actually look at.** GitHub shows a changed
+**KiVi turns the KiCad projects in your GitHub and GitLab repositories, or on
+your disk, into something you can actually look at.** GitHub shows a changed
 `.kicad_pcb` as thousands of lines of S-expressions; reviewing it usually
 means checking out both versions and flipping between KiCad windows. In KiVi,
 schematics, boards and 3D views open in seconds, a visual diff tells you what
 changed in KiCad terms, and comments pinned to parts and nets make a board
 change as easy to review as a code change.
 
-- **Nothing to set up on a server.** GitHub stays your source control, diff
-  and review system; KiVi is a desktop app that parses and renders everything
-  locally.
+- **Nothing to set up on a server.** GitHub or GitLab (gitlab.com) stays your
+  source control, diff and review system; KiVi is a desktop app that parses
+  and renders everything locally.
 - **Nothing to install.** One `.AppImage` on Linux, one `.exe` on Windows,
   one `.dmg` on macOS.
 - **No account needed to play around.** Public repositories work signed out;
-  sign in with GitHub for private repositories and the full review features.
-- **You are in control of access.** Sign-in uses a GitHub App with
-  fine-grained permissions, and you choose which repositories it can read.
+  sign in to GitHub or GitLab (or both) for private repositories and the full
+  review features.
+- **You are in control of access.** GitHub sign-in uses a GitHub App with
+  fine-grained permissions, and you choose which repositories it can read;
+  GitLab sign-in uses an OAuth application.
 - **KiCad 6 to 10.** Tested against the demo projects that ship with KiCad 10.
 
 ## What you get
@@ -100,8 +102,9 @@ project in one click.
 ## Reviewing hardware: pull requests and issues
 
 KiVi gives a team two ways to talk about a design, both pinned to the part,
-pad or net they're about and both stored on GitHub, so nothing lives only in
-KiVi:
+pad or net they're about and both stored on GitHub (or GitLab: there a pull
+request is a merge request, a review comment a file discussion), so nothing
+lives only in KiVi:
 
 | | Review comment | Change request |
 |---|---|---|
@@ -196,7 +199,7 @@ version and, if you can, the file. Good to know before you start:
 ## Using KiVi
 
 The [user guide](docs/README.md) covers every feature in detail:
-[Projects](docs/README.md#projects) · [Schematic, PCB and 3D](docs/README.md#schematic-pcb-and-3d) · [Visual diff](docs/README.md#visual-diff) · [Pull requests](docs/README.md#pull-requests) · [Review comments on pull requests](docs/README.md#review-comments-on-pull-requests) · [Change requests as issues](docs/README.md#change-requests-as-issues) · [Local copies, branches and pushing](docs/README.md#local-copies-branches-and-pushing) · [Linking KiCad](docs/README.md#linking-kicad) · [GitHub sign-in](docs/README.md#github-sign-in) · [Links into the viewer](docs/README.md#links-into-the-viewer) · [How the gallery stays fast](docs/README.md#how-the-gallery-stays-fast).
+[Projects](docs/README.md#projects) · [Schematic, PCB and 3D](docs/README.md#schematic-pcb-and-3d) · [Visual diff](docs/README.md#visual-diff) · [Pull requests](docs/README.md#pull-requests) · [Review comments on pull requests](docs/README.md#review-comments-on-pull-requests) · [Change requests as issues](docs/README.md#change-requests-as-issues) · [Local copies, branches and pushing](docs/README.md#local-copies-branches-and-pushing) · [Linking KiCad](docs/README.md#linking-kicad) · [Signing in to GitHub and GitLab](docs/README.md#signing-in-to-github-and-gitlab) · [Links into the viewer](docs/README.md#links-into-the-viewer) · [How the gallery stays fast](docs/README.md#how-the-gallery-stays-fast).
 
 ## Known limitations
 
@@ -218,14 +221,17 @@ The [user guide](docs/README.md) covers every feature in detail:
   listed once through the API, so it counts against the rate limit. The first
   view of a board with many STEP models is slow (KiCad 10's library is STEP
   only); later views use the cache.
-- Git LFS files aren't fetched.
+- Git LFS files aren't fetched from GitHub (GitLab returns their content).
+- GitLab: gitlab.com only (no self-hosted servers yet). Signed out, GitLab
+  shows no merge request comments and no issue comments, and limits requests
+  from your network tightly; a big repository is listed 100 files per request.
 - A file changed on both sides is never merged (on purpose: KiCad files don't
   merge reliably as text); Pull offers to move your commits to a new branch
   instead.
 
 ## Not done yet
 
-- The token and refresh token are kept in the app's local storage; a release
+- The tokens and refresh tokens are kept in the app's local storage; a release
   should keep them in the OS keychain, at least the long-lived refresh token.
 - Auto-update, code signing, notarisation, file associations.
 
@@ -272,10 +278,12 @@ comes with Edge updates on Windows 10 (otherwise get the *Evergreen* runtime
 from Microsoft).
 
 To build in your own GitHub App, set `KIVI_GITHUB_CLIENT_ID` and
-`KIVI_GITHUB_APP_SLUG` when building (in CI: the repository variables of the
-same names, under Settings → Secrets and variables → Actions → Variables);
-without them the sign-in dialog asks for them. The device-flow endpoints don't
-send CORS headers, so those requests run in Rust (`src-tauri/src/lib.rs`).
+`KIVI_GITHUB_APP_SLUG` when building, and for GitLab your gitlab.com OAuth
+application's ID as `KIVI_GITLAB_CLIENT_ID` (in CI: the repository variables
+of the same names, under Settings → Secrets and variables → Actions →
+Variables); without them the sign-in dialog asks for them. GitHub's
+device-flow endpoints don't send CORS headers, so sign-in requests run in Rust
+(`oauth_post` in `src-tauri/src/lib.rs`, for both forges).
 
 ### Layout
 
@@ -365,6 +373,7 @@ gjs -m tests/run.js               # or: gjs -m tests/run.js path/to/projects …
 gjs -m tests/diff.js              # schematic, library symbol, board, footprint and rules diffs
 gjs -m tests/nets.js
 gjs -m tests/review.js
+gjs -m tests/gitlab.js
 gjs -m tests/models.js
 cargo test --manifest-path src-tauri/Cargo.toml --lib   # Rust side: model folders, git (needs dist/web: run tools/build_web.py once)
 

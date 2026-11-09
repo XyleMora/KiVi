@@ -5,8 +5,8 @@
 //! this transport for `https://` (as git2-curl does with curl): libgit2 still
 //! speaks the git protocol, and each step of it is one HTTP request here.
 //!
-//! The GitHub token travels in the remote URL's user part
-//! (`https://x-access-token:TOKEN@github.com/…`), which libgit2 hands to
+//! The forge token travels in the remote URL's user part
+//! (`https://x-access-token:TOKEN@github.com/…`, `https://oauth2:TOKEN@gitlab.com/…`), which libgit2 hands to
 //! `action`; it is moved into an `Authorization` header and never sent in a URL.
 
 use std::io::{self, Read, Write};
@@ -103,11 +103,15 @@ impl Stream {
         if status.is_success() {
             return Ok(res);
         }
-        let why = match status.as_u16() {
-            401 => "GitHub asked for authentication: sign in to KiVi",
-            403 => "GitHub refused access: the KiVi app may lack write access to this repository (Contents: read and write), or isn't installed on it",
-            404 => "repository not found, or private and KiVi can't reach it",
-            _ => "unexpected reply from GitHub",
+        let gitlab = self.url.starts_with("https://gitlab.com/");
+        let why = match (status.as_u16(), gitlab) {
+            (401, false) => "GitHub asked for authentication: sign in to KiVi",
+            (403, false) => "GitHub refused access: the KiVi app may lack write access to this repository (Contents: read and write), or isn't installed on it",
+            (401, true) => "GitLab asked for authentication: sign in to GitLab in KiVi",
+            (403, true) => "GitLab refused access: your account needs the Developer role on this project, or the branch is protected",
+            (404, _) => "repository not found, or private and KiVi can't reach it",
+            (_, false) => "unexpected reply from GitHub",
+            (_, true) => "unexpected reply from GitLab",
         };
         Err(io::Error::other(format!("{why} (HTTP {status})")))
     }

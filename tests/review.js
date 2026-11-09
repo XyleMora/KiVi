@@ -2,6 +2,7 @@
 // comments and KiVi issues) against a mocked API, and anchor picking/relocation on demo files.   gjs -m tests/review.js
 
 import { readText, kicadDemos } from "./gjs-fs.js";
+import GLib from "gi://GLib";
 import { encodeBody, decodeBody, anchorLabel, renderCommentText, closingNumbers } from "../src/review.js";
 import { GitHubReviews as ReviewComments, GitHubIssues as IssueComments, github } from "../src/forge/github.js";
 import { FORGES, forge, parseRepoSpec } from "../src/forge/index.js";
@@ -286,11 +287,19 @@ const DEMO = kicadDemos("pic_programmer");
 // ---- the forge interface ----
 {
   // Every member of the Forge typedef in src/forge/index.js, so an adapter can be checked against it.
-  const MEMBERS = ["id", "name", "host", "hashKey", "parseSpec", "ownsUrl", "open", "source", "repo", "listRepos", "tree", "branches", "commits", "compare", "pullRequest", "pullFiles", "searchPullRequests", "searchIssues", "reviews", "issues", "user", "gitAuthor", "avatar", "web"];
+  const MEMBERS = ["id", "name", "host", "hashKey", "parseSpec", "ownsUrl", "open", "source", "repo", "listRepos", "tree", "branches", "commits", "compare", "pullRequest", "pullFiles", "searchPullRequests", "searchIssues", "reviews", "issues", "user", "gitAuthor", "avatar", "web", "auth"];
   for (const f of FORGES) {
     const missing = MEMBERS.filter((m) => f[m] === undefined);
     check(!missing.length, `${f.id} implements the forge interface${missing.length ? ` (missing ${missing.join(", ")})` : ""}`);
     check(["repo", "tree", "compare"].every((k) => typeof f.web[k] === "function") && typeof f.web.newRepo === "string", `${f.id} has its web pages`);
+  }
+  // Sign-in goes through lib.rs oauth_post, which only sends to the addresses it lists.
+  const libRs = readText(GLib.build_filenamev([GLib.path_get_dirname(GLib.filename_from_uri(import.meta.url)[0]), "..", "src-tauri", "src", "lib.rs"]));
+  for (const f of FORGES) {
+    const missing = ["deviceUrl", "tokenUrl", "clientIdKey", "buildEnv", "registerUrl", "unknownClient", "refreshRejected"].filter((k) => f.auth[k] === undefined);
+    check(!missing.length, `${f.id} describes its sign-in${missing.length ? ` (missing ${missing.join(", ")})` : ""}`);
+    check([f.auth.deviceUrl, f.auth.tokenUrl].every((u) => libRs.includes(`"${u}"`)), `${f.id}'s sign-in addresses are in lib.rs OAUTH_URLS`);
+    check(libRs.includes(`"${f.auth.buildEnv}"`) && libRs.includes(`"${f.id}": {`), `${f.id}'s client ID can be built in (forge_build_config)`);
   }
   check(forge() === github && forge("github") === github, "GitHub is the default forge");
   check(parseRepoSpec("me/models@main:3d")?.forge === github && parseRepoSpec("me/models@main:3d").spec.path === "3d", "a shorthand goes to the default forge");

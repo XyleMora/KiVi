@@ -1,16 +1,25 @@
 // Forges: the code hosts KiVi reads projects from and keeps reviews on. Each
-// forge is one adapter module (./github.js) that makes all of that host's
-// requests and returns the forge-neutral shapes described here; the rest of
-// the app only talks to a forge object. A new forge (GitLab, Gitea, …) is a new
-// adapter implementing `Forge`, added to FORGES.
+// forge is one adapter module (./github.js, ./gitlab.js) that makes all of
+// that host's requests and returns the forge-neutral shapes described here;
+// the rest of the app only talks to a forge object. A new forge (Gitea, …) is
+// a new adapter implementing `Forge`, added to FORGES (and its sign-in and git
+// hosts to lib.rs OAUTH_URLS and git.rs FORGE_HOSTS).
 //
-// Repositories are named "owner/repo" (`nwo`) within their forge. Tokens are
+// Repositories are named "owner/repo" (`nwo`) within their forge; on GitLab
+// the owner may hold "/" (nested groups: splitNwo). Tokens are
 // passed in by the caller (the pages keep them in settings).
 
 import { github } from "./github.js";
+import { gitlab } from "./gitlab.js";
 
 /** Every forge KiVi knows, the default first. */
-export const FORGES = [github];
+export const FORGES = [github, gitlab];
+
+/** The forges' names for UI text: "GitHub" or "GitHub or GitLab". */
+export function forgeNames() {
+  const n = FORGES.map((f) => f.name);
+  return n.length > 1 ? `${n.slice(0, -1).join(", ")} or ${n.at(-1)}` : n[0];
+}
 
 /** The forge with this id ("github"); the default without one. */
 export function forge(id = FORGES[0].id) {
@@ -23,6 +32,46 @@ export function forge(id = FORGES[0].id) {
 export function forgeInHash(params) {
   for (const f of FORGES) if (params.get(f.hashKey)) return { forge: f, value: params.get(f.hashKey) };
   return null;
+}
+
+/** The forge at a host ("github.com"), or null. */
+export function forgeForHost(host) {
+  return FORGES.find((f) => f.host === String(host ?? "").toLowerCase()) ?? null;
+}
+
+/** "group/sub/project" → {owner: "group/sub", repo: "project"} (GitLab namespaces may hold "/"). */
+export function splitNwo(nwo) {
+  const i = nwo.lastIndexOf("/");
+  return { owner: nwo.slice(0, i), repo: nwo.slice(i + 1) };
+}
+
+/**
+ * A repository's key in settings and caches (watchRepos, hiddenRepos,
+ * localCopies, the project index): "owner/repo" on the default forge (as
+ * saved by earlier versions), "<forge id>:<path>" on the others.
+ */
+export function repoKey(f, nwo) {
+  return f === FORGES[0] || f?.id === FORGES[0].id ? nwo : `${f.id}:${nwo}`;
+}
+
+/** A repository key → {forge, nwo, owner, repo}, or null for an unknown forge. */
+export function parseRepoKey(key) {
+  const m = /^([a-z]+):(.+)$/.exec(key);
+  const f = m ? FORGES.find((x) => x.id === m[1]) : FORGES[0];
+  if (!f) return null;
+  const nwo = m ? m[2] : key;
+  return { forge: f, nwo, ...splitNwo(nwo) };
+}
+
+/**
+ * The forge repository of a local copy, from git_info ({host, owner, repo}):
+ * {forge, nwo, owner, repo, key}, or null when it has no forge remote.
+ */
+export function remoteOf(info) {
+  const f = info?.owner ? forgeForHost(info.host ?? FORGES[0].host) : null;
+  if (!f) return null;
+  const nwo = `${info.owner}/${info.repo}`;
+  return { forge: f, nwo, owner: info.owner, repo: info.repo, key: repoKey(f, nwo) };
 }
 
 /**
@@ -121,6 +170,7 @@ export function parseRepoSpec(text) {
  * @typedef {object} ReviewThreads  a pull request's review threads, or a repository's
  *   KiVi issues as threads (shape in ../review.js); from `reviews()` / `issues()`
  * @property {boolean} canWrite
+ * @property {boolean} [readsNeedSignIn]  true: the forge shows no threads signed out (GitLab)
  * @property {string|null} viewer
  * @property {() => Promise<object[]>} load
  * @property {(t: object) => Promise<object>} [loadReplies]  issues read signed out
@@ -137,6 +187,8 @@ export function parseRepoSpec(text) {
  * @property {string} name       for UI text ("GitHub")
  * @property {string} host       "github.com"
  * @property {string} hashKey    the pages' URL hash parameter for its repositories
+ * @property {{pr: string, prs: string, prShort: string, prRef: (n: number) => string, closes: (n: number) => string}} words
+ *   its names for things in UI text ("pull request" / "merge request", "#12" / "!12")
  * @property {(text: string) => RepoSpec|null} parseSpec
  * @property {(url: string) => boolean} ownsUrl
  * @property {(spec: string|RepoSpec, token?: string|null) => Promise<Source>} open
@@ -158,6 +210,24 @@ export function parseRepoSpec(text) {
  * @property {(url: string|null, px: number) => string} avatar
  * @property {(token: string) => Promise<boolean|null>} [hasAppInstallation]
  * @property {{repo: (nwo: string) => string, tree: (nwo: string, branch?: string|null, dir?: string) => string,
- *   compare: (nwo: string, branch: string) => string, newRepo: string, newApp?: string,
+ *   compare: (nwo: string, branch: string) => string, newRepo: string,
  *   appInstall?: (slug: string) => string}} web  the forge's own pages
+ * @property {ForgeAuth} auth
+ *
+ * @typedef {object} ForgeAuth  signing in with OAuth device flow (src/desktop/tauri.js runs it;
+ *   both URLs must be in lib.rs OAUTH_URLS)
+ * @property {string} deviceUrl      device-code endpoint
+ * @property {string} tokenUrl       token endpoint (polling and refresh)
+ * @property {string|null} scope
+ * @property {string} appName        what the user registers ("GitHub App", "OAuth application")
+ * @property {string} idLabel        its client ID's name there
+ * @property {string} idPlaceholder
+ * @property {string} clientIdKey    settings key for a client ID entered in the dialog
+ * @property {string} [appSlugKey]   GitHub Apps: settings key for the App's URL name
+ * @property {string} buildEnv       build-time variable holding the client ID
+ * @property {string} registerUrl    where an app is registered
+ * @property {string} registerHint   HTML: what to tick there
+ * @property {(res: object) => boolean} unknownClient   a device-code reply refusing the client ID
+ * @property {(res: object) => string|null} [explain]  a friendlier message for a refusal
+ * @property {(res: object) => boolean} refreshRejected  a refresh refused for good
  */

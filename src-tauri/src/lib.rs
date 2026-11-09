@@ -6,6 +6,7 @@ mod git;
 mod git_http;
 mod kicad;
 mod picker;
+mod terminal;
 
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -276,8 +277,14 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(Workspace::default())
+        .manage(terminal::imp::Terminals::default())
         .invoke_handler(tauri::generate_handler![
             picker::pick_folder,
+            terminal::imp::term_open,
+            terminal::imp::term_write,
+            terminal::imp::term_resize,
+            terminal::imp::term_attach,
+            terminal::imp::term_close,
             open_folder,
             list_folder,
             read_file,

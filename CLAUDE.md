@@ -137,6 +137,16 @@ README doesn't: conventions, environment and pitfalls.
   header, adds drag and drop, live reload on
   `folder-changed` (keeps tab, sheet and selection) and
   `index.html#folder=<path>[&project=…][&commit=<sha>]`.
+- Integrated terminal (`src/desktop/terminal.js` panel + `vt.js` DOM-free
+  emulator, `src-tauri/src/terminal.rs`): header button `#term-toggle`
+  (added by `initHeader`, so on all three pages) or Ctrl+`. The user's
+  `$SHELL` on a pty (posix_openpt via `libc`, no pty crate; Unix only, the
+  commands refuse on Windows), started in the page's `folder=`/`local=` or
+  home, with the AppImage env removed (`outside_appimage`). `term_open/write/
+  resize/attach/close`, output as `term-data` {id, data, end}; Rust keeps a
+  256 KB backlog so the next page reattaches (sessionStorage `kivi.terminal`).
+  Hide keeps the shell; × ends it. Ctrl+C copies when text is selected,
+  Ctrl+V / Ctrl+Shift+V paste (bracketed when asked).
 - Folder chooser (`pickFolder`, tauri.js → `pick_folder` in
   `src-tauri/src/picker.rs`): on Linux GTK's `FileChooserNative` with
   `GTK_USE_PORTAL=1` (set at start-up, removed for children by

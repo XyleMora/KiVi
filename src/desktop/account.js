@@ -15,6 +15,7 @@ import { parseModelSource } from "../sources.js";
 import { forge } from "../forge/index.js";
 import { ICONS } from "./icons.js";
 import { appInstallUrl, inspectKicad, pickFolder, signInWithGitHub, withoutGitHubToken } from "./tauri.js";
+import { initTerminal } from "./terminal.js";
 
 // Where KiCad usually is, as the path box's example and the folder picker's start.
 const KICAD_HINT = /Windows/.test(navigator.userAgent)
@@ -87,6 +88,17 @@ export function initHeader({ homeLinks = true, onAccountChange = () => location.
     el.className = "account";
     actions.appendChild(el);
   }
+  // The integrated terminal (terminal.js): its button sits left of the account menu.
+  const term = document.createElement("button");
+  term.type = "button";
+  term.id = "term-toggle";
+  term.className = "btn icon";
+  term.title = "Terminal (Ctrl+`)";
+  term.setAttribute("aria-label", "Terminal");
+  term.setAttribute("aria-pressed", "false");
+  term.innerHTML = ICONS.terminal;
+  el.parentNode.insertBefore(term, el);
+  initTerminal(term);
 
   const dlg = document.createElement("dialog");
   dlg.id = "settings";

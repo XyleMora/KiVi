@@ -117,3 +117,21 @@
 .fab { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: var(--accent-ink); border: 0; cursor: pointer; box-shadow: 0 6px 18px rgb(0 0 0 / 0.45); }
 .fab:hover { filter: brightness(1.08); }
 .project-grid { padding-bottom: 72px; } /* the last row stays clear of "+" */
+.add-menu { bottom: calc(28px + var(--term-h, 0px)); } /* above the terminal when it's open */
+
+/* Integrated terminal (terminal.js): the last child of the page's flex column. */
+.term-panel { --term-bg: #0b0d10; --term-fg: var(--text); flex: none; position: relative; display: flex; flex-direction: column; background: var(--term-bg); border-top: 1px solid var(--border); min-height: 120px; }
+.term-grip { position: absolute; left: 0; right: 0; top: -4px; height: 8px; cursor: ns-resize; z-index: 2; }
+.term-head { display: flex; align-items: center; gap: 10px; padding: 4px 8px 4px 12px; background: var(--surface); border-bottom: 1px solid var(--border-soft); font-size: 12px; }
+.term-name { font-weight: 600; }
+.term-cwd { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.term-tools { margin-left: auto; display: flex; gap: 4px; }
+.term-tools .btn.icon { width: 26px; }
+.term-view { position: relative; flex: 1; min-height: 0; display: flex; }
+.term-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 4px 8px; color: var(--term-fg); font: 13px/17px var(--mono); cursor: text; user-select: text; }
+.term-row { height: 17px; white-space: pre; overflow: hidden; }
+.term-wide { display: inline-block; width: calc(2 * var(--cw, 8px)); }
+.term-cursor { background: var(--accent); color: var(--term-bg) !important; }
+.term-view:not(:focus-within) .term-cursor { background: transparent; color: inherit !important; outline: 1px solid var(--accent); outline-offset: -1px; }
+.term-input { position: absolute; left: 0; bottom: 0; width: 1px; height: 1px; opacity: 0; border: 0; padding: 0; resize: none; overflow: hidden; pointer-events: none; }
+.term-probe { position: absolute; visibility: hidden; font: 13px/17px var(--mono); white-space: pre; }

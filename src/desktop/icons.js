@@ -26,5 +26,6 @@ export const ICONS = {
   signIn: stroke(`<path d="M10 2.5h2.5a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H10M5.5 5l3 3-3 3M8.5 8H1.5"/>`),
   signOut: stroke(`<path d="M6 2.5H3.5a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1H6M10.5 5l3 3-3 3M13.5 8H6"/>`),
   folder: stroke(`<path d="M1.5 4a1 1 0 0 1 1-1h3.6l1.5 1.5h5.9a1 1 0 0 1 1 1V12a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1Z"/>`),
+  terminal: stroke(`<rect x="1.5" y="2.5" width="13" height="11" rx="1.5"/><path d="M4.5 6l2 2-2 2M8.5 10.5h3"/>`),
   chevron: stroke(`<path d="M4.5 6.5 8 10l3.5-3.5"/>`),
 };

@@ -43,13 +43,18 @@ def set_version(version: str, root: Path = ROOT) -> list[str]:
         if not m:
             raise ValueError(f"no {what} found in {rel}")
         if m.group(2) != version:
-            changed.append(f"{what}: {m.group(2)} → {version}")
+            changed.append(f"{what}: {m.group(2)} -> {version}")
             text = text[: m.start(2)] + version + text[m.end(2) :]
             path.write_text(text, encoding="utf-8")
     return changed
 
 
 def main() -> int:
+    # Windows runners print through cp1252, which can't encode every character
+    # (a "→" once failed the Windows release build after the files were written).
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     if len(sys.argv) != 2:
         print(__doc__.strip().splitlines()[2].strip(), file=sys.stderr)
         return 2

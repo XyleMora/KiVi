@@ -212,61 +212,48 @@ fn startup_folder() -> Option<String> {
     Path::new(&arg).exists().then_some(arg)
 }
 
-// ---- GitHub sign-in (GitHub App, device flow) ----------------------------------
-// github.com/login/* sends no CORS headers, so the web page can't call it itself.
-// A GitHub App's user tokens expire after 8 h and come with a refresh token;
-// device-flow tokens refresh without a client secret, so no server is needed.
+// ---- forge sign-in (OAuth device flow) ------------------------------------------
+// github.com/login/* sends no CORS headers, so the web page can't call it itself;
+// gitlab.com's /oauth does, but one path for every forge is simpler. Device-flow
+// tokens refresh without a client secret, so no server is needed. Each forge's
+// steps (which URL, which fields) live in its adapter (src/forge/*.js).
 
-/// GitHub App client ID baked in at build time (`KIVI_GITHUB_CLIENT_ID=Iv23… cargo tauri build`).
+/// The only addresses `oauth_post` sends to: each forge's device-code and token endpoints.
+const OAUTH_URLS: &[&str] = &[
+    "https://github.com/login/device/code",
+    "https://github.com/login/oauth/access_token",
+    "https://gitlab.com/oauth/authorize_device",
+    "https://gitlab.com/oauth/token",
+];
+
+/// Sign-in settings baked in at build time, per forge id:
+/// `KIVI_GITHUB_CLIENT_ID=Iv23… KIVI_GITHUB_APP_SLUG=… KIVI_GITLAB_CLIENT_ID=… cargo tauri build`.
 #[tauri::command]
-fn github_client_id() -> Option<&'static str> {
-    option_env!("KIVI_GITHUB_CLIENT_ID").filter(|s| !s.is_empty())
+fn forge_build_config() -> Value {
+    let env = |v: Option<&'static str>| v.filter(|s| !s.is_empty());
+    serde_json::json!({
+        "github": { "clientId": env(option_env!("KIVI_GITHUB_CLIENT_ID")), "appSlug": env(option_env!("KIVI_GITHUB_APP_SLUG")) },
+        "gitlab": { "clientId": env(option_env!("KIVI_GITLAB_CLIENT_ID")) },
+    })
 }
 
-/// The App's URL name (github.com/apps/<slug>), for the "install on your repositories" link.
+/// POST a form to a forge's OAuth endpoint and return its JSON reply, errors included
+/// (`{"error": "authorization_pending"}` comes with HTTP 400 on some forges).
 #[tauri::command]
-fn github_app_slug() -> Option<&'static str> {
-    option_env!("KIVI_GITHUB_APP_SLUG").filter(|s| !s.is_empty())
-}
-
-async fn github_form(url: &str, form: &[(&str, &str)]) -> Result<Value, String> {
+async fn oauth_post(url: String, form: std::collections::HashMap<String, String>) -> Result<Value, String> {
+    if !OAUTH_URLS.contains(&url.as_str()) {
+        return Err(format!("not a sign-in address: {url}"));
+    }
     let res = reqwest::Client::new()
-        .post(url)
+        .post(&url)
         .header("Accept", "application/json")
         .header("User-Agent", "KiVi-desktop")
-        .form(form)
+        .form(&form)
         .send()
         .await
         .map_err(|e| e.to_string())?;
     let status = res.status();
-    let body: Value = res.json().await.map_err(|e| format!("GitHub {status}: {e}"))?;
-    Ok(body)
-}
-
-/// Step 1: a code for the user to enter at github.com/login/device.
-#[tauri::command]
-async fn github_device_start(client_id: String) -> Result<Value, String> {
-    github_form("https://github.com/login/device/code", &[("client_id", &client_id)]).await
-}
-
-/// Step 2 (repeat every `interval` s): `access_token` (+ `expires_in`, `refresh_token`, `refresh_token_expires_in`), or `error` = authorization_pending / slow_down / expired_token / access_denied.
-#[tauri::command]
-async fn github_device_poll(client_id: String, device_code: String) -> Result<Value, String> {
-    github_form(
-        "https://github.com/login/oauth/access_token",
-        &[("client_id", &client_id), ("device_code", &device_code), ("grant_type", "urn:ietf:params:oauth:grant-type:device_code")],
-    )
-    .await
-}
-
-/// A new token pair before the old one expires. The refresh token is single use.
-#[tauri::command]
-async fn github_device_refresh(client_id: String, refresh_token: String) -> Result<Value, String> {
-    github_form(
-        "https://github.com/login/oauth/access_token",
-        &[("client_id", &client_id), ("refresh_token", &refresh_token), ("grant_type", "refresh_token")],
-    )
-    .await
+    res.json().await.map_err(|e| format!("HTTP {status}: {e}"))
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -309,15 +296,12 @@ pub fn run() {
             git::git_remote_state,
             git::git_branches,
             git::git_switch_branch,
-            git::git_link_github,
+            git::git_link_remote,
             git::git_init,
             git::git_log,
             startup_folder,
-            github_client_id,
-            github_app_slug,
-            github_device_start,
-            github_device_poll,
-            github_device_refresh
+            forge_build_config,
+            oauth_post
         ])
         .run(tauri::generate_context!())
         .expect("error while running KiVi");

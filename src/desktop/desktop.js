@@ -1,7 +1,7 @@
 // Desktop additions to the viewer (index.html) and diff (diff.html) pages.
 // Loaded after the page's own module; does nothing outside the Tauri app.
 
-import { ensureFreshToken, GitRevSource, isDesktop, invoke, kicadAction, listen, ModelDirSource, onDrop, openFolder, openInKicad, projectPath, routeExternalLinks, TauriSource } from "./tauri.js";
+import { ensureFreshTokens, GitRevSource, isDesktop, invoke, kicadAction, listen, ModelDirSource, onDrop, openFolder, openInKicad, projectPath, routeExternalLinks, TauriSource } from "./tauri.js";
 import { $, toast } from "../app/ui.js";
 import { initHeader } from "./account.js";
 import { localGitApi, mountGitMenu } from "./git.js";
@@ -9,7 +9,7 @@ import { localGitApi, mountGitMenu } from "./git.js";
 if (isDesktop) {
   document.body.classList.add("desktop");
   routeExternalLinks();
-  ensureFreshToken(); // and keeps refreshing it while the page is open
+  ensureFreshTokens(); // and keeps refreshing it while the page is open
 
   // The brand goes back to the home page (projects and pull requests).
   const brand = $(".brand");

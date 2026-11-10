@@ -3,7 +3,7 @@
 // the point where its branch left main.
 
 import { DIFFABLE, RULE_FILES } from "../project.js";
-import { forge, forgeInHash } from "../forge/index.js";
+import { forge, forgeInHash, splitNwo } from "../forge/index.js";
 import { parseSchematic } from "../sch/model.js";
 import { renderSchematic } from "../sch/render.js";
 import { parsePcb } from "../pcb/model.js";
@@ -19,7 +19,7 @@ import { ReviewStore, ReviewPanel, openCounts, COMMENT_ICON } from "./review-ui.
 import { pickPcb, pickSch, locatePcb, locateSch } from "../diff/anchors.js";
 import { buildConnectivity } from "../sch/connectivity.js";
 import { refPicker } from "./ref-picker.js";
-import { $, ago, escapeHtml, toast, settings, refCompare } from "./ui.js";
+import { $, ago, escapeHtml, toast, refCompare, tokenFor } from "./ui.js";
 
 const LAYER_PRESETS = {
   top: (l) => ["F.Cu", "F.SilkS", "Edge.Cuts", "Vias", "Holes", "Dwgs.User"].includes(l),
@@ -122,7 +122,7 @@ class DiffApp {
     if (p.get("local")) return { local: p.get("local"), base: p.get("base"), head: p.get("head") };
     const at = forgeInHash(p);
     if (!at) return null;
-    const [owner, repo] = at.value.split("/");
+    const { owner, repo } = splitNwo(at.value);
     const f = at.forge.id;
     if (p.get("pr")) return { forge: f, owner, repo, pr: Number(p.get("pr")) };
     if (p.get("commit")) return { forge: f, owner, repo, commit: p.get("commit") };
@@ -163,7 +163,7 @@ class DiffApp {
     this.proCache = new Map(); // the sides may be other commits now
     try {
       this.busy(spec.local ? "Reading local changes…" : `Reading changes from ${forge(spec.forge).name}…`);
-      const cmp = spec.local ? await this.localComparison(spec) : await forge(spec.forge).compare(spec, settings().token);
+      const cmp = spec.local ? await this.localComparison(spec) : await forge(spec.forge).compare(spec, tokenFor(forge(spec.forge)));
       this.cmp = cmp;
       $("#diff-bar").hidden = false;
       $("#diff-main").hidden = false;
@@ -242,11 +242,11 @@ class DiffApp {
     let branchList = null;
     const branches = () =>
       (branchList ??= local
-        ? this.localGit.branches(cmp.root).then((bs) => bs.map((b) => ({ name: b.name, note: b.current ? "checked out" : b.remote ? "on GitHub" : "" })))
-        : f.branches(spec.owner, spec.repo, settings().token));
+        ? this.localGit.branches(cmp.root).then((bs) => bs.map((b) => ({ name: b.name, note: b.current ? "checked out" : b.remote ? `on ${b.forge ?? "the remote"}` : "" })))
+        : f.branches(spec.owner, spec.repo, tokenFor(f)));
     const commits = local
       ? (branch, offset, count) => this.localGit.commits(cmp.root, branch, offset, count)
-      : (branch, offset, count) => f.commits(spec.owner, spec.repo, branch, offset, count, settings().token);
+      : (branch, offset, count) => f.commits(spec.owner, spec.repo, branch, offset, count, tokenFor(f));
     const sha = /^[0-9a-f]{7,40}\^?$/i;
     // What each side is now: the URL's choice, else what it was resolved to
     // (a local copy's default base is e.g. origin/main, listed as main).
@@ -263,7 +263,7 @@ class DiffApp {
       refPicker({
         current: cmp.base.ref ?? cmp.base.sha?.slice(0, 7) ?? "(none)",
         value: baseValue,
-        hint: "A branch: the changes since the after side left it, like a pull request. A commit: compared with it as it is.",
+        hint: `A branch: the changes since the after side left it, like a ${local ? "pull or merge request" : forge(spec.forge).words.pr}. A commit: compared with it as it is.`,
         commitsOf: !sha.test(baseValue ?? "") ? baseValue : headBranch,
         branches,
         commits,
@@ -314,7 +314,7 @@ class DiffApp {
     const ref = this.cmp[side];
     if (ref.src) return ref.src.readText(path); // a local copy
     if (!ref.sha) return null;
-    const src = forge(this.spec.forge).source({ owner: ref.owner, repo: ref.repo, ref: ref.sha, sha: ref.sha, token: settings().token });
+    const src = forge(this.spec.forge).source({ owner: ref.owner, repo: ref.repo, ref: ref.sha, sha: ref.sha, token: tokenFor(forge(this.spec.forge)) });
     return src.readText(path);
   }
 
@@ -333,7 +333,7 @@ class DiffApp {
       this.proCache.set(
         key,
         (async () => {
-          const src = ref.src ?? forge(this.spec.forge).source({ owner: ref.owner, repo: ref.repo, ref: ref.sha, sha: ref.sha, path: dir, token: settings().token });
+          const src = ref.src ?? forge(this.spec.forge).source({ owner: ref.owner, repo: ref.repo, ref: ref.sha, sha: ref.sha, path: dir, token: tokenFor(forge(this.spec.forge)) });
           const pro = (await src.list()).find((p) => p.endsWith(".kicad_pro") && dirname(p) === dir) ?? null;
           if (!pro) return { pro, vars: {} };
           return { pro, vars: JSON.parse(await src.readText(pro)).text_variables ?? {} };

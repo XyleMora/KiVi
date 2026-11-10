@@ -1,20 +1,22 @@
 // Header shared by every desktop page: the projects / pull requests icons and
-// the account menu (GitHub profile, repository access, Settings, sign in/out),
-// plus the Settings dialog. GitHub access is only through signing in with the
-// GitHub App (src/desktop/tauri.js); there is no token to paste.
+// the account menu (Sign in, which asks which forge, or the one account signed
+// in: profile, repository access; then Settings and Sign out), plus the
+// Settings dialog. Forge access is only through signing in (device flow,
+// src/desktop/tauri.js), to one forge at a time; there is no token to paste.
 //
-// Other code asks for a sign-in with `window.dispatchEvent(new Event("kivi:signin"))`
-// (the review panel does, so it needs no Tauri imports), and hears about saved
-// settings through the "kivi:settings" event.
+// Other code asks for a sign-in with
+// `window.dispatchEvent(new CustomEvent("kivi:signin", {detail: {forge: id}}))`
+// (the review panel does, so it needs no Tauri imports; no detail = the default
+// forge chooser), and hears about saved settings through the "kivi:settings" event.
 //
 // Settings → KiCad links an installed KiCad (settings.kicad, from kicad_inspect):
 // "Open in KiCad" uses its program, and the 3D view its path variables.
 
-import { $, escapeHtml, settings, saveSettings, toast } from "../app/ui.js";
+import { $, escapeHtml, settings, saveSettings, signedInForge, toast, tokenFor } from "../app/ui.js";
 import { parseModelSource } from "../sources.js";
 import { forge } from "../forge/index.js";
 import { ICONS } from "./icons.js";
-import { appInstallUrl, inspectKicad, pickFolder, signInWithGitHub, withoutGitHubToken } from "./tauri.js";
+import { appInstallUrl, chooseForge, inspectKicad, pickFolder, signInTo, signOut as signOutOf } from "./tauri.js";
 import { initTerminal } from "./terminal.js";
 
 // Where KiCad usually is, as the path box's example and the folder picker's start.
@@ -31,7 +33,7 @@ const SETTINGS_HTML = `
   <label class="field-label" for="set-model-sources">3D model sources <span class="muted">(one per line; after the project, folders first, then the rest in order)</span></label>
   <textarea id="set-model-sources" class="input mono" rows="4" spellcheck="false"></textarea>
   <div class="row between gap">
-    <p class="muted settings-hint">A URL prefix for KiCad library models, a GitHub repository (<code>owner/repo</code>, <code>owner/repo@branch:folder</code>) searched for models by file name, or a folder on this computer. A linked KiCad adds its own library and add-ons by itself.</p>
+    <p class="muted settings-hint">A URL prefix for KiCad library models, a GitHub repository (<code>owner/repo</code>, <code>owner/repo@branch:folder</code>) or GitLab project address searched for models by file name, or a folder on this computer. A linked KiCad adds its own library and add-ons by itself.</p>
     <button type="button" class="btn small" id="set-add-model-dir">Add folder…</button>
   </div>
   <label class="check"><input type="checkbox" id="set-load-models"> Load 3D component models</label>
@@ -48,16 +50,20 @@ const SETTINGS_HTML = `
 </form>`;
 
 /** The account menu: `face` is the button's content, `head` the top of the panel. */
-function accountMenu(face, head, items) {
-  const item = ([icon, label, act, href]) =>
+/**
+ * The account menu: `sections` of {head, items} (one per forge), then Settings.
+ * An item is [icon, label, action, href?, forge id?].
+ */
+function accountMenu(face, sections, footer) {
+  const item = ([icon, label, act, href, f]) =>
     href
       ? `<a role="menuitem" href="${escapeHtml(href)}">${ICONS[icon]}<span>${escapeHtml(label)}</span></a>`
-      : `<button type="button" role="menuitem" data-act="${act}">${ICONS[icon]}<span>${escapeHtml(label)}</span></button>`;
+      : `<button type="button" role="menuitem" data-act="${act}"${f ? ` data-forge="${escapeHtml(f)}"` : ""}>${ICONS[icon]}<span>${escapeHtml(label)}</span></button>`;
+  const section = ({ head, items }) => `${head ? `<div class="menu-head">${head}</div><hr>` : ""}${items.map(item).join("")}`;
   return `<details class="menu account-menu">
     <summary class="account-button" aria-label="Account menu" aria-haspopup="menu">${face}${ICONS.chevron}</summary>
     <div class="menu-panel" role="menu">
-      <div class="menu-head">${head}</div><hr>
-      ${items.map((group) => group.map(item).join("")).join("<hr>")}
+      ${[...sections.map(section), footer.map(item).join("")].join("<hr>")}
     </div>
   </details>`;
 }
@@ -171,7 +177,7 @@ export function initHeader({ homeLinks = true, onAccountChange = () => location.
     await checkKicad(); // a path typed and saved straight away
     const sources = $("#set-model-sources").value.split("\n").map((l) => l.trim()).filter(Boolean);
     const bad = sources.filter((l) => !l.startsWith("#") && !parseModelSource(l));
-    if (bad.length) toast(`Not a URL, GitHub repository or folder: ${bad[0]}`, true);
+    if (bad.length) toast(`Not a URL, repository or folder: ${bad[0]}`, true);
     else toast("Settings saved");
     if (kicad === undefined) toast("KiCad wasn't linked: that path isn't a KiCad installation", true);
     const { modelBase, kicad: oldKicad, ...rest } = settings(); // modelBase: replaced by modelSources
@@ -200,60 +206,75 @@ export function initHeader({ homeLinks = true, onAccountChange = () => location.
     }
   }
 
-  async function signIn() {
+  /**
+   * Sign in: to the forge named (an id or forge object), else to the one
+   * chosen in the forge chooser. One forge at a time: it replaces any other.
+   */
+  async function signIn(f) {
+    f = typeof f === "string" ? forge(f) : f ?? (await chooseForge());
+    if (!f) return;
     try {
-      if (await signInWithGitHub()) onAccountChange();
+      if (await signInTo(f)) onAccountChange();
     } catch (e) {
-      toast(`GitHub sign-in failed: ${e.message ?? e}`, true);
+      toast(`${f.name} sign-in failed: ${e.message ?? e}`, true);
     }
   }
 
-  function signOut() {
-    saveSettings(withoutGitHubToken());
+  function signOut(f) {
+    signOutOf(f);
     onAccountChange();
   }
 
   async function renderAccount() {
-    const token = settings().token ?? null;
     const settingsItem = ["gear", "Settings", "settings"];
-    const signInItem = ["signIn", "Sign in with GitHub", "signin"];
-    if (!token) {
+    const signInItem = ["signIn", "Sign in", "signin"];
+    const id = signedInForge();
+    if (!id) {
       el.innerHTML = accountMenu(
         `<span class="avatar avatar-blank">${ICONS.person}</span>`,
-        `<div><strong>Not signed in</strong><span class="muted">Public repositories only</span></div>`,
-        [[signInItem], [settingsItem]],
+        [{ head: `<div><strong>Not signed in</strong><span class="muted">Public repositories only</span></div>`, items: [signInItem] }],
+        [settingsItem],
       );
     } else {
+      const f = forge(id);
       let me = null, error = null;
       try {
-        me = await forge().user(token);
+        me = await f.user(tokenFor(f));
       } catch (e) {
         error = e;
       }
-      const access = me ? await appInstallUrl() : null;
-      el.innerHTML = me
-        ? accountMenu(
-            `<img class="avatar" src="${escapeHtml(forge().avatar(me.avatar, 64))}" alt=""><span class="account-login">${escapeHtml(me.login)}</span>`,
-            `<img class="avatar avatar-lg" src="${escapeHtml(forge().avatar(me.avatar, 80))}" alt=""><div><strong>${escapeHtml(me.login)}</strong>${me.name ? `<span class="muted">${escapeHtml(me.name)}</span>` : ""}</div>`,
-            [[["person", "Your GitHub profile", null, me.url], ...(access ? [["key", "Repository access", null, access]] : []), settingsItem], [["signOut", "Sign out", "signout"]]],
-          )
-        : accountMenu(
-            `<span class="tag warn">signed out</span>`,
-            `<div><strong>GitHub ended the sign-in</strong><span class="muted">${escapeHtml(error.message)}</span></div>`,
-            [[signInItem, settingsItem], [["signOut", "Sign out", "signout"]]],
-          );
+      const signOutItem = ["signOut", "Sign out", "signout", null, f.id];
+      if (!me) {
+        el.innerHTML = accountMenu(
+          `<span class="tag warn">signed out</span>`,
+          [{ head: `<div><strong>${escapeHtml(f.name)} ended the sign-in</strong><span class="muted">${escapeHtml(error.message)}</span></div>`, items: [["signIn", "Sign in again", "signin", null, f.id], settingsItem] }],
+          [signOutItem],
+        );
+      } else {
+        const access = await appInstallUrl(f);
+        el.innerHTML = accountMenu(
+          `<img class="avatar" src="${escapeHtml(f.avatar(me.avatar, 64))}" alt=""><span class="account-login">${escapeHtml(me.login)}</span>`,
+          [
+            {
+              head: `<img class="avatar avatar-lg" src="${escapeHtml(f.avatar(me.avatar, 80))}" alt=""><div><strong>${escapeHtml(me.login)}</strong><span class="muted">${escapeHtml(me.name ? `${me.name} · ${f.name}` : f.name)}</span></div>`,
+              items: [["person", `Your ${f.name} profile`, null, me.url], ...(access ? [["key", "Repository access", null, access]] : []), settingsItem],
+            },
+          ],
+          [signOutItem],
+        );
+      }
     }
     for (const b of el.querySelectorAll("[data-act]")) {
       b.addEventListener("click", () => {
         b.closest("details").open = false;
-        if (b.dataset.act === "signin") signIn();
+        if (b.dataset.act === "signin") signIn(b.dataset.forge || null);
         if (b.dataset.act === "settings") openSettings();
-        if (b.dataset.act === "signout") signOut();
+        if (b.dataset.act === "signout") signOut(forge(b.dataset.forge));
       });
     }
   }
 
-  window.addEventListener("kivi:signin", signIn);
+  window.addEventListener("kivi:signin", (e) => signIn(e.detail?.forge ?? null));
   return { renderAccount, signIn };
 }
 

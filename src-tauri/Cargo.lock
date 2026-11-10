@@ -2023,6 +2023,7 @@ version = "0.1.0"
 dependencies = [
  "git2",
  "gtk",
+ "libc",
  "notify",
  "notify-debouncer-mini",
  "reqwest 0.12.28",

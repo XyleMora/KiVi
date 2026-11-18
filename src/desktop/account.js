@@ -16,6 +16,7 @@ import { $, escapeHtml, settings, saveSettings, signedInForge, toast, tokenFor }
 import { parseModelSource } from "../sources.js";
 import { forge } from "../forge/index.js";
 import { ICONS } from "./icons.js";
+import { checkNow, initUpdates, openUpdateDialog, updateState } from "./updates.js";
 import { appInstallUrl, chooseForge, inspectKicad, pickFolder, signInTo, signOut as signOutOf } from "./tauri.js";
 
 // Where KiCad usually is, as the path box's example and the folder picker's start.
@@ -42,6 +43,11 @@ const SETTINGS_HTML = `
     <button type="button" class="btn small" id="set-kicad-browse">Browse…</button>
   </div>
   <div class="muted settings-hint" id="set-kicad-status" aria-live="polite"></div>
+  <label class="check"><input type="checkbox" id="set-check-updates"> Check for updates</label>
+  <div class="row between gap">
+    <p class="muted settings-hint" id="set-update-status"></p>
+    <button type="button" class="btn small" id="set-update-now">Check now</button>
+  </div>
   <div class="row end gap">
     <button value="cancel" class="btn">Cancel</button>
     <button value="save" class="btn primary">Save</button>
@@ -53,14 +59,14 @@ const SETTINGS_HTML = `
  * The account menu: `sections` of {head, items} (one per forge), then Settings.
  * An item is [icon, label, action, href?, forge id?].
  */
-function accountMenu(face, sections, footer) {
+function accountMenu(face, sections, footer, dot = "") {
   const item = ([icon, label, act, href, f]) =>
     href
       ? `<a role="menuitem" href="${escapeHtml(href)}">${ICONS[icon]}<span>${escapeHtml(label)}</span></a>`
       : `<button type="button" role="menuitem" data-act="${act}"${f ? ` data-forge="${escapeHtml(f)}"` : ""}>${ICONS[icon]}<span>${escapeHtml(label)}</span></button>`;
   const section = ({ head, items }) => `${head ? `<div class="menu-head">${head}</div><hr>` : ""}${items.map(item).join("")}`;
   return `<details class="menu account-menu">
-    <summary class="account-button" aria-label="Account menu" aria-haspopup="menu">${face}${ICONS.chevron}</summary>
+    <summary class="account-button" aria-label="Account menu" aria-haspopup="menu">${face}${ICONS.chevron}${dot}</summary>
     <div class="menu-panel" role="menu">
       ${[...sections.map(section), footer.map(item).join("")].join("<hr>")}
     </div>
@@ -170,8 +176,31 @@ export function initHeader({ homeLinks = true, onAccountChange = () => location.
     if (kicad === undefined) toast("KiCad wasn't linked: that path isn't a KiCad installation", true);
     const { modelBase, kicad: oldKicad, ...rest } = settings(); // modelBase: replaced by modelSources
     const linked = kicad === undefined ? oldKicad : kicad;
-    saveSettings({ ...rest, ...(linked && { kicad: linked }), schDark: $("#set-sch-dark").checked, modelSources: sources, loadModels: $("#set-load-models").checked });
+    saveSettings({ ...rest, ...(linked && { kicad: linked }), schDark: $("#set-sch-dark").checked, modelSources: sources, loadModels: $("#set-load-models").checked, checkUpdates: $("#set-check-updates").checked });
     window.dispatchEvent(new Event("kivi:settings"));
+  });
+
+  // Settings → updates: the switch, which release feed this build follows, Check now.
+  function showUpdates(s) {
+    const { info } = updateState();
+    const box = $("#set-check-updates");
+    box.checked = s.checkUpdates !== false;
+    box.disabled = $("#set-update-now").disabled = info ? !info.enabled : true;
+    $("#set-update-status").textContent = !info ? "" : info.enabled ? `KiVi ${info.current} · updates from ${info.repo}` : "Updates are off in this build";
+  }
+  $("#set-update-now").addEventListener("click", async () => {
+    const button = $("#set-update-now");
+    button.disabled = true;
+    try {
+      if (await checkNow()) {
+        dlg.close("cancel"); // the update dialog takes over
+        openUpdateDialog();
+      } else toast("KiVi is up to date");
+    } catch (e) {
+      toast(`Couldn't check for updates: ${e.message ?? e}`, true);
+    } finally {
+      button.disabled = false;
+    }
   });
 
   async function openSettings() {
@@ -180,6 +209,7 @@ export function initHeader({ homeLinks = true, onAccountChange = () => location.
     $("#set-sch-dark").checked = s.schDark === true;
     $("#set-model-sources").value = (s.modelSources ?? [s.modelBase ?? DEFAULT_MODEL_BASE]).join("\n");
     $("#set-load-models").checked = s.loadModels !== false;
+    showUpdates(s);
     kicad = s.kicad ?? null;
     kicadBox.value = kicad?.program ?? "";
     showKicad(describeKicad(kicad));
@@ -216,12 +246,17 @@ export function initHeader({ homeLinks = true, onAccountChange = () => location.
   async function renderAccount() {
     const settingsItem = ["gear", "Settings", "settings"];
     const signInItem = ["signIn", "Sign in", "signin"];
+    const update = updateState().available;
+    // The first item of every state of the menu while an update waits.
+    const withUpdate = (items) => (update ? [["download", `Update to v${update.version}…`, "update"], ...items] : items);
+    const dot = update ? `<span class="update-dot" title="Update available"></span>` : "";
     const id = signedInForge();
     if (!id) {
       el.innerHTML = accountMenu(
         `<span class="avatar avatar-blank">${ICONS.person}</span>`,
-        [{ head: `<div><strong>Not signed in</strong><span class="muted">Public repositories only</span></div>`, items: [signInItem] }],
+        [{ head: `<div><strong>Not signed in</strong><span class="muted">Public repositories only</span></div>`, items: withUpdate([signInItem]) }],
         [settingsItem],
+        dot,
       );
     } else {
       const f = forge(id);
@@ -235,8 +270,9 @@ export function initHeader({ homeLinks = true, onAccountChange = () => location.
       if (!me) {
         el.innerHTML = accountMenu(
           `<span class="tag warn">signed out</span>`,
-          [{ head: `<div><strong>${escapeHtml(f.name)} ended the sign-in</strong><span class="muted">${escapeHtml(error.message)}</span></div>`, items: [["signIn", "Sign in again", "signin", null, f.id], settingsItem] }],
+          [{ head: `<div><strong>${escapeHtml(f.name)} ended the sign-in</strong><span class="muted">${escapeHtml(error.message)}</span></div>`, items: withUpdate([["signIn", "Sign in again", "signin", null, f.id], settingsItem]) }],
           [signOutItem],
+          dot,
         );
       } else {
         const access = await appInstallUrl(f);
@@ -245,10 +281,11 @@ export function initHeader({ homeLinks = true, onAccountChange = () => location.
           [
             {
               head: `<img class="avatar avatar-lg" src="${escapeHtml(f.avatar(me.avatar, 80))}" alt=""><div><strong>${escapeHtml(me.login)}</strong><span class="muted">${escapeHtml(me.name ? `${me.name} · ${f.name}` : f.name)}</span></div>`,
-              items: [["person", `Your ${f.name} profile`, null, me.url], ...(access ? [["key", "Repository access", null, access]] : []), settingsItem],
+              items: withUpdate([["person", `Your ${f.name} profile`, null, me.url], ...(access ? [["key", "Repository access", null, access]] : []), settingsItem]),
             },
           ],
           [signOutItem],
+          dot,
         );
       }
     }
@@ -257,11 +294,13 @@ export function initHeader({ homeLinks = true, onAccountChange = () => location.
         b.closest("details").open = false;
         if (b.dataset.act === "signin") signIn(b.dataset.forge || null);
         if (b.dataset.act === "settings") openSettings();
+        if (b.dataset.act === "update") openUpdateDialog();
         if (b.dataset.act === "signout") signOut(forge(b.dataset.forge));
       });
     }
   }
 
+  initUpdates(() => renderAccount());
   window.addEventListener("kivi:signin", (e) => signIn(e.detail?.forge ?? null));
   return { renderAccount, signIn };
 }

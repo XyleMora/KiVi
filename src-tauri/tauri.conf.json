@@ -31,6 +31,9 @@
       }
     }
   },
+  "plugins": {
+    "updater": { "pubkey": "", "endpoints": [], "requireSignedVersion": true }
+  },
   "bundle": {
     "active": true,
     "targets": ["appimage"],

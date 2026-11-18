@@ -19,3 +19,6 @@ src-tauri/target/
 src-tauri/gen/
 tests/kicad-demos/
 *.tmp.png
+
+# macOS
+.DS_Store

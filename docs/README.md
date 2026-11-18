@@ -366,6 +366,35 @@ application*, any name and redirect URI, **Confidential unticked**, scopes
   minutes); a big repository is listed 100 files per request.
 - Only gitlab.com for now, not self-hosted GitLab servers.
 
+## Updates
+
+KiVi looks for a newer release on GitHub shortly after a page opens, then about
+every six hours while it runs (and when you come back to the window after that
+long), and tells you in the account menu: a dot on your avatar and an **Update
+to vX…** item at the top of the menu. Nothing pops up by itself.
+
+The item opens a dialog with what changed (a link to the release page) and
+three choices:
+
+- **Update and restart** downloads the file for your system, checks its
+  signature, replaces this copy of KiVi and starts it again as the new version.
+- **Skip this version** stops the reminder for that version only; the next
+  release shows again.
+- **Later** closes the dialog; the dot stays.
+
+KiVi can only replace itself where it is allowed to: an **AppImage** on Linux,
+the **app in a folder you can write to** on macOS (for example
+`/Applications`), and the **.exe** itself on Windows. Anywhere else (another
+kind of Linux install, a read-only folder, a development build) the dialog says
+why and its main button is **Download…**, which opens the release page.
+
+Settings → **Check for updates** turns the automatic check off; **Check now**
+asks straight away. The line next to it shows the version you run and the
+repository the build follows. A build made without an update key says "Updates
+are off in this build". Pre-releases (tags such as `v0.2.1-macos1`) are never
+offered. A check that fails (offline, no release yet) is only logged and tried
+again later.
+
 ## Links into the viewer
 
 ```

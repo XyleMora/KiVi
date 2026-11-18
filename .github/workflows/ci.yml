@@ -9,6 +9,13 @@
 #   KIVI_GITHUB_CLIENT_ID   the GitHub App's Client ID (Iv23…)
 #   KIVI_GITHUB_APP_SLUG    its URL name (github.com/apps/<slug>)
 #   KIVI_GITLAB_CLIENT_ID   the gitlab.com OAuth application's ID (device flow)
+#   KIVI_UPDATER_PUBKEY     the public half of the update signing key (the .pub file
+#                           from `cargo tauri signer generate`); without it the build
+#                           has in-app updates off
+#   KIVI_UPDATE_REPO        owner/repo whose releases the app follows (default XyleMora/KiVi)
+# and these repository secrets, to sign the update files (without them the release
+# has no latest.json, so no updates):
+#   TAURI_SIGNING_PRIVATE_KEY, TAURI_SIGNING_PRIVATE_KEY_PASSWORD
 
 name: CI
 
@@ -57,6 +64,8 @@ jobs:
           gjs -m tests/gitlab.js
           gjs -m tests/diff.js
           gjs -m tests/nets.js
+          gjs -m tests/updates.js
+          python3 -m unittest tests/test_update_manifest.py
 
       - name: Parse and render all KiCad demos
         run: gjs -m tests/run.js
@@ -135,8 +144,20 @@ jobs:
           KIVI_GITHUB_CLIENT_ID: ${{ vars.KIVI_GITHUB_CLIENT_ID }}
           KIVI_GITHUB_APP_SLUG: ${{ vars.KIVI_GITHUB_APP_SLUG }}
           KIVI_GITLAB_CLIENT_ID: ${{ vars.KIVI_GITLAB_CLIENT_ID }}
+          KIVI_UPDATE_REPO: ${{ vars.KIVI_UPDATE_REPO }}
+          KIVI_UPDATER_PUBKEY: ${{ vars.KIVI_UPDATER_PUBKEY }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           APPIMAGE_EXTRACT_AND_RUN: "1" # the AppImage tooling runs without FUSE
-        run: cargo tauri build
+        run: |
+          # Update files (.sig next to each) only when the signing key is set, so
+          # builds without it (forks, local) still work. The tauri CLI reads the public
+          # key from the config, so it's handed over here instead of kept in the file.
+          args=()
+          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ] && [ -n "$KIVI_UPDATER_PUBKEY" ]; then
+            args+=(--config "$(python3 tools/updater_config.py)")
+          fi
+          cargo tauri build ${args[@]+"${args[@]}"}
 
       # The AppImage carries this runner's GTK/WebKitGTK libraries; their
       # licences and sources are published next to it.
@@ -148,6 +169,7 @@ jobs:
           name: kivi-linux
           path: |
             src-tauri/target/release/bundle/appimage/*.AppImage
+            src-tauri/target/release/bundle/appimage/*.AppImage.sig
             src-tauri/target/release/bundle/appimage/appimage-libraries.md
           if-no-files-found: error
 
@@ -185,6 +207,8 @@ jobs:
           KIVI_GITHUB_CLIENT_ID: ${{ vars.KIVI_GITHUB_CLIENT_ID }}
           KIVI_GITHUB_APP_SLUG: ${{ vars.KIVI_GITHUB_APP_SLUG }}
           KIVI_GITLAB_CLIENT_ID: ${{ vars.KIVI_GITLAB_CLIENT_ID }}
+          KIVI_UPDATE_REPO: ${{ vars.KIVI_UPDATE_REPO }}
+          KIVI_UPDATER_PUBKEY: ${{ vars.KIVI_UPDATER_PUBKEY }}
         run: cargo tauri build --no-bundle
 
       - name: Name the .exe after the version
@@ -193,6 +217,21 @@ jobs:
           $version = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
           Copy-Item src-tauri/target/release/kivi-desktop.exe "KiVi_${version}_x64.exe"
 
+      # The in-app updater downloads this very file and checks its signature, so it
+      # is signed here (no installer: Tauri's updater artifacts are for those).
+      # --app-version binds the signature to the version, which the app requires.
+      # Skipped without the key (key and password come from the environment).
+      - name: Sign the .exe for in-app updates
+        shell: pwsh
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          if (-not $env:TAURI_SIGNING_PRIVATE_KEY) { Write-Host "No signing key: not signing for updates"; exit 0 }
+          $version = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
+          cargo tauri signer sign --app-version $version "KiVi_${version}_x64.exe"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       # The licences go next to the .exe (and so into the release): the
       # AppImage carries them inside, a bare .exe can't.
       - uses: actions/upload-artifact@v4
@@ -200,6 +239,7 @@ jobs:
           name: kivi-windows
           path: |
             KiVi_*_x64.exe
+            KiVi_*_x64.exe.sig
             LICENSE
             THIRD-PARTY-NOTICES.md
           if-no-files-found: error
@@ -241,12 +281,38 @@ jobs:
           KIVI_GITHUB_CLIENT_ID: ${{ vars.KIVI_GITHUB_CLIENT_ID }}
           KIVI_GITHUB_APP_SLUG: ${{ vars.KIVI_GITHUB_APP_SLUG }}
           KIVI_GITLAB_CLIENT_ID: ${{ vars.KIVI_GITLAB_CLIENT_ID }}
-        run: cargo tauri build --target universal-apple-darwin
+          KIVI_UPDATE_REPO: ${{ vars.KIVI_UPDATE_REPO }}
+          KIVI_UPDATER_PUBKEY: ${{ vars.KIVI_UPDATER_PUBKEY }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          # With the signing key set, also build the .app and its signed
+          # KiVi.app.tar.gz, which the in-app updater downloads (a .dmg alone
+          # makes no updater file). Without it: the .dmg only, as before.
+          args=()
+          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ] && [ -n "$KIVI_UPDATER_PUBKEY" ]; then
+            args+=(--bundles app,dmg --config "$(python3 tools/updater_config.py)")
+          fi
+          cargo tauri build --target universal-apple-darwin ${args[@]+"${args[@]}"}
+
+      # The updater file is named like the .dmg (version and arch) so it can sit
+      # in the release next to it.
+      - name: Name the updater files after the version
+        run: |
+          macos=src-tauri/target/universal-apple-darwin/release/bundle/macos
+          if [ -f "$macos/KiVi.app.tar.gz.sig" ]; then
+            version=$(python3 -c 'import json; print(json.load(open("src-tauri/tauri.conf.json"))["version"])')
+            cp "$macos/KiVi.app.tar.gz" "$macos/KiVi_${version}_universal.app.tar.gz"
+            cp "$macos/KiVi.app.tar.gz.sig" "$macos/KiVi_${version}_universal.app.tar.gz.sig"
+          fi
 
       - uses: actions/upload-artifact@v4
         with:
           name: kivi-macos
-          path: src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+          path: |
+            src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+            src-tauri/target/universal-apple-darwin/release/bundle/macos/KiVi_*_universal.app.tar.gz
+            src-tauri/target/universal-apple-darwin/release/bundle/macos/KiVi_*_universal.app.tar.gz.sig
           if-no-files-found: error
 
   release:
@@ -282,7 +348,18 @@ jobs:
           git -C src archive --format=tar.gz --prefix="KiVi-${version}/" \
             -o "$PWD/bundles/source/KiVi_${version}_source.tar.gz" "${tree:-HEAD}"
 
+      # The updater's feed (latest.json) from the signed files; nothing is written
+      # (and the release has no updates) when no signing key was set. The
+      # signatures are only read here, not published.
+      - name: Updater feed
+        run: |
+          python3 src/tools/update_manifest.py bundles "$GITHUB_REF_NAME" "$GITHUB_REPOSITORY"
+          find bundles -name '*.sig' -delete
+
       - uses: softprops/action-gh-release@v2
         with:
           files: bundles/**/*
           generate_release_notes: true
+          # A tag with a suffix (v0.2.1-macos1) is a pre-release, which
+          # releases/latest, and so the in-app updater, skips.
+          prerelease: ${{ contains(github.ref_name, '-') }}

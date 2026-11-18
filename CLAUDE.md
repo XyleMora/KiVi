@@ -518,6 +518,71 @@ cargo tauri build               # release + AppImage: src-tauri/target/release/b
   colours in the file or extend the mapping. `python3 tools/make_icons.py`
   renders `src-tauri/icons/*.png` from it; rerun that after editing the logo.
 
+## Updates
+
+In-app updates (user guide: `docs/README.md` → Updates). The app follows the
+latest GitHub release of one repository and replaces itself.
+
+- **Build-time settings** (CI sets them from repository variables/secrets):
+  `KIVI_UPDATE_REPO` (`owner/repo`, default `XyleMora/KiVi`; the fork
+  `budenga/KiVi` sets it), `KIVI_UPDATER_PUBKEY` (the `.pub` file's contents).
+  **No public key at build time ⇒ the updater plugin isn't registered** and
+  every command says updates are off (local builds, `cargo tauri dev` without
+  the variable). Each repository has its own minisign key
+  (`cargo tauri signer generate`); the private key and password are the Actions
+  secrets `TAURI_SIGNING_PRIVATE_KEY`(`_PASSWORD`). Never print or commit the
+  private key. Losing it = users must update by hand once.
+- **Feed**: `https://github.com/<repo>/releases/latest/download/latest.json`
+  (no REST API, so no 60/h limit), read from Rust, so the CSP is untouched.
+  `releases/latest` skips pre-releases, and CI publishes tags containing `-` as
+  pre-releases. `tools/update_manifest.py bundles/ <tag> <repo>` writes the feed
+  in the release job: all four platform entries or nothing (no `.sig` files = no
+  file, exit 0; some missing = failure, since the plugin rejects a feed with an
+  incomplete entry). `tests/test_update_manifest.py` covers it.
+- **Rust** (`src-tauri/src/update.rs`, `tauri-plugin-updater` 2.14): commands
+  `update_info`, `update_check` (keeps the `Update` in `Pending`), `update_install`
+  (downloads, emits `update-progress`, installs, restarts); `tauri.conf.json` holds an
+  empty `plugins.updater` only because the plugin fails to start without that
+  section (its `pubkey` has no default); the real key is passed from Rust, and
+  `requireSignedVersion` is on (a signature must carry the version the feed announces,
+  which stops a doctored feed from pairing a new version with an old file;
+  `tauri build` records it, and CI passes `--app-version` when signing the .exe).
+  The restart is core `AppHandle::restart`, so there's no process plugin.
+  - Linux: only from an AppImage (`$APPIMAGE`, which is also given to the plugin
+    as the file to replace: `current_exe()` is inside the temporary mount) in a
+    writable folder; the plugin swaps the plain AppImage (no tar.gz).
+  - macOS: the plugin swaps the `.app` from a signed `KiVi.app.tar.gz`; needs a
+    `.app` in a writable folder. A `dmg`-only build makes no updater file, so CI
+    adds `--bundles app,dmg` when signing; the file is renamed
+    `KiVi_<v>_universal.app.tar.gz`, one entry for both architectures.
+  - Windows: the plugin's `install()` would run the file as an installer, so only
+    `download()` (which verifies) is used and `replace_exe` renames the running
+    exe to `.exe.old`, moves `.exe.new` in (rolled back if that fails) and starts
+    the new file by its real path (after the rename the process's own path may read
+    as `.old`, which is what `restart()` would launch); `.old` is deleted at the
+    next start (`update::cleanup`). The exe is signed in CI by `cargo tauri signer sign`.
+  - A debug build (`cargo tauri dev`) never installs ("Development build"): the
+    dialog offers the release page.
+- **JS**: `src/desktop/updates.js` (timers, requests, dialog `#update-dialog`) and
+  `update-check.js` (pure: `shouldCheck`, `visibleUpdate`, `isNewer`; separate
+  because `tauri.js` needs `window` and `tests/updates.js` runs under gjs). Checks
+  10 s after load, every 6 h, and on focus when due; the last successful result is
+  shared by the pages in localStorage `kivi.updateCheck` (a failure is never
+  stored, only `console.warn`ed, retried after 5 min). Settings `checkUpdates`
+  (default on; off = no automatic requests) and `updateSkip`. The dot and the
+  first menu item live in `account.js`. Updating re-runs `update_check` first,
+  since the Rust side forgets the found update on restart.
+- **Tested here (macOS, no gjs)**: `cargo test` (`replace_exe` incl. rollback, bundle
+  and reason helpers), `tests/test_update_manifest.py`, `tests/updates.js` (also run
+  under Node with `print` shimmed), the plugin's behaviour read from its source
+, a local macOS build with a throwaway key for the file names.
+- **Tested on the fork `budenga/KiVi`** (2026-11-18): CI with its key built and signed
+  all three platforms and published `v0.2.90` with a complete `latest.json`; on macOS
+  (Apple Silicon) a local 0.1.0 `.app` in `~/Applications`, built with the fork's
+  `KIVI_UPDATE_REPO`/`KIVI_UPDATER_PUBKEY`, showed the dot, updated itself and restarted
+  as 0.2.90. **Not run yet**: a real update on Linux (AppImage), Windows (`replace_exe`
+  has never run outside `cargo test`) and Intel macOS.
+
 ## Licence
 
 GPL-3.0-or-later (`LICENSE`; `license` in `Cargo.toml` and `tauri.conf.json`).
@@ -544,6 +609,8 @@ gjs -m tests/nets.js
 gjs -m tests/review.js                       # GitHub adapter and forge interface, mocked
 gjs -m tests/gitlab.js                       # GitLab adapter, mocked
 gjs -m tests/models.js                       # 3D model path resolution order
+gjs -m tests/updates.js                      # update check throttle, skip, switched off
+python3 -m unittest tests/test_update_manifest.py   # the updater's latest.json writer
 cargo test --manifest-path src-tauri/Cargo.toml --lib   # Rust: model folders, git (needs dist/web)
 tests/smoke.sh                               # pages load cleanly, viewer opens pic_programmer (~15 s)
 ```
@@ -670,8 +737,8 @@ requests: `tools/screenshots-prelude.js` (after `tests/tauri-mock.js`) mocks
   click a change, then zoom with `kiviDiff.after.zoomTo(c.after, mm)` or
   `(c.boxesAfter[0], mm)`.
 
-The real `XyleMora/KiVi` and `cm5_minima_test_repo` aren't publicly readable
-(API 404 signed out, checked 2026-10-30), so the README's quick start uses
+`XyleMora/KiVi` is publicly readable (checked 2026-11-16); `cm5_minima_test_repo`
+isn't (API 404 signed out, checked 2026-10-30). The README's quick start uses
 `greatscottgadgets/hackrf` (public, `hardware/hackrf-one/hackrf-one.kicad_pro`).
 
 ## Test data
@@ -695,4 +762,6 @@ The real `XyleMora/KiVi` and `cm5_minima_test_repo` aren't publicly readable
 - Tokens are in localStorage, not the OS keychain.
 - No text merge of a file changed on both sides (on purpose: KiCad files
   don't merge reliably); Pull offers moving the commits to a new branch instead.
-- No auto-update, code signing or file associations.
+- No code signing, notarisation or file associations.
+- In-app updates: a real update has only run on Apple Silicon macOS; Linux,
+  Windows and Intel macOS are untested (see Updates).

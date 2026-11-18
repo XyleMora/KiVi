@@ -76,9 +76,13 @@
 .menu { position: relative; }
 .menu > summary { list-style: none; cursor: pointer; }
 .menu > summary::-webkit-details-marker { display: none; }
-.account-button { display: flex; align-items: center; gap: 8px; padding: 3px 8px 3px 3px; border: 1px solid transparent; border-radius: 999px; color: var(--muted); }
+.account-button { position: relative; display: flex; align-items: center; gap: 8px; padding: 3px 8px 3px 3px; border: 1px solid transparent; border-radius: 999px; color: var(--muted); }
 .account-button:hover, .account-menu[open] .account-button { border-color: var(--border); background: var(--surface-2); }
 .account-button .avatar { width: 28px; height: 28px; }
+/* Something to update (account.js, updates.js): a dot on the avatar's top-right corner. */
+.update-dot { position: absolute; left: 24px; top: 1px; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 2px var(--surface); }
+#update-dialog progress { width: 100%; }
+#update-dialog .settings > p { margin: 0; }
 .account-login { color: var(--text); font-weight: 500; }
 .avatar-blank { display: inline-flex; align-items: center; justify-content: center; background: var(--surface-2); border: 1px solid var(--border); color: var(--muted); }
 .avatar-lg { width: 40px; height: 40px; }

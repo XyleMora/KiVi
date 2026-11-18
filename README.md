@@ -205,7 +205,7 @@ version and, if you can, the file. Good to know before you start:
 ## Using KiVi
 
 The [user guide](docs/README.md) covers every feature in detail:
-[Projects](docs/README.md#projects) · [Schematic, PCB and 3D](docs/README.md#schematic-pcb-and-3d) · [Visual diff](docs/README.md#visual-diff) · [Pull requests](docs/README.md#pull-requests) · [Review comments on pull requests](docs/README.md#review-comments-on-pull-requests) · [Change requests as issues](docs/README.md#change-requests-as-issues) · [Local copies, branches and pushing](docs/README.md#local-copies-branches-and-pushing) · [Linking KiCad](docs/README.md#linking-kicad) · [Signing in to GitHub and GitLab](docs/README.md#signing-in-to-github-and-gitlab) · [Links into the viewer](docs/README.md#links-into-the-viewer) · [How the gallery stays fast](docs/README.md#how-the-gallery-stays-fast).
+[Projects](docs/README.md#projects) · [Schematic, PCB and 3D](docs/README.md#schematic-pcb-and-3d) · [Visual diff](docs/README.md#visual-diff) · [Pull requests](docs/README.md#pull-requests) · [Review comments on pull requests](docs/README.md#review-comments-on-pull-requests) · [Change requests as issues](docs/README.md#change-requests-as-issues) · [Local copies, branches and pushing](docs/README.md#local-copies-branches-and-pushing) · [Linking KiCad](docs/README.md#linking-kicad) · [Updates](docs/README.md#updates) · [Signing in to GitHub and GitLab](docs/README.md#signing-in-to-github-and-gitlab) · [Links into the viewer](docs/README.md#links-into-the-viewer) · [How the gallery stays fast](docs/README.md#how-the-gallery-stays-fast).
 
 ## Known limitations
 
@@ -239,7 +239,7 @@ The [user guide](docs/README.md) covers every feature in detail:
 
 - The tokens and refresh tokens are kept in the app's local storage; a release
   should keep them in the OS keychain, at least the long-lived refresh token.
-- Auto-update, code signing, notarisation, file associations.
+- Code signing, notarisation, file associations.
 
 ---
 
@@ -329,6 +329,8 @@ src/desktop/
   add-project.js        the "+" menu: local project, remote project (settings `watchRepos`)
   local-projects.js     local project folders in the gallery, Link to remote…
   icons.js              header and menu icons (repository / pull request follow Octicons)
+  updates.js            in-app updates: periodic check, account-menu dot, update dialog
+  update-check.js       the update decisions without DOM (tested by tests/updates.js)
 src-tauri/              Rust app
   src/lib.rs            commands: open_folder, list_folder, read_file, startup_folder,
                         model folders, forge_build_config, oauth_post (sign-in)
@@ -337,6 +339,7 @@ src-tauri/              Rust app
                         GitHub and GitLab remotes (tokens only to their hosts)
   src/git_http.rs       git over HTTPS through reqwest (no OpenSSL)
   src/kicad.rs          linking KiCad (program, version, path variables), Open in KiCad
+  src/update.rs         in-app updates: check the release feed, download, verify, replace, restart
   tauri.conf.json       window, CSP, bundle targets
   capabilities/         which plugin APIs the page may call
   icons/                app icons (tools/make_icons.py)
@@ -384,6 +387,8 @@ gjs -m tests/nets.js
 gjs -m tests/review.js
 gjs -m tests/gitlab.js
 gjs -m tests/models.js
+gjs -m tests/updates.js          # when an update check is due, which update is shown
+python3 -m unittest tests/test_update_manifest.py   # the updater's latest.json
 cargo test --manifest-path src-tauri/Cargo.toml --lib   # Rust side: model folders, git (needs dist/web: run tools/build_web.py once)
 
 # Render a file to SVG
@@ -436,7 +441,7 @@ ok    diff
 1. **Tests**: installs gjs, WebKitGTK and xvfb, restores the KiCad demo files
    from the Actions cache (keyed on `tests/kicad-demos.txt`, so they're
    downloaded only when the list changes or the cache expired after 7 unused
-   days), then runs the unit tests, the full demo sweep and `tests/smoke.sh`.
+   days), then runs the unit tests (including the `latest.json` writer's), the full demo sweep and `tests/smoke.sh`.
 2. **Rust tests**, alongside: `cargo test` on the Rust side, with the Rust
    build cached, and a check that `THIRD-PARTY-NOTICES.md` is up to date. All
    three builds below wait for both test jobs.
@@ -462,9 +467,30 @@ by hand (the versions in the repository are only for local and manual builds;
 a tag that isn't `v<major>.<minor>.<patch>`, optionally with `-beta.1` and the
 like, fails the build). The release has the AppImage, the
 Windows `.exe`, the macOS `.dmg`, `LICENSE`, `THIRD-PARTY-NOTICES.md`,
-`appimage-libraries.md` and `KiVi_<version>_source.tar.gz` (`git archive` of
-the tag, with the version written in). Merges don't build, so run the workflow by hand on `main` before
+`appimage-libraries.md`, `KiVi_<version>_source.tar.gz` (`git archive` of
+the tag, with the version written in) and, when update signing is set up,
+`latest.json` and the macOS `KiVi_<version>_universal.app.tar.gz` (see below). Merges don't build, so run the workflow by hand on `main` before
 tagging and check all three builds pass.
+
+### In-app updates
+
+The app follows the latest GitHub release of its own repository
+(`XyleMora/KiVi`, or `KIVI_UPDATE_REPO=owner/repo` at build time, which is how a
+fork tests it). Setting it up for a repository:
+
+```sh
+cargo tauri signer generate -w ~/.tauri/kivi.key   # once; keep the private key and its password safe
+```
+
+Then in the repository's Actions settings: **variable** `KIVI_UPDATER_PUBKEY`
+(the `.pub` file's contents), and **secrets** `TAURI_SIGNING_PRIVATE_KEY` (the
+key file's contents) and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. With them, a
+release build signs the AppImage, the macOS `.app.tar.gz` and the Windows `.exe`
+and attaches `latest.json`, which lists the four platforms; without them the
+build works as before but has updates off. Losing the private key means users
+have to download the next version by hand. A tag with a suffix (`v0.2.1-beta.1`)
+is published as a pre-release, which `releases/latest` (and so the updater) skips.
+Details for developers are in `CLAUDE.md`.
 
 ## Licence
 

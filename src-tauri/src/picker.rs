@@ -18,7 +18,7 @@ pub fn use_portal() {
     }
 }
 
-/// Undo `use_portal` for a program KiVi starts (KiCad).
+/// Undo `use_portal` for a program KiVi starts (KiCad, the terminal's shell).
 pub fn clean_child_env(cmd: &mut std::process::Command) {
     if std::env::var_os("KIVI_SET_GTK_USE_PORTAL").is_some() {
         cmd.env_remove("GTK_USE_PORTAL").env_remove("KIVI_SET_GTK_USE_PORTAL");

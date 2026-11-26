@@ -829,7 +829,7 @@ or you may write to the Free Software Foundation, Inc.,
 
 ## Rust crates
 
-Compiled into the `kivi-desktop` binary for Linux or Windows (411 crates). Where a crate
+Compiled into the `kivi-desktop` binary for Linux or Windows (427 crates). Where a crate
 offers a choice of licences, KiVi uses it under one compatible with the
 GPL-3.0. Each crate's licence files, as published on crates.io, are under
 [Crate licence texts](#crate-licence-texts); many crates share the same text,
@@ -885,65 +885,66 @@ applies (see the texts here for Apache-2.0, MIT, MPL-2.0 and BSD-3-Clause).
 | [chacha20](https://github.com/RustCrypto/stream-ciphers) | 0.10.2 | MIT OR Apache-2.0 | [T11](#t11), [T29](#t29) |
 | [chrono](https://github.com/chronotope/chrono) | 0.4.45 | MIT OR Apache-2.0 | [T30](#t30) |
 | [concurrent-queue](https://github.com/smol-rs/concurrent-queue) | 2.5.0 | Apache-2.0 OR MIT | [T3](#t3), [T11](#t11) |
-| [cookie](https://github.com/SergioBenitez/cookie-rs) | 0.18.2 | MIT OR Apache-2.0 | [T31](#t31), [T32](#t32) |
-| [cpufeatures](https://github.com/RustCrypto/utils) | 0.2.17 | MIT OR Apache-2.0 | [T11](#t11), [T33](#t33) |
-| [cpufeatures](https://github.com/RustCrypto/utils) | 0.3.1 | MIT OR Apache-2.0 | [T11](#t11), [T34](#t34) |
-| [crc32fast](https://github.com/srijs/rust-crc32fast) | 1.5.2 | MIT OR Apache-2.0 | [T35](#t35), [T36](#t36) |
-| [crossbeam-channel](https://github.com/crossbeam-rs/crossbeam) | 0.5.17 | MIT OR Apache-2.0 | [T11](#t11), [T37](#t37), [T38](#t38) |
-| [crossbeam-utils](https://github.com/crossbeam-rs/crossbeam) | 0.8.23 | MIT OR Apache-2.0 | [T11](#t11), [T37](#t37) |
-| [crypto-common](https://github.com/RustCrypto/traits) | 0.1.7 | MIT OR Apache-2.0 | [T11](#t11), [T39](#t39) |
-| [cssparser](https://github.com/servo/rust-cssparser) | 0.37.0 | MPL-2.0 | [T40](#t40) |
-| [cssparser-macros](https://github.com/servo/rust-cssparser) | 0.7.1 | MPL-2.0 | [T40](#t40) |
-| [ctor](https://github.com/mmastrac/linktime) | 1.0.13 | Apache-2.0 OR MIT | [T3](#t3), [T35](#t35) |
-| [darling](https://github.com/TedDriggs/darling) | 0.24.1 | MIT | [T41](#t41) |
-| [darling_core](https://github.com/TedDriggs/darling) | 0.24.1 | MIT | [T41](#t41) |
-| [darling_macro](https://github.com/TedDriggs/darling) | 0.24.1 | MIT | [T41](#t41) |
-| [dbus](https://github.com/diwic/dbus-rs) | 0.9.12 | Apache-2.0/MIT | [T42](#t42), [T43](#t43) |
-| [defmt](https://github.com/knurling-rs/defmt) | 1.2.0 | MIT OR Apache-2.0 | [T11](#t11), [T44](#t44) |
-| [defmt-macros](https://github.com/knurling-rs/defmt) | 1.2.0 | MIT OR Apache-2.0 | [T11](#t11), [T44](#t44) |
-| [defmt-parser](https://github.com/knurling-rs/defmt) | 1.1.0 | MIT OR Apache-2.0 | [T11](#t11), [T44](#t44) |
-| [deranged](https://github.com/jhpratt/deranged) | 0.5.9 | MIT OR Apache-2.0 | [T45](#t45), [T46](#t46) |
-| [derive_more](https://github.com/JelteF/derive_more) | 2.1.1 | MIT | [T47](#t47) |
-| [derive_more-impl](https://github.com/JelteF/derive_more) | 2.1.1 | MIT | [T47](#t47) |
-| [digest](https://github.com/RustCrypto/traits) | 0.10.7 | MIT OR Apache-2.0 | [T11](#t11), [T48](#t48) |
-| [dirs](https://codeberg.org/dirs/dirs-rs) | 7.0.0 | MIT OR Apache-2.0 | [T49](#t49), [T50](#t50) |
-| [dirs-sys](https://github.com/dirs-dev/dirs-sys-rs) | 0.5.0 | MIT OR Apache-2.0 | [T49](#t49), [T50](#t50) |
+| [constant_time_eq](https://codeberg.org/cesarb/constant_time_eq) | 0.6.1 | CC0-1.0 OR MIT-0 OR Apache-2.0 | [T8](#t8), [T31](#t31), [T32](#t32) |
+| [cookie](https://github.com/SergioBenitez/cookie-rs) | 0.18.2 | MIT OR Apache-2.0 | [T33](#t33), [T34](#t34) |
+| [cpufeatures](https://github.com/RustCrypto/utils) | 0.2.17 | MIT OR Apache-2.0 | [T11](#t11), [T35](#t35) |
+| [cpufeatures](https://github.com/RustCrypto/utils) | 0.3.1 | MIT OR Apache-2.0 | [T11](#t11), [T36](#t36) |
+| [crc32fast](https://github.com/srijs/rust-crc32fast) | 1.5.2 | MIT OR Apache-2.0 | [T37](#t37), [T38](#t38) |
+| [crossbeam-channel](https://github.com/crossbeam-rs/crossbeam) | 0.5.17 | MIT OR Apache-2.0 | [T11](#t11), [T39](#t39), [T40](#t40) |
+| [crossbeam-utils](https://github.com/crossbeam-rs/crossbeam) | 0.8.23 | MIT OR Apache-2.0 | [T11](#t11), [T39](#t39) |
+| [crypto-common](https://github.com/RustCrypto/traits) | 0.1.7 | MIT OR Apache-2.0 | [T11](#t11), [T41](#t41) |
+| [cssparser](https://github.com/servo/rust-cssparser) | 0.37.0 | MPL-2.0 | [T42](#t42) |
+| [cssparser-macros](https://github.com/servo/rust-cssparser) | 0.7.1 | MPL-2.0 | [T42](#t42) |
+| [ctor](https://github.com/mmastrac/linktime) | 1.0.13 | Apache-2.0 OR MIT | [T3](#t3), [T37](#t37) |
+| [darling](https://github.com/TedDriggs/darling) | 0.24.1 | MIT | [T43](#t43) |
+| [darling_core](https://github.com/TedDriggs/darling) | 0.24.1 | MIT | [T43](#t43) |
+| [darling_macro](https://github.com/TedDriggs/darling) | 0.24.1 | MIT | [T43](#t43) |
+| [dbus](https://github.com/diwic/dbus-rs) | 0.9.12 | Apache-2.0/MIT | [T44](#t44), [T45](#t45) |
+| [defmt](https://github.com/knurling-rs/defmt) | 1.2.0 | MIT OR Apache-2.0 | [T11](#t11), [T46](#t46) |
+| [defmt-macros](https://github.com/knurling-rs/defmt) | 1.2.0 | MIT OR Apache-2.0 | [T11](#t11), [T46](#t46) |
+| [defmt-parser](https://github.com/knurling-rs/defmt) | 1.1.0 | MIT OR Apache-2.0 | [T11](#t11), [T46](#t46) |
+| [deranged](https://github.com/jhpratt/deranged) | 0.5.9 | MIT OR Apache-2.0 | [T47](#t47), [T48](#t48) |
+| [derive_more](https://github.com/JelteF/derive_more) | 2.1.1 | MIT | [T49](#t49) |
+| [derive_more-impl](https://github.com/JelteF/derive_more) | 2.1.1 | MIT | [T49](#t49) |
+| [digest](https://github.com/RustCrypto/traits) | 0.10.7 | MIT OR Apache-2.0 | [T11](#t11), [T50](#t50) |
+| [dirs](https://codeberg.org/dirs/dirs-rs) | 7.0.0 | MIT OR Apache-2.0 | [T51](#t51), [T52](#t52) |
+| [dirs-sys](https://github.com/dirs-dev/dirs-sys-rs) | 0.5.0 | MIT OR Apache-2.0 | [T51](#t51), [T52](#t52) |
 | [displaydoc](https://github.com/yaahc/displaydoc) | 0.2.7 | MIT OR Apache-2.0 | [T3](#t3), [T11](#t11) |
 | [dlopen2](https://github.com/OpenByteDev/dlopen2) | 0.8.2 | MIT | none published |
 | [dlopen2_derive](https://github.com/OpenByteDev/dlopen2) | 0.4.3 | MIT | none published |
-| [dom_query](https://github.com/niklak/dom_query) | 0.28.0 | MIT | [T51](#t51) |
-| [dpi](https://github.com/rust-windowing/winit) | 0.1.2 | Apache-2.0 AND MIT | [T35](#t35), [T52](#t52) |
+| [dom_query](https://github.com/niklak/dom_query) | 0.28.0 | MIT | [T53](#t53) |
+| [dpi](https://github.com/rust-windowing/winit) | 0.1.2 | Apache-2.0 AND MIT | [T37](#t37), [T54](#t54) |
 | [dtoa](https://github.com/dtolnay/dtoa) | 1.0.11 | MIT OR Apache-2.0 | [T3](#t3), [T8](#t8) |
-| [dtoa-short](https://github.com/upsuper/dtoa-short) | 0.3.5 | MPL-2.0 | [T40](#t40) |
-| [dunce](https://gitlab.com/kornelski/dunce) | 1.0.5 | CC0-1.0 OR MIT-0 OR Apache-2.0 | [T53](#t53) |
+| [dtoa-short](https://github.com/upsuper/dtoa-short) | 0.3.5 | MPL-2.0 | [T42](#t42) |
+| [dunce](https://gitlab.com/kornelski/dunce) | 1.0.5 | CC0-1.0 OR MIT-0 OR Apache-2.0 | [T31](#t31) |
 | [dyn-clone](https://github.com/dtolnay/dyn-clone) | 1.0.20 | MIT OR Apache-2.0 | [T3](#t3), [T8](#t8) |
-| [embed-resource](https://github.com/nabijaczleweli/rust-embed-resource) | 3.0.12 | MIT | [T54](#t54) |
+| [embed-resource](https://github.com/nabijaczleweli/rust-embed-resource) | 3.0.12 | MIT | [T55](#t55) |
 | [endi](https://github.com/zeenix/endi) | 1.1.1 | MIT | [T3](#t3) |
-| [enumflags2](https://github.com/meithecatte/enumflags2) | 0.7.12 | MIT OR Apache-2.0 | [T55](#t55), [T56](#t56) |
-| [enumflags2_derive](https://github.com/meithecatte/enumflags2) | 0.7.12 | MIT OR Apache-2.0 | [T57](#t57), [T58](#t58) |
-| [equivalent](https://github.com/indexmap-rs/equivalent) | 1.0.3 | Apache-2.0 OR MIT | [T11](#t11), [T59](#t59) |
+| [enumflags2](https://github.com/meithecatte/enumflags2) | 0.7.12 | MIT OR Apache-2.0 | [T56](#t56), [T57](#t57) |
+| [enumflags2_derive](https://github.com/meithecatte/enumflags2) | 0.7.12 | MIT OR Apache-2.0 | [T58](#t58), [T59](#t59) |
+| [equivalent](https://github.com/indexmap-rs/equivalent) | 1.0.3 | Apache-2.0 OR MIT | [T11](#t11), [T60](#t60) |
 | [erased-serde](https://github.com/dtolnay/erased-serde) | 0.4.10 | MIT OR Apache-2.0 | [T3](#t3), [T8](#t8) |
-| [errno](https://github.com/lambda-fairy/rust-errno) | 0.3.14 | MIT OR Apache-2.0 | [T11](#t11), [T60](#t60) |
+| [errno](https://github.com/lambda-fairy/rust-errno) | 0.3.14 | MIT OR Apache-2.0 | [T11](#t11), [T61](#t61) |
 | [event-listener](https://github.com/smol-rs/event-listener) | 5.4.2 | Apache-2.0 OR MIT | [T3](#t3), [T11](#t11) |
 | [event-listener-strategy](https://github.com/smol-rs/event-listener-strategy) | 0.5.4 | Apache-2.0 OR MIT | [T3](#t3), [T11](#t11) |
 | [fastrand](https://github.com/smol-rs/fastrand) | 2.5.0 | Apache-2.0 OR MIT | [T3](#t3), [T11](#t11) |
-| [fdeflate](https://github.com/image-rs/fdeflate) | 0.3.7 | MIT OR Apache-2.0 | [T8](#t8), [T61](#t61) |
-| [field-offset](https://github.com/Diggsey/rust-field-offset) | 0.3.6 | MIT OR Apache-2.0 | [T8](#t8), [T62](#t62) |
+| [fdeflate](https://github.com/image-rs/fdeflate) | 0.3.7 | MIT OR Apache-2.0 | [T8](#t8), [T62](#t62) |
+| [field-offset](https://github.com/Diggsey/rust-field-offset) | 0.3.6 | MIT OR Apache-2.0 | [T8](#t8), [T63](#t63) |
 | [filetime](https://github.com/alexcrichton/filetime) | 0.2.29 | MIT/Apache-2.0 | [T11](#t11), [T24](#t24) |
 | [find-msvc-tools](https://github.com/rust-lang/cc-rs) | 0.1.14 | MIT OR Apache-2.0 | [T11](#t11), [T24](#t24) |
-| [flate2](https://github.com/rust-lang/flate2-rs) | 1.1.10 | MIT OR Apache-2.0 | [T11](#t11), [T63](#t63) |
-| [fnv](https://github.com/servo/rust-fnv) | 1.0.7 | Apache-2.0 / MIT | [T11](#t11), [T64](#t64) |
-| [foldhash](https://github.com/orlp/foldhash) | 0.2.0 | Zlib | [T65](#t65) |
-| [form_urlencoded](https://github.com/servo/rust-url) | 1.2.2 | MIT OR Apache-2.0 | [T11](#t11), [T66](#t66) |
-| [futures-channel](https://github.com/rust-lang/futures-rs) | 0.3.34 | MIT OR Apache-2.0 | [T67](#t67), [T68](#t68) |
-| [futures-core](https://github.com/rust-lang/futures-rs) | 0.3.34 | MIT OR Apache-2.0 | [T67](#t67), [T68](#t68) |
-| [futures-executor](https://github.com/rust-lang/futures-rs) | 0.3.34 | MIT OR Apache-2.0 | [T67](#t67), [T68](#t68) |
-| [futures-io](https://github.com/rust-lang/futures-rs) | 0.3.34 | MIT OR Apache-2.0 | [T67](#t67), [T68](#t68) |
+| [flate2](https://github.com/rust-lang/flate2-rs) | 1.1.10 | MIT OR Apache-2.0 | [T11](#t11), [T64](#t64) |
+| [fnv](https://github.com/servo/rust-fnv) | 1.0.7 | Apache-2.0 / MIT | [T11](#t11), [T65](#t65) |
+| [foldhash](https://github.com/orlp/foldhash) | 0.2.0 | Zlib | [T66](#t66) |
+| [form_urlencoded](https://github.com/servo/rust-url) | 1.2.2 | MIT OR Apache-2.0 | [T11](#t11), [T67](#t67) |
+| [futures-channel](https://github.com/rust-lang/futures-rs) | 0.3.34 | MIT OR Apache-2.0 | [T68](#t68), [T69](#t69) |
+| [futures-core](https://github.com/rust-lang/futures-rs) | 0.3.34 | MIT OR Apache-2.0 | [T68](#t68), [T69](#t69) |
+| [futures-executor](https://github.com/rust-lang/futures-rs) | 0.3.34 | MIT OR Apache-2.0 | [T68](#t68), [T69](#t69) |
+| [futures-io](https://github.com/rust-lang/futures-rs) | 0.3.34 | MIT OR Apache-2.0 | [T68](#t68), [T69](#t69) |
 | [futures-lite](https://github.com/smol-rs/futures-lite) | 2.6.1 | Apache-2.0 OR MIT | [T3](#t3), [T11](#t11), [T13](#t13) |
-| [futures-macro](https://github.com/rust-lang/futures-rs) | 0.3.34 | MIT OR Apache-2.0 | [T67](#t67), [T68](#t68) |
-| [futures-sink](https://github.com/rust-lang/futures-rs) | 0.3.34 | MIT OR Apache-2.0 | [T67](#t67), [T68](#t68) |
-| [futures-task](https://github.com/rust-lang/futures-rs) | 0.3.34 | MIT OR Apache-2.0 | [T67](#t67), [T68](#t68) |
-| [futures-util](https://github.com/rust-lang/futures-rs) | 0.3.34 | MIT OR Apache-2.0 | [T67](#t67), [T68](#t68) |
+| [futures-macro](https://github.com/rust-lang/futures-rs) | 0.3.34 | MIT OR Apache-2.0 | [T68](#t68), [T69](#t69) |
+| [futures-sink](https://github.com/rust-lang/futures-rs) | 0.3.34 | MIT OR Apache-2.0 | [T68](#t68), [T69](#t69) |
+| [futures-task](https://github.com/rust-lang/futures-rs) | 0.3.34 | MIT OR Apache-2.0 | [T68](#t68), [T69](#t69) |
+| [futures-util](https://github.com/rust-lang/futures-rs) | 0.3.34 | MIT OR Apache-2.0 | [T68](#t68), [T69](#t69) |
 | [gdk](https://github.com/gtk-rs/gtk3-rs) | 0.18.2 | MIT | [T3](#t3), [T12](#t12) |
 | [gdk-pixbuf](https://github.com/gtk-rs/gtk-rs-core) | 0.18.5 | MIT | [T3](#t3), [T12](#t12) |
 | [gdk-pixbuf-sys](https://github.com/gtk-rs/gtk-rs-core) | 0.18.0 | MIT | [T3](#t3) |
@@ -951,10 +952,10 @@ applies (see the texts here for Apache-2.0, MIT, MPL-2.0 and BSD-3-Clause).
 | [gdkwayland-sys](https://github.com/gtk-rs/gtk3-rs) | 0.18.2 | MIT | [T3](#t3) |
 | [gdkx11](https://github.com/gtk-rs/gtk3-rs) | 0.18.2 | MIT | [T3](#t3), [T12](#t12) |
 | [gdkx11-sys](https://github.com/gtk-rs/gtk3-rs) | 0.18.2 | MIT | [T3](#t3) |
-| [generic-array](https://github.com/fizyk20/generic-array.git) | 0.14.7 | MIT | [T69](#t69) |
-| [getrandom](https://github.com/rust-random/getrandom) | 0.2.17 | MIT OR Apache-2.0 | [T70](#t70), [T71](#t71) |
-| [getrandom](https://github.com/rust-random/getrandom) | 0.3.4 | MIT OR Apache-2.0 | [T70](#t70), [T72](#t72) |
-| [getrandom](https://github.com/rust-random/getrandom) | 0.4.3 | MIT OR Apache-2.0 | [T70](#t70), [T73](#t73) |
+| [generic-array](https://github.com/fizyk20/generic-array.git) | 0.14.7 | MIT | [T70](#t70) |
+| [getrandom](https://github.com/rust-random/getrandom) | 0.2.17 | MIT OR Apache-2.0 | [T71](#t71), [T72](#t72) |
+| [getrandom](https://github.com/rust-random/getrandom) | 0.3.4 | MIT OR Apache-2.0 | [T71](#t71), [T73](#t73) |
+| [getrandom](https://github.com/rust-random/getrandom) | 0.4.3 | MIT OR Apache-2.0 | [T71](#t71), [T74](#t74) |
 | [gio](https://github.com/gtk-rs/gtk-rs-core) | 0.18.4 | MIT | [T3](#t3), [T12](#t12) |
 | [gio-sys](https://github.com/gtk-rs/gtk-rs-core) | 0.18.1 | MIT | [T3](#t3) |
 | [git2](https://github.com/rust-lang/git2-rs) | 0.20.4 | MIT OR Apache-2.0 | [T11](#t11), [T24](#t24) |
@@ -966,137 +967,143 @@ applies (see the texts here for Apache-2.0, MIT, MPL-2.0 and BSD-3-Clause).
 | [gtk](https://github.com/gtk-rs/gtk3-rs) | 0.18.2 | MIT | [T3](#t3), [T12](#t12) |
 | [gtk-sys](https://github.com/gtk-rs/gtk3-rs) | 0.18.2 | MIT | [T3](#t3) |
 | [gtk3-macros](https://github.com/gtk-rs/gtk3-rs) | 0.18.2 | MIT | [T3](#t3), [T12](#t12) |
-| [hashbrown](https://github.com/rust-lang/hashbrown) | 0.12.3 | MIT OR Apache-2.0 | [T11](#t11), [T74](#t74) |
-| [hashbrown](https://github.com/rust-lang/hashbrown) | 0.17.1 | MIT OR Apache-2.0 | [T11](#t11), [T74](#t74) |
-| [heck](https://github.com/withoutboats/heck) | 0.4.1 | MIT OR Apache-2.0 | [T11](#t11), [T75](#t75) |
-| [heck](https://github.com/withoutboats/heck) | 0.5.0 | MIT OR Apache-2.0 | [T11](#t11), [T75](#t75) |
-| [hex](https://github.com/KokaKiwi/rust-hex) | 0.4.3 | MIT OR Apache-2.0 | [T35](#t35), [T76](#t76) |
-| [html5ever](https://github.com/servo/html5ever) | 0.39.0 | MIT OR Apache-2.0 | [T11](#t11), [T77](#t77) |
-| [http](https://github.com/hyperium/http) | 1.5.0 | MIT OR Apache-2.0 | [T78](#t78), [T79](#t79) |
-| [http-body](https://github.com/hyperium/http-body) | 1.1.0 | MIT | [T80](#t80) |
-| [http-body-util](https://github.com/hyperium/http-body) | 0.1.5 | MIT | [T80](#t80) |
-| [httparse](https://github.com/seanmonstar/httparse) | 1.10.1 | MIT OR Apache-2.0 | [T11](#t11), [T81](#t81) |
-| [hyper](https://github.com/hyperium/hyper) | 1.12.0 | MIT | [T82](#t82) |
-| [hyper-rustls](https://github.com/rustls/hyper-rustls) | 0.27.10 | Apache-2.0 OR ISC OR MIT | [T11](#t11), [T83](#t83), [T84](#t84) |
-| [hyper-util](https://github.com/hyperium/hyper-util) | 0.1.21 | MIT | [T85](#t85) |
-| [iana-time-zone](https://github.com/strawlab/iana-time-zone) | 0.1.65 | MIT OR Apache-2.0 | [T86](#t86), [T87](#t87) |
-| [ico](https://github.com/mdsteele/rust-ico) | 0.5.0 | MIT | [T88](#t88) |
-| [icu_collections](https://github.com/unicode-org/icu4x) | 2.3.0 | Unicode-3.0 | [T89](#t89) |
-| [icu_locale_core](https://github.com/unicode-org/icu4x) | 2.3.0 | Unicode-3.0 | [T89](#t89) |
-| [icu_normalizer](https://github.com/unicode-org/icu4x) | 2.3.0 | Unicode-3.0 | [T89](#t89) |
-| [icu_normalizer_data](https://github.com/unicode-org/icu4x) | 2.3.0 | Unicode-3.0 | [T89](#t89) |
-| [icu_properties](https://github.com/unicode-org/icu4x) | 2.3.0 | Unicode-3.0 | [T89](#t89) |
-| [icu_properties_data](https://github.com/unicode-org/icu4x) | 2.3.0 | Unicode-3.0 | [T89](#t89) |
-| [icu_provider](https://github.com/unicode-org/icu4x) | 2.3.1 | Unicode-3.0 | [T89](#t89) |
-| [ident_case](https://github.com/TedDriggs/ident_case) | 1.0.1 | MIT/Apache-2.0 | [T61](#t61) |
-| [idna](https://github.com/servo/rust-url/) | 1.1.0 | MIT OR Apache-2.0 | [T11](#t11), [T90](#t90) |
-| [idna_adapter](https://github.com/hsivonen/idna_adapter) | 1.2.2 | Apache-2.0 OR MIT | [T11](#t11), [T91](#t91) |
-| [indexmap](https://github.com/bluss/indexmap) | 1.9.3 | Apache-2.0 OR MIT | [T11](#t11), [T92](#t92) |
-| [indexmap](https://github.com/indexmap-rs/indexmap) | 2.14.2 | Apache-2.0 OR MIT | [T11](#t11), [T92](#t92) |
-| [infer](https://github.com/bojand/infer) | 0.22.0 | MIT | [T93](#t93) |
-| [inotify](https://github.com/hannobraun/inotify) | 0.9.6 | ISC | [T94](#t94) |
-| [inotify-sys](https://github.com/hannobraun/inotify-sys) | 0.1.8 | ISC | [T94](#t94) |
-| [ipnet](https://github.com/krisprice/ipnet) | 2.12.2 | MIT OR Apache-2.0 | [T95](#t95), [T96](#t96) |
-| [is-docker](https://github.com/TheLarkInn/is-docker) | 0.2.0 | MIT | [T97](#t97) |
-| [is-wsl](https://github.com/TheLarkInn/is-wsl) | 0.4.0 | MIT | [T97](#t97) |
+| [hashbrown](https://github.com/rust-lang/hashbrown) | 0.12.3 | MIT OR Apache-2.0 | [T11](#t11), [T75](#t75) |
+| [hashbrown](https://github.com/rust-lang/hashbrown) | 0.17.1 | MIT OR Apache-2.0 | [T11](#t11), [T75](#t75) |
+| [heck](https://github.com/withoutboats/heck) | 0.4.1 | MIT OR Apache-2.0 | [T11](#t11), [T76](#t76) |
+| [heck](https://github.com/withoutboats/heck) | 0.5.0 | MIT OR Apache-2.0 | [T11](#t11), [T76](#t76) |
+| [hex](https://github.com/KokaKiwi/rust-hex) | 0.4.3 | MIT OR Apache-2.0 | [T37](#t37), [T77](#t77) |
+| [html5ever](https://github.com/servo/html5ever) | 0.39.0 | MIT OR Apache-2.0 | [T11](#t11), [T78](#t78) |
+| [http](https://github.com/hyperium/http) | 1.5.0 | MIT OR Apache-2.0 | [T79](#t79), [T80](#t80) |
+| [http-body](https://github.com/hyperium/http-body) | 1.1.0 | MIT | [T81](#t81) |
+| [http-body-util](https://github.com/hyperium/http-body) | 0.1.5 | MIT | [T81](#t81) |
+| [httparse](https://github.com/seanmonstar/httparse) | 1.10.1 | MIT OR Apache-2.0 | [T11](#t11), [T82](#t82) |
+| [hyper](https://github.com/hyperium/hyper) | 1.12.0 | MIT | [T83](#t83) |
+| [hyper-rustls](https://github.com/rustls/hyper-rustls) | 0.27.10 | Apache-2.0 OR ISC OR MIT | [T11](#t11), [T84](#t84), [T85](#t85) |
+| [hyper-util](https://github.com/hyperium/hyper-util) | 0.1.21 | MIT | [T86](#t86) |
+| [iana-time-zone](https://github.com/strawlab/iana-time-zone) | 0.1.65 | MIT OR Apache-2.0 | [T87](#t87), [T88](#t88) |
+| [ico](https://github.com/mdsteele/rust-ico) | 0.5.0 | MIT | [T89](#t89) |
+| [icu_collections](https://github.com/unicode-org/icu4x) | 2.3.0 | Unicode-3.0 | [T90](#t90) |
+| [icu_locale_core](https://github.com/unicode-org/icu4x) | 2.3.0 | Unicode-3.0 | [T90](#t90) |
+| [icu_normalizer](https://github.com/unicode-org/icu4x) | 2.3.0 | Unicode-3.0 | [T90](#t90) |
+| [icu_normalizer_data](https://github.com/unicode-org/icu4x) | 2.3.0 | Unicode-3.0 | [T90](#t90) |
+| [icu_properties](https://github.com/unicode-org/icu4x) | 2.3.0 | Unicode-3.0 | [T90](#t90) |
+| [icu_properties_data](https://github.com/unicode-org/icu4x) | 2.3.0 | Unicode-3.0 | [T90](#t90) |
+| [icu_provider](https://github.com/unicode-org/icu4x) | 2.3.1 | Unicode-3.0 | [T90](#t90) |
+| [ident_case](https://github.com/TedDriggs/ident_case) | 1.0.1 | MIT/Apache-2.0 | [T62](#t62) |
+| [idna](https://github.com/servo/rust-url/) | 1.1.0 | MIT OR Apache-2.0 | [T11](#t11), [T91](#t91) |
+| [idna_adapter](https://github.com/hsivonen/idna_adapter) | 1.2.2 | Apache-2.0 OR MIT | [T11](#t11), [T92](#t92) |
+| [indexmap](https://github.com/bluss/indexmap) | 1.9.3 | Apache-2.0 OR MIT | [T11](#t11), [T93](#t93) |
+| [indexmap](https://github.com/indexmap-rs/indexmap) | 2.14.2 | Apache-2.0 OR MIT | [T11](#t11), [T93](#t93) |
+| [infer](https://github.com/bojand/infer) | 0.22.0 | MIT | [T94](#t94) |
+| [inotify](https://github.com/hannobraun/inotify) | 0.9.6 | ISC | [T95](#t95) |
+| [inotify-sys](https://github.com/hannobraun/inotify-sys) | 0.1.8 | ISC | [T95](#t95) |
+| [ipnet](https://github.com/krisprice/ipnet) | 2.12.2 | MIT OR Apache-2.0 | [T96](#t96), [T97](#t97) |
+| [is-docker](https://github.com/TheLarkInn/is-docker) | 0.2.0 | MIT | [T98](#t98) |
+| [is-wsl](https://github.com/TheLarkInn/is-wsl) | 0.4.0 | MIT | [T98](#t98) |
 | [itoa](https://github.com/dtolnay/itoa) | 1.0.18 | MIT OR Apache-2.0 | [T3](#t3), [T8](#t8) |
-| [javascriptcore-rs](https://github.com/tauri-apps/javascriptcore-rs) | 1.1.2 | MIT | [T98](#t98) |
-| [javascriptcore-rs-sys](https://github.com/tauri-apps/javascriptcore-rs) | 1.1.1 | MIT | [T99](#t99) |
+| [javascriptcore-rs](https://github.com/tauri-apps/javascriptcore-rs) | 1.1.2 | MIT | [T99](#t99) |
+| [javascriptcore-rs-sys](https://github.com/tauri-apps/javascriptcore-rs) | 1.1.1 | MIT | [T100](#t100) |
 | [jiff](https://github.com/BurntSushi/jiff) | 0.2.38 | Unlicense OR MIT | [T4](#t4), [T5](#t5), [T6](#t6) |
 | [jiff-core](https://github.com/BurntSushi/jiff) | 0.1.1 | Unlicense OR MIT | [T4](#t4), [T5](#t5), [T6](#t6) |
 | [jiff-tzdb](https://github.com/BurntSushi/jiff) | 0.1.9 | Unlicense OR MIT | [T4](#t4), [T5](#t5), [T6](#t6) |
 | [jiff-tzdb-platform](https://github.com/BurntSushi/jiff) | 0.1.3 | Unlicense OR MIT | [T4](#t4), [T5](#t5), [T6](#t6) |
 | [jobserver](https://github.com/rust-lang/jobserver-rs) | 0.1.35 | MIT OR Apache-2.0 | [T11](#t11), [T24](#t24) |
-| [json-patch](https://github.com/idubrov/json-patch) | 4.2.0 | MIT/Apache-2.0 | [T35](#t35), [T100](#t100) |
-| [jsonptr](https://github.com/chanced/jsonptr) | 0.7.1 | MIT OR Apache-2.0 | [T101](#t101), [T102](#t102) |
-| [keyboard-types](https://github.com/rust-windowing/keyboard-types) | 0.8.3 | MIT OR Apache-2.0 | [T11](#t11), [T103](#t103) |
-| libappindicator | 0.9.0 | Apache-2.0 OR MIT | [T11](#t11), [T104](#t104) |
+| [json-patch](https://github.com/idubrov/json-patch) | 4.2.0 | MIT/Apache-2.0 | [T37](#t37), [T101](#t101) |
+| [jsonptr](https://github.com/chanced/jsonptr) | 0.7.1 | MIT OR Apache-2.0 | [T102](#t102), [T103](#t103) |
+| [keyboard-types](https://github.com/rust-windowing/keyboard-types) | 0.8.3 | MIT OR Apache-2.0 | [T11](#t11), [T104](#t104) |
+| libappindicator | 0.9.0 | Apache-2.0 OR MIT | [T11](#t11), [T105](#t105) |
 | libappindicator-sys | 0.9.0 | Apache-2.0 OR MIT | none published |
-| [libc](https://github.com/rust-lang/libc) | 0.2.191 | MIT OR Apache-2.0 | [T8](#t8), [T105](#t105) |
-| [libdbus-sys](https://github.com/diwic/dbus-rs) | 0.2.7 | Apache-2.0/MIT | [T42](#t42), [T43](#t43) |
+| [libc](https://github.com/rust-lang/libc) | 0.2.191 | MIT OR Apache-2.0 | [T8](#t8), [T106](#t106) |
+| [libdbus-sys](https://github.com/diwic/dbus-rs) | 0.2.7 | Apache-2.0/MIT | [T44](#t44), [T45](#t45) |
 | [libgit2-sys](https://github.com/rust-lang/git2-rs) | 0.18.8+1.9.7 | MIT OR Apache-2.0 | [T11](#t11), [T24](#t24) |
-| [libloading](https://github.com/nagisa/rust_libloading/) | 0.7.4 | ISC | [T106](#t106) |
-| [libz-sys](https://github.com/rust-lang/libz-sys) | 1.1.30 | MIT OR Apache-2.0 | [T11](#t11), [T107](#t107) |
-| [linux-raw-sys](https://github.com/sunfishcode/linux-raw-sys) | 0.12.1 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT | [T3](#t3), [T11](#t11), [T108](#t108), [T109](#t109) |
-| [litemap](https://github.com/unicode-org/icu4x) | 0.8.3 | Unicode-3.0 | [T89](#t89) |
-| [lock_api](https://github.com/Amanieu/parking_lot) | 0.4.14 | MIT OR Apache-2.0 | [T11](#t11), [T110](#t110) |
+| [libloading](https://github.com/nagisa/rust_libloading/) | 0.7.4 | ISC | [T107](#t107) |
+| [libz-sys](https://github.com/rust-lang/libz-sys) | 1.1.30 | MIT OR Apache-2.0 | [T11](#t11), [T108](#t108) |
+| [linux-raw-sys](https://github.com/sunfishcode/linux-raw-sys) | 0.12.1 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT | [T3](#t3), [T11](#t11), [T109](#t109), [T110](#t110) |
+| [litemap](https://github.com/unicode-org/icu4x) | 0.8.3 | Unicode-3.0 | [T90](#t90) |
+| [lock_api](https://github.com/Amanieu/parking_lot) | 0.4.14 | MIT OR Apache-2.0 | [T11](#t11), [T111](#t111) |
 | [log](https://github.com/rust-lang/log) | 0.4.34 | MIT OR Apache-2.0 | [T11](#t11), [T18](#t18) |
-| [lru-slab](https://github.com/Ralith/lru-slab) | 0.1.3 | MIT OR Apache-2.0 OR Zlib | [T11](#t11), [T111](#t111), [T112](#t112) |
-| [markup5ever](https://github.com/servo/html5ever) | 0.39.0 | MIT OR Apache-2.0 | [T11](#t11), [T77](#t77) |
+| [lru-slab](https://github.com/Ralith/lru-slab) | 0.1.3 | MIT OR Apache-2.0 OR Zlib | [T11](#t11), [T112](#t112), [T113](#t113) |
+| [markup5ever](https://github.com/servo/html5ever) | 0.39.0 | MIT OR Apache-2.0 | [T11](#t11), [T78](#t78) |
 | [memchr](https://github.com/BurntSushi/memchr) | 2.8.3 | Unlicense OR MIT | [T4](#t4), [T5](#t5), [T6](#t6) |
-| [memoffset](https://github.com/Gilnaa/memoffset) | 0.9.1 | MIT | [T113](#t113) |
-| [mime](https://github.com/hyperium/mime) | 0.3.17 | MIT OR Apache-2.0 | [T11](#t11), [T114](#t114) |
-| [miniz_oxide](https://github.com/Frommi/miniz_oxide/tree/master/miniz_oxide) | 0.8.9 | MIT OR Zlib OR Apache-2.0 | [T8](#t8), [T115](#t115), [T116](#t116) |
-| [miniz_oxide](https://github.com/Frommi/miniz_oxide/tree/master/miniz_oxide) | 0.9.1 | MIT OR Zlib OR Apache-2.0 | [T8](#t8), [T115](#t115), [T116](#t116) |
-| [mio](https://github.com/tokio-rs/mio) | 0.8.11 | MIT | [T117](#t117) |
-| [mio](https://github.com/tokio-rs/mio) | 1.2.4 | MIT | [T117](#t117) |
-| [muda](https://github.com/tauri-apps/muda) | 0.20.0 | Apache-2.0 OR MIT | [T11](#t11), [T118](#t118), [T119](#t119) |
-| [new_debug_unreachable](https://github.com/mbrubeck/rust-debug-unreachable) | 1.0.6 | MIT | [T120](#t120) |
-| [notify](https://github.com/notify-rs/notify.git) | 6.1.1 | CC0-1.0 | [T121](#t121) |
-| [notify-debouncer-mini](https://github.com/notify-rs/notify.git) | 0.4.1 | MIT OR Apache-2.0 | [T122](#t122), [T123](#t123) |
-| [num-conv](https://github.com/jhpratt/num-conv) | 0.2.2 | MIT OR Apache-2.0 | [T8](#t8), [T124](#t124) |
+| [memoffset](https://github.com/Gilnaa/memoffset) | 0.9.1 | MIT | [T114](#t114) |
+| [mime](https://github.com/hyperium/mime) | 0.3.17 | MIT OR Apache-2.0 | [T11](#t11), [T115](#t115) |
+| [minisign-verify](https://github.com/jedisct1/rust-minisign-verify) | 0.3.0 | MIT | [T116](#t116) |
+| [miniz_oxide](https://github.com/Frommi/miniz_oxide/tree/master/miniz_oxide) | 0.8.9 | MIT OR Zlib OR Apache-2.0 | [T8](#t8), [T117](#t117), [T118](#t118) |
+| [miniz_oxide](https://github.com/Frommi/miniz_oxide/tree/master/miniz_oxide) | 0.9.1 | MIT OR Zlib OR Apache-2.0 | [T8](#t8), [T117](#t117), [T118](#t118) |
+| [mio](https://github.com/tokio-rs/mio) | 0.8.11 | MIT | [T119](#t119) |
+| [mio](https://github.com/tokio-rs/mio) | 1.2.4 | MIT | [T119](#t119) |
+| [muda](https://github.com/tauri-apps/muda) | 0.20.0 | Apache-2.0 OR MIT | [T11](#t11), [T120](#t120), [T121](#t121) |
+| [new_debug_unreachable](https://github.com/mbrubeck/rust-debug-unreachable) | 1.0.6 | MIT | [T122](#t122) |
+| [notify](https://github.com/notify-rs/notify.git) | 6.1.1 | CC0-1.0 | [T123](#t123) |
+| [notify-debouncer-mini](https://github.com/notify-rs/notify.git) | 0.4.1 | MIT OR Apache-2.0 | [T124](#t124), [T125](#t125) |
+| [num-conv](https://github.com/jhpratt/num-conv) | 0.2.2 | MIT OR Apache-2.0 | [T8](#t8), [T126](#t126) |
 | [num-traits](https://github.com/rust-num/num-traits) | 0.2.19 | MIT OR Apache-2.0 | [T11](#t11), [T18](#t18) |
 | [once_cell](https://github.com/matklad/once_cell) | 1.21.4 | MIT OR Apache-2.0 | [T3](#t3), [T11](#t11) |
-| [open](https://github.com/Byron/open-rs) | 5.4.4 | MIT | [T125](#t125) |
-| [option-ext](https://github.com/soc/option-ext.git) | 0.2.0 | MPL-2.0 | [T126](#t126) |
+| [open](https://github.com/Byron/open-rs) | 5.4.4 | MIT | [T127](#t127) |
+| [openssl-probe](https://github.com/rustls/openssl-probe) | 0.2.2 | MIT OR Apache-2.0 | [T11](#t11), [T24](#t24) |
+| [option-ext](https://github.com/soc/option-ext.git) | 0.2.0 | MPL-2.0 | [T128](#t128) |
 | [ordered-stream](https://github.com/danieldg/ordered-stream) | 0.2.0 | MIT OR Apache-2.0 | [T3](#t3), [T11](#t11) |
 | [pango](https://github.com/gtk-rs/gtk-rs-core) | 0.18.3 | MIT | [T3](#t3), [T12](#t12) |
 | [pango-sys](https://github.com/gtk-rs/gtk-rs-core) | 0.18.0 | MIT | [T3](#t3) |
-| [parking](https://github.com/smol-rs/parking) | 2.2.1 | Apache-2.0 OR MIT | [T3](#t3), [T11](#t11), [T127](#t127) |
-| [parking_lot](https://github.com/Amanieu/parking_lot) | 0.12.5 | MIT OR Apache-2.0 | [T11](#t11), [T110](#t110) |
-| [parking_lot_core](https://github.com/Amanieu/parking_lot) | 0.9.12 | MIT OR Apache-2.0 | [T11](#t11), [T110](#t110) |
-| [percent-encoding](https://github.com/servo/rust-url/) | 2.3.2 | MIT OR Apache-2.0 | [T11](#t11), [T90](#t90) |
-| [phf](https://github.com/rust-phf/rust-phf) | 0.13.1 | MIT | [T128](#t128) |
-| [phf_codegen](https://github.com/rust-phf/rust-phf) | 0.13.1 | MIT | [T128](#t128) |
-| [phf_generator](https://github.com/rust-phf/rust-phf) | 0.13.1 | MIT | [T128](#t128) |
-| [phf_macros](https://github.com/rust-phf/rust-phf) | 0.13.1 | MIT | [T128](#t128) |
-| [phf_shared](https://github.com/rust-phf/rust-phf) | 0.13.1 | MIT | [T128](#t128) |
+| [parking](https://github.com/smol-rs/parking) | 2.2.1 | Apache-2.0 OR MIT | [T3](#t3), [T11](#t11), [T129](#t129) |
+| [parking_lot](https://github.com/Amanieu/parking_lot) | 0.12.5 | MIT OR Apache-2.0 | [T11](#t11), [T111](#t111) |
+| [parking_lot_core](https://github.com/Amanieu/parking_lot) | 0.9.12 | MIT OR Apache-2.0 | [T11](#t11), [T111](#t111) |
+| [percent-encoding](https://github.com/servo/rust-url/) | 2.3.2 | MIT OR Apache-2.0 | [T11](#t11), [T91](#t91) |
+| [phf](https://github.com/rust-phf/rust-phf) | 0.13.1 | MIT | [T130](#t130) |
+| [phf_codegen](https://github.com/rust-phf/rust-phf) | 0.13.1 | MIT | [T130](#t130) |
+| [phf_generator](https://github.com/rust-phf/rust-phf) | 0.13.1 | MIT | [T130](#t130) |
+| [phf_macros](https://github.com/rust-phf/rust-phf) | 0.13.1 | MIT | [T130](#t130) |
+| [phf_shared](https://github.com/rust-phf/rust-phf) | 0.13.1 | MIT | [T130](#t130) |
 | [pin-project-lite](https://github.com/taiki-e/pin-project-lite) | 0.2.17 | Apache-2.0 OR MIT | [T3](#t3), [T8](#t8) |
 | [piper](https://github.com/smol-rs/piper) | 0.2.5 | MIT OR Apache-2.0 | [T3](#t3), [T11](#t11) |
 | [pkg-config](https://github.com/rust-lang/pkg-config-rs) | 0.3.34 | MIT OR Apache-2.0 | [T11](#t11), [T24](#t24) |
-| [plist](https://github.com/ebarnard/rust-plist/) | 1.10.1 | MIT | [T129](#t129) |
-| [png](https://github.com/image-rs/image-png) | 0.17.16 | MIT OR Apache-2.0 | [T11](#t11), [T130](#t130) |
-| [png](https://github.com/image-rs/image-png) | 0.18.1 | MIT OR Apache-2.0 | [T11](#t11), [T130](#t130) |
+| [plist](https://github.com/ebarnard/rust-plist/) | 1.10.1 | MIT | [T131](#t131) |
+| [png](https://github.com/image-rs/image-png) | 0.17.16 | MIT OR Apache-2.0 | [T11](#t11), [T132](#t132) |
+| [png](https://github.com/image-rs/image-png) | 0.18.1 | MIT OR Apache-2.0 | [T11](#t11), [T132](#t132) |
 | [polling](https://github.com/smol-rs/polling) | 3.11.0 | Apache-2.0 OR MIT | [T3](#t3), [T11](#t11) |
-| [potential_utf](https://github.com/unicode-org/icu4x) | 0.1.6 | Unicode-3.0 | [T89](#t89) |
-| [powerfmt](https://github.com/jhpratt/powerfmt) | 0.2.1 | MIT OR Apache-2.0 | [T131](#t131), [T132](#t132) |
-| [precomputed-hash](https://github.com/emilio/precomputed-hash) | 0.1.1 | MIT | [T133](#t133) |
+| [potential_utf](https://github.com/unicode-org/icu4x) | 0.1.6 | Unicode-3.0 | [T90](#t90) |
+| [powerfmt](https://github.com/jhpratt/powerfmt) | 0.2.1 | MIT OR Apache-2.0 | [T133](#t133), [T134](#t134) |
+| [precomputed-hash](https://github.com/emilio/precomputed-hash) | 0.1.1 | MIT | [T135](#t135) |
 | [proc-macro-crate](https://github.com/bkchr/proc-macro-crate) | 1.3.1 | MIT OR Apache-2.0 | [T2](#t2), [T3](#t3) |
 | [proc-macro-crate](https://github.com/bkchr/proc-macro-crate) | 2.0.2 | MIT OR Apache-2.0 | [T2](#t2), [T3](#t3) |
 | [proc-macro-crate](https://github.com/bkchr/proc-macro-crate) | 3.5.0 | MIT OR Apache-2.0 | [T2](#t2), [T3](#t3) |
-| [proc-macro-error](https://gitlab.com/CreepySkeleton/proc-macro-error) | 1.0.4 | MIT OR Apache-2.0 | [T134](#t134), [T135](#t135) |
-| [proc-macro-error-attr](https://gitlab.com/CreepySkeleton/proc-macro-error) | 1.0.4 | MIT OR Apache-2.0 | [T134](#t134), [T135](#t135) |
+| [proc-macro-error](https://gitlab.com/CreepySkeleton/proc-macro-error) | 1.0.4 | MIT OR Apache-2.0 | [T136](#t136), [T137](#t137) |
+| [proc-macro-error-attr](https://gitlab.com/CreepySkeleton/proc-macro-error) | 1.0.4 | MIT OR Apache-2.0 | [T136](#t136), [T137](#t137) |
 | [proc-macro2](https://github.com/dtolnay/proc-macro2) | 1.0.107 | MIT OR Apache-2.0 | [T3](#t3), [T8](#t8) |
-| [quick-xml](https://github.com/tafia/quick-xml) | 0.42.0 | MIT | [T136](#t136) |
-| [quinn](https://github.com/quinn-rs/quinn) | 0.11.12 | MIT OR Apache-2.0 | [T11](#t11), [T137](#t137) |
-| [quinn-proto](https://github.com/quinn-rs/quinn) | 0.11.19 | MIT OR Apache-2.0 | [T11](#t11), [T137](#t137) |
-| [quinn-udp](https://github.com/quinn-rs/quinn) | 0.5.16 | MIT OR Apache-2.0 | [T11](#t11), [T137](#t137) |
+| [quick-xml](https://github.com/tafia/quick-xml) | 0.42.0 | MIT | [T138](#t138) |
+| [quinn](https://github.com/quinn-rs/quinn) | 0.11.12 | MIT OR Apache-2.0 | [T11](#t11), [T139](#t139) |
+| [quinn-proto](https://github.com/quinn-rs/quinn) | 0.11.19 | MIT OR Apache-2.0 | [T11](#t11), [T139](#t139) |
+| [quinn-udp](https://github.com/quinn-rs/quinn) | 0.5.16 | MIT OR Apache-2.0 | [T11](#t11), [T139](#t139) |
 | [quote](https://github.com/dtolnay/quote) | 1.0.47 | MIT OR Apache-2.0 | [T3](#t3), [T8](#t8) |
-| [rand](https://github.com/rust-random/rand) | 0.10.3 | MIT OR Apache-2.0 | [T138](#t138), [T139](#t139), [T140](#t140) |
-| [rand_core](https://github.com/rust-random/rand_core) | 0.10.1 | MIT OR Apache-2.0 | [T141](#t141), [T142](#t142), [T143](#t143) |
-| [rand_pcg](https://github.com/rust-random/rngs) | 0.10.2 | MIT OR Apache-2.0 | [T138](#t138), [T142](#t142), [T144](#t144) |
-| [raw-window-handle](https://github.com/rust-windowing/raw-window-handle) | 0.6.2 | MIT OR Apache-2.0 OR Zlib | [T8](#t8), [T145](#t145), [T146](#t146) |
+| [rand](https://github.com/rust-random/rand) | 0.10.3 | MIT OR Apache-2.0 | [T140](#t140), [T141](#t141), [T142](#t142) |
+| [rand_core](https://github.com/rust-random/rand_core) | 0.10.1 | MIT OR Apache-2.0 | [T143](#t143), [T144](#t144), [T145](#t145) |
+| [rand_pcg](https://github.com/rust-random/rngs) | 0.10.2 | MIT OR Apache-2.0 | [T140](#t140), [T144](#t144), [T146](#t146) |
+| [raw-window-handle](https://github.com/rust-windowing/raw-window-handle) | 0.6.2 | MIT OR Apache-2.0 OR Zlib | [T8](#t8), [T147](#t147), [T148](#t148) |
 | [ref-cast](https://github.com/dtolnay/ref-cast) | 1.0.27 | MIT OR Apache-2.0 | [T3](#t3), [T8](#t8) |
 | [ref-cast-impl](https://github.com/dtolnay/ref-cast) | 1.0.27 | MIT OR Apache-2.0 | [T3](#t3), [T8](#t8) |
 | [regex](https://github.com/rust-lang/regex) | 1.13.1 | MIT OR Apache-2.0 | [T11](#t11), [T18](#t18) |
 | [regex-automata](https://github.com/rust-lang/regex) | 0.4.18 | MIT OR Apache-2.0 | [T11](#t11), [T18](#t18) |
 | [regex-syntax](https://github.com/rust-lang/regex) | 0.8.11 | MIT OR Apache-2.0 | [T11](#t11), [T18](#t18) |
-| [reqwest](https://github.com/seanmonstar/reqwest) | 0.12.28 | MIT OR Apache-2.0 | [T147](#t147), [T148](#t148) |
-| [rfd](https://github.com/PolyMeilex/rfd) | 0.16.0 | MIT | [T149](#t149) |
-| [ring](https://github.com/briansmith/ring) | 0.17.14 | Apache-2.0 AND ISC | [T150](#t150), [T151](#t151), [T152](#t152) |
+| [reqwest](https://github.com/seanmonstar/reqwest) | 0.12.28 | MIT OR Apache-2.0 | [T149](#t149), [T150](#t150) |
+| [reqwest](https://github.com/seanmonstar/reqwest) | 0.13.5 | MIT OR Apache-2.0 | [T149](#t149), [T151](#t151) |
+| [rfd](https://github.com/PolyMeilex/rfd) | 0.16.0 | MIT | [T152](#t152) |
+| [ring](https://github.com/briansmith/ring) | 0.17.14 | Apache-2.0 AND ISC | [T153](#t153), [T154](#t154), [T155](#t155) |
 | [rustc-hash](https://github.com/rust-lang/rustc-hash) | 2.1.3 | Apache-2.0 OR MIT | [T3](#t3), [T8](#t8) |
-| [rustc_version](https://github.com/djc/rustc-version-rs) | 0.4.1 | MIT OR Apache-2.0 | [T11](#t11), [T110](#t110) |
-| [rustix](https://github.com/bytecodealliance/rustix) | 1.1.5 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT | [T3](#t3), [T11](#t11), [T109](#t109), [T153](#t153) |
-| [rustls](https://github.com/rustls/rustls) | 0.23.46 | Apache-2.0 OR ISC OR MIT | [T11](#t11), [T83](#t83), [T84](#t84) |
-| [rustls-pki-types](https://github.com/rustls/pki-types) | 1.15.1 | MIT OR Apache-2.0 | [T154](#t154), [T155](#t155) |
-| [rustls-webpki](https://github.com/rustls/webpki) | 0.103.15 | ISC | [T156](#t156) |
-| [ryu](https://github.com/dtolnay/ryu) | 1.0.23 | Apache-2.0 OR BSL-1.0 | [T8](#t8), [T157](#t157) |
-| [same-file](https://github.com/BurntSushi/same-file) | 1.0.6 | Unlicense/MIT | [T4](#t4), [T6](#t6), [T158](#t158) |
-| [schemars](https://github.com/GREsau/schemars) | 0.8.22 | MIT | [T159](#t159) |
-| [schemars](https://github.com/GREsau/schemars) | 0.9.0 | MIT | [T159](#t159) |
-| [schemars](https://github.com/GREsau/schemars) | 1.2.3 | MIT | [T159](#t159) |
-| [schemars_derive](https://github.com/GREsau/schemars) | 0.8.22 | MIT | [T159](#t159) |
-| [scopeguard](https://github.com/bluss/scopeguard) | 1.2.0 | MIT OR Apache-2.0 | [T11](#t11), [T160](#t160) |
+| [rustc_version](https://github.com/djc/rustc-version-rs) | 0.4.1 | MIT OR Apache-2.0 | [T11](#t11), [T111](#t111) |
+| [rustix](https://github.com/bytecodealliance/rustix) | 1.1.5 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT | [T3](#t3), [T11](#t11), [T110](#t110), [T156](#t156) |
+| [rustls](https://github.com/rustls/rustls) | 0.23.46 | Apache-2.0 OR ISC OR MIT | [T11](#t11), [T84](#t84), [T85](#t85) |
+| [rustls-native-certs](https://github.com/rustls/rustls-native-certs) | 0.8.5 | Apache-2.0 OR ISC OR MIT | [T11](#t11), [T84](#t84), [T85](#t85), [T157](#t157) |
+| [rustls-pki-types](https://github.com/rustls/pki-types) | 1.15.1 | MIT OR Apache-2.0 | [T158](#t158), [T159](#t159) |
+| [rustls-platform-verifier](https://github.com/rustls/rustls-platform-verifier) | 0.7.1 | MIT OR Apache-2.0 | [T11](#t11), [T160](#t160) |
+| [rustls-webpki](https://github.com/rustls/webpki) | 0.103.15 | ISC | [T161](#t161) |
+| [rustversion](https://github.com/dtolnay/rustversion) | 1.0.23 | MIT OR Apache-2.0 | [T3](#t3), [T8](#t8) |
+| [ryu](https://github.com/dtolnay/ryu) | 1.0.23 | Apache-2.0 OR BSL-1.0 | [T8](#t8), [T162](#t162) |
+| [same-file](https://github.com/BurntSushi/same-file) | 1.0.6 | Unlicense/MIT | [T4](#t4), [T6](#t6), [T163](#t163) |
+| [schemars](https://github.com/GREsau/schemars) | 0.8.22 | MIT | [T164](#t164) |
+| [schemars](https://github.com/GREsau/schemars) | 0.9.0 | MIT | [T164](#t164) |
+| [schemars](https://github.com/GREsau/schemars) | 1.2.3 | MIT | [T164](#t164) |
+| [schemars_derive](https://github.com/GREsau/schemars) | 0.8.22 | MIT | [T164](#t164) |
+| [scopeguard](https://github.com/bluss/scopeguard) | 1.2.0 | MIT OR Apache-2.0 | [T11](#t11), [T165](#t165) |
 | [selectors](https://github.com/servo/stylo) | 0.38.0 | MPL-2.0 | none published |
 | [semver](https://github.com/dtolnay/semver) | 1.0.28 | MIT OR Apache-2.0 | [T3](#t3), [T8](#t8) |
 | [serde](https://github.com/serde-rs/serde) | 1.0.229 | MIT OR Apache-2.0 | [T3](#t3), [T8](#t8) |
@@ -1106,149 +1113,158 @@ applies (see the texts here for Apache-2.0, MIT, MPL-2.0 and BSD-3-Clause).
 | [serde_derive_internals](https://github.com/serde-rs/serde) | 0.29.1 | MIT OR Apache-2.0 | [T3](#t3), [T8](#t8) |
 | [serde_json](https://github.com/serde-rs/json) | 1.0.154 | MIT OR Apache-2.0 | [T3](#t3), [T8](#t8) |
 | [serde_repr](https://github.com/dtolnay/serde-repr) | 0.1.21 | MIT OR Apache-2.0 | [T3](#t3), [T8](#t8) |
-| [serde_spanned](https://github.com/toml-rs/toml) | 0.6.9 | MIT OR Apache-2.0 | [T35](#t35), [T161](#t161) |
-| [serde_spanned](https://github.com/toml-rs/toml) | 1.1.2 | MIT OR Apache-2.0 | [T161](#t161), [T162](#t162) |
-| [serde_urlencoded](https://github.com/nox/serde_urlencoded) | 0.7.1 | MIT/Apache-2.0 | [T8](#t8), [T163](#t163) |
-| [serde_with](https://github.com/jonasbb/serde_with/) | 3.24.0 | MIT OR Apache-2.0 | [T11](#t11), [T164](#t164) |
-| [serde_with_macros](https://github.com/jonasbb/serde_with/) | 3.24.0 | MIT OR Apache-2.0 | [T11](#t11), [T164](#t164) |
-| [serialize-to-javascript](https://github.com/chippers/serialize-to-javascript) | 0.1.2 | MIT OR Apache-2.0 | [T11](#t11), [T165](#t165) |
-| [serialize-to-javascript-impl](https://github.com/chippers/serialize-to-javascript) | 0.1.2 | MIT OR Apache-2.0 | [T11](#t11), [T165](#t165) |
+| [serde_spanned](https://github.com/toml-rs/toml) | 0.6.9 | MIT OR Apache-2.0 | [T37](#t37), [T166](#t166) |
+| [serde_spanned](https://github.com/toml-rs/toml) | 1.1.2 | MIT OR Apache-2.0 | [T166](#t166), [T167](#t167) |
+| [serde_urlencoded](https://github.com/nox/serde_urlencoded) | 0.7.1 | MIT/Apache-2.0 | [T8](#t8), [T168](#t168) |
+| [serde_with](https://github.com/jonasbb/serde_with/) | 3.24.0 | MIT OR Apache-2.0 | [T11](#t11), [T169](#t169) |
+| [serde_with_macros](https://github.com/jonasbb/serde_with/) | 3.24.0 | MIT OR Apache-2.0 | [T11](#t11), [T169](#t169) |
+| [serialize-to-javascript](https://github.com/chippers/serialize-to-javascript) | 0.1.2 | MIT OR Apache-2.0 | [T11](#t11), [T170](#t170) |
+| [serialize-to-javascript-impl](https://github.com/chippers/serialize-to-javascript) | 0.1.2 | MIT OR Apache-2.0 | [T11](#t11), [T170](#t170) |
 | [servo_arc](https://github.com/servo/stylo) | 0.4.3 | MIT OR Apache-2.0 | [T3](#t3), [T11](#t11) |
-| [sha2](https://github.com/RustCrypto/hashes) | 0.10.9 | MIT OR Apache-2.0 | [T11](#t11), [T166](#t166) |
-| [shlex](https://github.com/comex/rust-shlex) | 2.0.1 | MIT OR Apache-2.0 | [T167](#t167), [T168](#t168) |
-| [signal-hook-registry](https://github.com/vorner/signal-hook) | 1.4.8 | MIT OR Apache-2.0 | [T11](#t11), [T169](#t169) |
-| [simd-adler32](https://github.com/mcountryman/simd-adler32) | 0.3.10 | MIT | [T170](#t170) |
-| [siphasher](https://github.com/jedisct1/rust-siphash) | 1.0.4 | MIT OR Apache-2.0 | [T3](#t3), [T11](#t11), [T171](#t171) |
-| [slab](https://github.com/tokio-rs/slab) | 0.4.12 | MIT | [T172](#t172) |
-| [smallvec](https://github.com/servo/rust-smallvec) | 1.16.3 | MIT OR Apache-2.0 | [T11](#t11), [T173](#t173) |
+| [sha2](https://github.com/RustCrypto/hashes) | 0.10.9 | MIT OR Apache-2.0 | [T11](#t11), [T171](#t171) |
+| [shlex](https://github.com/comex/rust-shlex) | 2.0.1 | MIT OR Apache-2.0 | [T172](#t172), [T173](#t173) |
+| [signal-hook-registry](https://github.com/vorner/signal-hook) | 1.4.8 | MIT OR Apache-2.0 | [T11](#t11), [T174](#t174) |
+| [simd-adler32](https://github.com/mcountryman/simd-adler32) | 0.3.10 | MIT | [T175](#t175) |
+| [siphasher](https://github.com/jedisct1/rust-siphash) | 1.0.4 | MIT OR Apache-2.0 | [T3](#t3), [T11](#t11), [T176](#t176) |
+| [slab](https://github.com/tokio-rs/slab) | 0.4.12 | MIT | [T177](#t177) |
+| [smallvec](https://github.com/servo/rust-smallvec) | 1.16.3 | MIT OR Apache-2.0 | [T11](#t11), [T178](#t178) |
 | [socket2](https://github.com/rust-lang/socket2) | 0.6.5 | MIT OR Apache-2.0 | [T11](#t11), [T24](#t24) |
-| [softbuffer](https://github.com/rust-windowing/softbuffer) | 0.4.8 | MIT OR Apache-2.0 | [T174](#t174), [T175](#t175) |
-| [soup3](https://gitlab.gnome.org/World/Rust/soup3-rs) | 0.5.0 | MIT | [T99](#t99) |
-| [soup3-sys](https://gitlab.gnome.org/World/Rust/soup3-rs) | 0.5.0 | MIT | [T99](#t99) |
-| [stable_deref_trait](https://github.com/storyyeller/stable_deref_trait) | 1.2.1 | MIT OR Apache-2.0 | [T11](#t11), [T176](#t176) |
-| [static_vcruntime](https://github.com/ChrisDenton/static_vcruntime) | 3.0.0 | MIT OR Apache-2.0 OR Zlib | [T11](#t11), [T177](#t177), [T178](#t178), [T179](#t179) |
-| [string_cache](https://github.com/servo/string-cache) | 0.9.0 | MIT OR Apache-2.0 | [T11](#t11), [T180](#t180) |
-| [string_cache_codegen](https://github.com/servo/string-cache) | 0.6.1 | MIT OR Apache-2.0 | [T11](#t11), [T180](#t180) |
-| [strsim](https://github.com/rapidfuzz/strsim-rs) | 0.11.1 | MIT | [T181](#t181) |
-| [subtle](https://github.com/dalek-cryptography/subtle) | 2.6.1 | BSD-3-Clause | [T182](#t182) |
+| [softbuffer](https://github.com/rust-windowing/softbuffer) | 0.4.8 | MIT OR Apache-2.0 | [T179](#t179), [T180](#t180) |
+| [soup3](https://gitlab.gnome.org/World/Rust/soup3-rs) | 0.5.0 | MIT | [T100](#t100) |
+| [soup3-sys](https://gitlab.gnome.org/World/Rust/soup3-rs) | 0.5.0 | MIT | [T100](#t100) |
+| [stable_deref_trait](https://github.com/storyyeller/stable_deref_trait) | 1.2.1 | MIT OR Apache-2.0 | [T11](#t11), [T181](#t181) |
+| [static_vcruntime](https://github.com/ChrisDenton/static_vcruntime) | 3.0.0 | MIT OR Apache-2.0 OR Zlib | [T11](#t11), [T182](#t182), [T183](#t183), [T184](#t184) |
+| [string_cache](https://github.com/servo/string-cache) | 0.9.0 | MIT OR Apache-2.0 | [T11](#t11), [T185](#t185) |
+| [string_cache_codegen](https://github.com/servo/string-cache) | 0.6.1 | MIT OR Apache-2.0 | [T11](#t11), [T185](#t185) |
+| [strsim](https://github.com/rapidfuzz/strsim-rs) | 0.11.1 | MIT | [T186](#t186) |
+| [subtle](https://github.com/dalek-cryptography/subtle) | 2.6.1 | BSD-3-Clause | [T187](#t187) |
 | [syn](https://github.com/dtolnay/syn) | 1.0.109 | MIT OR Apache-2.0 | [T3](#t3), [T11](#t11) |
 | [syn](https://github.com/dtolnay/syn) | 2.0.119 | MIT OR Apache-2.0 | [T3](#t3), [T8](#t8) |
 | [syn](https://github.com/dtolnay/syn) | 3.0.9 | MIT OR Apache-2.0 | [T3](#t3), [T8](#t8) |
 | [sync_wrapper](https://github.com/Actyx/sync_wrapper) | 1.0.2 | Apache-2.0 | [T8](#t8) |
-| [synstructure](https://github.com/mystor/synstructure) | 0.14.0 | MIT | [T183](#t183) |
+| [synstructure](https://github.com/mystor/synstructure) | 0.14.0 | MIT | [T188](#t188) |
 | [system-deps](https://github.com/gdesmott/system-deps) | 6.2.2 | MIT OR Apache-2.0 | [T3](#t3), [T11](#t11) |
-| [tao](https://github.com/tauri-apps/tao) | 0.37.1 | Apache-2.0 | [T35](#t35), [T184](#t184) |
-| [target-lexicon](https://github.com/bytecodealliance/target-lexicon) | 0.12.16 | Apache-2.0 WITH LLVM-exception | [T109](#t109) |
-| [tauri](https://github.com/tauri-apps/tauri) | 2.12.4 | Apache-2.0 OR MIT | [T8](#t8), [T185](#t185) |
-| [tauri-build](https://github.com/tauri-apps/tauri) | 2.7.3 | Apache-2.0 OR MIT | [T8](#t8), [T185](#t185) |
-| [tauri-codegen](https://github.com/tauri-apps/tauri) | 2.7.3 | Apache-2.0 OR MIT | [T8](#t8), [T185](#t185) |
-| [tauri-macros](https://github.com/tauri-apps/tauri) | 2.7.3 | Apache-2.0 OR MIT | [T8](#t8), [T185](#t185) |
+| [tao](https://github.com/tauri-apps/tao) | 0.37.1 | Apache-2.0 | [T37](#t37), [T189](#t189) |
+| [tar](https://github.com/composefs/tar-rs) | 0.4.46 | MIT OR Apache-2.0 | [T11](#t11), [T190](#t190) |
+| [target-lexicon](https://github.com/bytecodealliance/target-lexicon) | 0.12.16 | Apache-2.0 WITH LLVM-exception | [T110](#t110) |
+| [tauri](https://github.com/tauri-apps/tauri) | 2.12.4 | Apache-2.0 OR MIT | [T8](#t8), [T191](#t191) |
+| [tauri-build](https://github.com/tauri-apps/tauri) | 2.7.3 | Apache-2.0 OR MIT | [T8](#t8), [T191](#t191) |
+| [tauri-codegen](https://github.com/tauri-apps/tauri) | 2.7.3 | Apache-2.0 OR MIT | [T8](#t8), [T191](#t191) |
+| [tauri-macros](https://github.com/tauri-apps/tauri) | 2.7.3 | Apache-2.0 OR MIT | [T8](#t8), [T191](#t191) |
 | [tauri-plugin](https://github.com/tauri-apps/tauri) | 2.7.2 | Apache-2.0 OR MIT | none published |
-| [tauri-plugin-dialog](https://github.com/tauri-apps/plugins-workspace) | 2.8.3 | Apache-2.0 OR MIT | [T8](#t8), [T185](#t185), [T186](#t186) |
-| [tauri-plugin-fs](https://github.com/tauri-apps/plugins-workspace) | 2.7.1 | Apache-2.0 OR MIT | [T8](#t8), [T185](#t185), [T186](#t186) |
-| [tauri-plugin-opener](https://github.com/tauri-apps/plugins-workspace) | 2.7.2 | Apache-2.0 OR MIT | [T8](#t8), [T185](#t185), [T186](#t186) |
-| [tauri-runtime](https://github.com/tauri-apps/tauri) | 2.12.2 | Apache-2.0 OR MIT | [T8](#t8), [T185](#t185) |
-| [tauri-runtime-wry](https://github.com/tauri-apps/tauri) | 2.12.2 | Apache-2.0 OR MIT | [T8](#t8), [T185](#t185) |
-| [tauri-utils](https://github.com/tauri-apps/tauri) | 2.10.2 | Apache-2.0 OR MIT | [T8](#t8), [T185](#t185) |
-| [tauri-winres](https://github.com/tauri-apps/winres) | 0.3.6 | MIT | [T187](#t187) |
-| [tendril](https://github.com/servo/html5ever) | 0.5.1 | MIT OR Apache-2.0 | [T11](#t11), [T188](#t188) |
+| [tauri-plugin-dialog](https://github.com/tauri-apps/plugins-workspace) | 2.8.3 | Apache-2.0 OR MIT | [T8](#t8), [T191](#t191), [T192](#t192) |
+| [tauri-plugin-fs](https://github.com/tauri-apps/plugins-workspace) | 2.7.1 | Apache-2.0 OR MIT | [T8](#t8), [T191](#t191), [T192](#t192) |
+| [tauri-plugin-opener](https://github.com/tauri-apps/plugins-workspace) | 2.7.2 | Apache-2.0 OR MIT | [T8](#t8), [T191](#t191), [T192](#t192) |
+| [tauri-plugin-updater](https://github.com/tauri-apps/plugins-workspace) | 2.14.1 | Apache-2.0 OR MIT | [T8](#t8), [T191](#t191), [T192](#t192) |
+| [tauri-runtime](https://github.com/tauri-apps/tauri) | 2.12.2 | Apache-2.0 OR MIT | [T8](#t8), [T191](#t191) |
+| [tauri-runtime-wry](https://github.com/tauri-apps/tauri) | 2.12.2 | Apache-2.0 OR MIT | [T8](#t8), [T191](#t191) |
+| [tauri-utils](https://github.com/tauri-apps/tauri) | 2.10.2 | Apache-2.0 OR MIT | [T8](#t8), [T191](#t191) |
+| [tauri-winres](https://github.com/tauri-apps/winres) | 0.3.6 | MIT | [T193](#t193) |
+| [tempfile](https://github.com/Stebalien/tempfile) | 3.27.0 | MIT OR Apache-2.0 | [T11](#t11), [T194](#t194) |
+| [tendril](https://github.com/servo/html5ever) | 0.5.1 | MIT OR Apache-2.0 | [T11](#t11), [T195](#t195) |
 | [thiserror](https://github.com/dtolnay/thiserror) | 1.0.69 | MIT OR Apache-2.0 | [T3](#t3), [T8](#t8) |
 | [thiserror](https://github.com/dtolnay/thiserror) | 2.0.21 | MIT OR Apache-2.0 | [T3](#t3), [T8](#t8) |
 | [thiserror-impl](https://github.com/dtolnay/thiserror) | 1.0.69 | MIT OR Apache-2.0 | [T3](#t3), [T8](#t8) |
 | [thiserror-impl](https://github.com/dtolnay/thiserror) | 2.0.21 | MIT OR Apache-2.0 | [T3](#t3), [T8](#t8) |
-| [time](https://github.com/time-rs/time) | 0.3.55 | MIT OR Apache-2.0 | [T8](#t8), [T189](#t189) |
-| [time-core](https://github.com/time-rs/time) | 0.1.9 | MIT OR Apache-2.0 | [T8](#t8), [T189](#t189) |
-| [time-macros](https://github.com/time-rs/time) | 0.2.32 | MIT OR Apache-2.0 | [T8](#t8), [T189](#t189) |
-| [tinystr](https://github.com/unicode-org/icu4x) | 0.8.4 | Unicode-3.0 | [T89](#t89) |
-| [tinyvec](https://github.com/Lokathor/tinyvec) | 1.13.3 | Zlib OR Apache-2.0 OR MIT | [T3](#t3), [T11](#t11), [T190](#t190) |
-| [tokio](https://github.com/tokio-rs/tokio) | 1.53.3 | MIT | [T191](#t191) |
-| [tokio-rustls](https://github.com/rustls/tokio-rustls) | 0.26.6 | MIT OR Apache-2.0 | [T192](#t192), [T193](#t193) |
-| [toml](https://github.com/toml-rs/toml) | 0.8.2 | MIT OR Apache-2.0 | [T35](#t35), [T161](#t161) |
-| [toml](https://github.com/toml-rs/toml) | 1.1.8+spec-1.1.0 | MIT OR Apache-2.0 | [T161](#t161), [T162](#t162) |
+| [time](https://github.com/time-rs/time) | 0.3.55 | MIT OR Apache-2.0 | [T8](#t8), [T196](#t196) |
+| [time-core](https://github.com/time-rs/time) | 0.1.9 | MIT OR Apache-2.0 | [T8](#t8), [T196](#t196) |
+| [time-macros](https://github.com/time-rs/time) | 0.2.32 | MIT OR Apache-2.0 | [T8](#t8), [T196](#t196) |
+| [tinystr](https://github.com/unicode-org/icu4x) | 0.8.4 | Unicode-3.0 | [T90](#t90) |
+| [tinyvec](https://github.com/Lokathor/tinyvec) | 1.13.3 | Zlib OR Apache-2.0 OR MIT | [T3](#t3), [T11](#t11), [T197](#t197) |
+| [tokio](https://github.com/tokio-rs/tokio) | 1.53.3 | MIT | [T198](#t198) |
+| [tokio-rustls](https://github.com/rustls/tokio-rustls) | 0.26.6 | MIT OR Apache-2.0 | [T199](#t199), [T200](#t200) |
+| [tokio-util](https://github.com/tokio-rs/tokio) | 0.7.20 | MIT | [T198](#t198) |
+| [toml](https://github.com/toml-rs/toml) | 0.8.2 | MIT OR Apache-2.0 | [T37](#t37), [T166](#t166) |
+| [toml](https://github.com/toml-rs/toml) | 1.1.8+spec-1.1.0 | MIT OR Apache-2.0 | [T166](#t166), [T167](#t167) |
 | [toml_datetime](https://github.com/toml-rs/toml) | 0.6.3 | MIT OR Apache-2.0 | [T11](#t11), [T24](#t24) |
-| [toml_datetime](https://github.com/toml-rs/toml) | 1.1.2+spec-1.1.0 | MIT OR Apache-2.0 | [T161](#t161), [T162](#t162) |
-| [toml_edit](https://github.com/toml-rs/toml) | 0.19.15 | MIT OR Apache-2.0 | [T35](#t35), [T161](#t161) |
-| [toml_edit](https://github.com/toml-rs/toml) | 0.20.2 | MIT OR Apache-2.0 | [T35](#t35), [T161](#t161) |
-| [toml_edit](https://github.com/toml-rs/toml) | 0.25.17+spec-1.1.0 | MIT OR Apache-2.0 | [T161](#t161), [T162](#t162) |
-| [toml_parser](https://github.com/toml-rs/toml) | 1.1.5+spec-1.1.0 | MIT OR Apache-2.0 | [T161](#t161), [T162](#t162) |
-| [toml_writer](https://github.com/toml-rs/toml) | 1.1.3+spec-1.1.0 | MIT OR Apache-2.0 | [T161](#t161), [T162](#t162) |
-| [tower](https://github.com/tower-rs/tower) | 0.5.3 | MIT | [T194](#t194) |
-| [tower-http](https://github.com/tower-rs/tower-http) | 0.6.11 | MIT | [T195](#t195) |
-| [tower-layer](https://github.com/tower-rs/tower) | 0.3.3 | MIT | [T194](#t194) |
-| [tower-service](https://github.com/tower-rs/tower) | 0.3.3 | MIT | [T194](#t194) |
-| [tracing](https://github.com/tokio-rs/tracing) | 0.1.44 | MIT | [T196](#t196) |
-| [tracing-attributes](https://github.com/tokio-rs/tracing) | 0.1.31 | MIT | [T196](#t196) |
-| [tracing-core](https://github.com/tokio-rs/tracing) | 0.1.36 | MIT | [T196](#t196) |
-| [tray-icon](https://github.com/tauri-apps/tray-icon) | 0.25.1 | MIT OR Apache-2.0 | [T11](#t11), [T118](#t118), [T197](#t197) |
-| [try-lock](https://github.com/seanmonstar/try-lock) | 0.2.5 | MIT | [T198](#t198) |
+| [toml_datetime](https://github.com/toml-rs/toml) | 1.1.2+spec-1.1.0 | MIT OR Apache-2.0 | [T166](#t166), [T167](#t167) |
+| [toml_edit](https://github.com/toml-rs/toml) | 0.19.15 | MIT OR Apache-2.0 | [T37](#t37), [T166](#t166) |
+| [toml_edit](https://github.com/toml-rs/toml) | 0.20.2 | MIT OR Apache-2.0 | [T37](#t37), [T166](#t166) |
+| [toml_edit](https://github.com/toml-rs/toml) | 0.25.17+spec-1.1.0 | MIT OR Apache-2.0 | [T166](#t166), [T167](#t167) |
+| [toml_parser](https://github.com/toml-rs/toml) | 1.1.5+spec-1.1.0 | MIT OR Apache-2.0 | [T166](#t166), [T167](#t167) |
+| [toml_writer](https://github.com/toml-rs/toml) | 1.1.3+spec-1.1.0 | MIT OR Apache-2.0 | [T166](#t166), [T167](#t167) |
+| [tower](https://github.com/tower-rs/tower) | 0.5.3 | MIT | [T201](#t201) |
+| [tower-http](https://github.com/tower-rs/tower-http) | 0.6.11 | MIT | [T202](#t202) |
+| [tower-layer](https://github.com/tower-rs/tower) | 0.3.3 | MIT | [T201](#t201) |
+| [tower-service](https://github.com/tower-rs/tower) | 0.3.3 | MIT | [T201](#t201) |
+| [tracing](https://github.com/tokio-rs/tracing) | 0.1.44 | MIT | [T203](#t203) |
+| [tracing-attributes](https://github.com/tokio-rs/tracing) | 0.1.31 | MIT | [T203](#t203) |
+| [tracing-core](https://github.com/tokio-rs/tracing) | 0.1.36 | MIT | [T203](#t203) |
+| [tray-icon](https://github.com/tauri-apps/tray-icon) | 0.25.1 | MIT OR Apache-2.0 | [T11](#t11), [T120](#t120), [T204](#t204) |
+| [try-lock](https://github.com/seanmonstar/try-lock) | 0.2.5 | MIT | [T205](#t205) |
+| [typed-path](https://github.com/chipsenkbeil/typed-path) | 0.13.0 | MIT OR Apache-2.0 | [T3](#t3), [T8](#t8) |
 | [typeid](https://github.com/dtolnay/typeid) | 1.0.3 | MIT OR Apache-2.0 | [T3](#t3), [T8](#t8) |
-| [typenum](https://github.com/paholg/typenum) | 1.20.1 | MIT OR Apache-2.0 | [T199](#t199), [T200](#t200), [T201](#t201) |
-| [unicode-ident](https://github.com/dtolnay/unicode-ident) | 1.0.27 | (MIT OR Apache-2.0) AND Unicode-3.0 | [T3](#t3), [T8](#t8), [T202](#t202) |
-| [unicode-segmentation](https://github.com/unicode-rs/unicode-segmentation) | 1.13.3 | MIT OR Apache-2.0 | [T11](#t11), [T75](#t75), [T203](#t203) |
-| [untrusted](https://github.com/briansmith/untrusted) | 0.9.0 | ISC | [T204](#t204) |
-| [url](https://github.com/servo/rust-url) | 2.5.8 | MIT OR Apache-2.0 | [T11](#t11), [T90](#t90) |
-| [urlpattern](https://github.com/denoland/rust-urlpattern) | 0.6.0 | MIT | [T205](#t205) |
-| [utf8_iter](https://github.com/hsivonen/utf8_iter) | 1.0.4 | Apache-2.0 OR MIT | [T11](#t11), [T206](#t206), [T207](#t207) |
-| [uuid](https://github.com/uuid-rs/uuid) | 1.28.0 | Apache-2.0 OR MIT | [T11](#t11), [T208](#t208) |
-| [vcpkg](https://github.com/mcgoo/vcpkg-rs) | 0.2.15 | MIT/Apache-2.0 | [T11](#t11), [T209](#t209) |
-| [version-compare](https://gitlab.com/timvisee/version-compare) | 0.2.1 | MIT | [T210](#t210) |
-| [version_check](https://github.com/SergioBenitez/version_check) | 0.9.5 | MIT/Apache-2.0 | [T11](#t11), [T211](#t211) |
-| [vswhom](https://github.com/nabijaczleweli/vswhom.rs) | 0.1.0 | MIT | [T212](#t212) |
-| [vswhom-sys](https://github.com/nabijaczleweli/vswhom-sys.rs) | 0.1.3 | MIT | [T212](#t212) |
+| [typenum](https://github.com/paholg/typenum) | 1.20.1 | MIT OR Apache-2.0 | [T206](#t206), [T207](#t207), [T208](#t208) |
+| [unicode-ident](https://github.com/dtolnay/unicode-ident) | 1.0.27 | (MIT OR Apache-2.0) AND Unicode-3.0 | [T3](#t3), [T8](#t8), [T209](#t209) |
+| [unicode-segmentation](https://github.com/unicode-rs/unicode-segmentation) | 1.13.3 | MIT OR Apache-2.0 | [T11](#t11), [T76](#t76), [T210](#t210) |
+| [untrusted](https://github.com/briansmith/untrusted) | 0.9.0 | ISC | [T211](#t211) |
+| [url](https://github.com/servo/rust-url) | 2.5.8 | MIT OR Apache-2.0 | [T11](#t11), [T91](#t91) |
+| [urlpattern](https://github.com/denoland/rust-urlpattern) | 0.6.0 | MIT | [T212](#t212) |
+| [utf8_iter](https://github.com/hsivonen/utf8_iter) | 1.0.4 | Apache-2.0 OR MIT | [T11](#t11), [T213](#t213), [T214](#t214) |
+| [uuid](https://github.com/uuid-rs/uuid) | 1.28.0 | Apache-2.0 OR MIT | [T11](#t11), [T215](#t215) |
+| [vcpkg](https://github.com/mcgoo/vcpkg-rs) | 0.2.15 | MIT/Apache-2.0 | [T11](#t11), [T216](#t216) |
+| [version-compare](https://gitlab.com/timvisee/version-compare) | 0.2.1 | MIT | [T217](#t217) |
+| [version_check](https://github.com/SergioBenitez/version_check) | 0.9.5 | MIT/Apache-2.0 | [T11](#t11), [T218](#t218) |
+| [vswhom](https://github.com/nabijaczleweli/vswhom.rs) | 0.1.0 | MIT | [T219](#t219) |
+| [vswhom-sys](https://github.com/nabijaczleweli/vswhom-sys.rs) | 0.1.3 | MIT | [T219](#t219) |
 | [walkdir](https://github.com/BurntSushi/walkdir) | 2.5.0 | Unlicense/MIT | [T4](#t4), [T5](#t5), [T6](#t6) |
-| [want](https://github.com/seanmonstar/want) | 0.3.2 | MIT | [T213](#t213) |
-| [web-time](https://github.com/daxpedda/web-time) | 1.1.0 | MIT OR Apache-2.0 | [T214](#t214), [T215](#t215) |
-| [web_atoms](https://github.com/servo/html5ever) | 0.2.6 | MIT OR Apache-2.0 | [T11](#t11), [T77](#t77) |
-| [webkit2gtk](https://github.com/tauri-apps/webkit2gtk-rs) | 2.0.2 | MIT | [T216](#t216) |
-| [webkit2gtk-sys](https://github.com/tauri-apps/webkit2gtk-rs) | 2.0.2 | MIT | [T217](#t217) |
-| [webpki-roots](https://github.com/rustls/webpki-roots) | 1.0.9 | CDLA-Permissive-2.0 | [T218](#t218) |
+| [want](https://github.com/seanmonstar/want) | 0.3.2 | MIT | [T220](#t220) |
+| [web-time](https://github.com/daxpedda/web-time) | 1.1.0 | MIT OR Apache-2.0 | [T221](#t221), [T222](#t222) |
+| [web_atoms](https://github.com/servo/html5ever) | 0.2.6 | MIT OR Apache-2.0 | [T11](#t11), [T78](#t78) |
+| [webkit2gtk](https://github.com/tauri-apps/webkit2gtk-rs) | 2.0.2 | MIT | [T223](#t223) |
+| [webkit2gtk-sys](https://github.com/tauri-apps/webkit2gtk-rs) | 2.0.2 | MIT | [T224](#t224) |
+| [webpki-roots](https://github.com/rustls/webpki-roots) | 1.0.9 | CDLA-Permissive-2.0 | [T225](#t225) |
 | [webview2-com](https://github.com/wravery/webview2-rs) | 0.39.1 | MIT | none published |
 | [webview2-com-macros](https://github.com/wravery/webview2-rs) | 0.8.1 | MIT | none published |
 | [webview2-com-sys](https://github.com/wravery/webview2-rs) | 0.39.1 | MIT | none published |
-| [winapi-util](https://github.com/BurntSushi/winapi-util) | 0.1.11 | Unlicense OR MIT | [T4](#t4), [T6](#t6), [T158](#t158) |
-| [window-vibrancy](https://github.com/tauri-apps/tauri-plugin-vibrancy) | 0.8.1 | Apache-2.0 OR MIT | [T11](#t11), [T219](#t219), [T220](#t220) |
-| [windows](https://github.com/microsoft/windows-rs) | 0.62.2 | MIT OR Apache-2.0 | [T221](#t221), [T222](#t222) |
-| [windows-collections](https://github.com/microsoft/windows-rs) | 0.3.2 | MIT OR Apache-2.0 | [T221](#t221), [T222](#t222) |
-| [windows-core](https://github.com/microsoft/windows-rs) | 0.62.2 | MIT OR Apache-2.0 | [T221](#t221), [T222](#t222) |
-| [windows-future](https://github.com/microsoft/windows-rs) | 0.3.2 | MIT OR Apache-2.0 | [T221](#t221), [T222](#t222) |
-| [windows-implement](https://github.com/microsoft/windows-rs) | 0.60.2 | MIT OR Apache-2.0 | [T221](#t221), [T222](#t222) |
-| [windows-interface](https://github.com/microsoft/windows-rs) | 0.59.3 | MIT OR Apache-2.0 | [T221](#t221), [T222](#t222) |
-| [windows-link](https://github.com/microsoft/windows-rs) | 0.2.1 | MIT OR Apache-2.0 | [T221](#t221), [T222](#t222) |
-| [windows-numerics](https://github.com/microsoft/windows-rs) | 0.3.1 | MIT OR Apache-2.0 | [T221](#t221), [T222](#t222) |
-| [windows-result](https://github.com/microsoft/windows-rs) | 0.4.1 | MIT OR Apache-2.0 | [T221](#t221), [T222](#t222) |
-| [windows-strings](https://github.com/microsoft/windows-rs) | 0.5.1 | MIT OR Apache-2.0 | [T221](#t221), [T222](#t222) |
-| [windows-sys](https://github.com/microsoft/windows-rs) | 0.48.0 | MIT OR Apache-2.0 | [T221](#t221), [T222](#t222) |
-| [windows-sys](https://github.com/microsoft/windows-rs) | 0.60.2 | MIT OR Apache-2.0 | [T221](#t221), [T222](#t222) |
-| [windows-sys](https://github.com/microsoft/windows-rs) | 0.61.2 | MIT OR Apache-2.0 | [T221](#t221), [T222](#t222) |
-| [windows-targets](https://github.com/microsoft/windows-rs) | 0.48.5 | MIT OR Apache-2.0 | [T221](#t221), [T222](#t222) |
-| [windows-targets](https://github.com/microsoft/windows-rs) | 0.53.5 | MIT OR Apache-2.0 | [T221](#t221), [T222](#t222) |
-| [windows-threading](https://github.com/microsoft/windows-rs) | 0.2.1 | MIT OR Apache-2.0 | [T221](#t221), [T222](#t222) |
-| [windows-version](https://github.com/microsoft/windows-rs) | 0.1.7 | MIT OR Apache-2.0 | [T221](#t221), [T222](#t222) |
-| [windows_x86_64_msvc](https://github.com/microsoft/windows-rs) | 0.48.5 | MIT OR Apache-2.0 | [T221](#t221), [T222](#t222) |
-| [windows_x86_64_msvc](https://github.com/microsoft/windows-rs) | 0.53.1 | MIT OR Apache-2.0 | [T221](#t221), [T222](#t222) |
+| [winapi-util](https://github.com/BurntSushi/winapi-util) | 0.1.11 | Unlicense OR MIT | [T4](#t4), [T6](#t6), [T163](#t163) |
+| [window-vibrancy](https://github.com/tauri-apps/tauri-plugin-vibrancy) | 0.8.1 | Apache-2.0 OR MIT | [T11](#t11), [T226](#t226), [T227](#t227) |
+| [windows](https://github.com/microsoft/windows-rs) | 0.62.2 | MIT OR Apache-2.0 | [T228](#t228), [T229](#t229) |
+| [windows-collections](https://github.com/microsoft/windows-rs) | 0.3.2 | MIT OR Apache-2.0 | [T228](#t228), [T229](#t229) |
+| [windows-core](https://github.com/microsoft/windows-rs) | 0.62.2 | MIT OR Apache-2.0 | [T228](#t228), [T229](#t229) |
+| [windows-future](https://github.com/microsoft/windows-rs) | 0.3.2 | MIT OR Apache-2.0 | [T228](#t228), [T229](#t229) |
+| [windows-implement](https://github.com/microsoft/windows-rs) | 0.60.2 | MIT OR Apache-2.0 | [T228](#t228), [T229](#t229) |
+| [windows-interface](https://github.com/microsoft/windows-rs) | 0.59.3 | MIT OR Apache-2.0 | [T228](#t228), [T229](#t229) |
+| [windows-link](https://github.com/microsoft/windows-rs) | 0.2.1 | MIT OR Apache-2.0 | [T228](#t228), [T229](#t229) |
+| [windows-numerics](https://github.com/microsoft/windows-rs) | 0.3.1 | MIT OR Apache-2.0 | [T228](#t228), [T229](#t229) |
+| [windows-registry](https://github.com/microsoft/windows-rs) | 0.6.1 | MIT OR Apache-2.0 | [T228](#t228), [T229](#t229) |
+| [windows-result](https://github.com/microsoft/windows-rs) | 0.4.1 | MIT OR Apache-2.0 | [T228](#t228), [T229](#t229) |
+| [windows-strings](https://github.com/microsoft/windows-rs) | 0.5.1 | MIT OR Apache-2.0 | [T228](#t228), [T229](#t229) |
+| [windows-sys](https://github.com/microsoft/windows-rs) | 0.48.0 | MIT OR Apache-2.0 | [T228](#t228), [T229](#t229) |
+| [windows-sys](https://github.com/microsoft/windows-rs) | 0.60.2 | MIT OR Apache-2.0 | [T228](#t228), [T229](#t229) |
+| [windows-sys](https://github.com/microsoft/windows-rs) | 0.61.2 | MIT OR Apache-2.0 | [T228](#t228), [T229](#t229) |
+| [windows-targets](https://github.com/microsoft/windows-rs) | 0.48.5 | MIT OR Apache-2.0 | [T228](#t228), [T229](#t229) |
+| [windows-targets](https://github.com/microsoft/windows-rs) | 0.53.5 | MIT OR Apache-2.0 | [T228](#t228), [T229](#t229) |
+| [windows-threading](https://github.com/microsoft/windows-rs) | 0.2.1 | MIT OR Apache-2.0 | [T228](#t228), [T229](#t229) |
+| [windows-version](https://github.com/microsoft/windows-rs) | 0.1.7 | MIT OR Apache-2.0 | [T228](#t228), [T229](#t229) |
+| [windows_x86_64_msvc](https://github.com/microsoft/windows-rs) | 0.48.5 | MIT OR Apache-2.0 | [T228](#t228), [T229](#t229) |
+| [windows_x86_64_msvc](https://github.com/microsoft/windows-rs) | 0.53.1 | MIT OR Apache-2.0 | [T228](#t228), [T229](#t229) |
 | [winnow](https://github.com/winnow-rs/winnow) | 0.5.40 | MIT | [T3](#t3) |
 | [winnow](https://github.com/winnow-rs/winnow) | 1.0.4 | MIT | [T3](#t3) |
-| [winreg](https://github.com/gentoo90/winreg-rs) | 0.56.0 | MIT | [T223](#t223) |
-| [writeable](https://github.com/unicode-org/icu4x) | 0.6.4 | Unicode-3.0 | [T89](#t89) |
-| [wry](https://github.com/tauri-apps/wry) | 0.57.0 | Apache-2.0 OR MIT | [T11](#t11), [T224](#t224), [T225](#t225) |
+| [winreg](https://github.com/gentoo90/winreg-rs) | 0.56.0 | MIT | [T230](#t230) |
+| [writeable](https://github.com/unicode-org/icu4x) | 0.6.4 | Unicode-3.0 | [T90](#t90) |
+| [wry](https://github.com/tauri-apps/wry) | 0.57.0 | Apache-2.0 OR MIT | [T11](#t11), [T231](#t231), [T232](#t232) |
 | [x11](https://github.com/AltF02/x11-rs.git) | 2.21.0 | MIT | [T3](#t3) |
 | [x11-dl](https://github.com/AltF02/x11-rs.git) | 2.21.0 | MIT | [T3](#t3) |
-| [yoke](https://github.com/unicode-org/icu4x) | 0.8.3 | Unicode-3.0 | [T89](#t89) |
-| [yoke-derive](https://github.com/unicode-org/icu4x) | 0.8.4 | Unicode-3.0 | [T89](#t89) |
-| [zbus](https://github.com/z-galaxy/zbus/) | 5.19.0 | MIT | [T226](#t226) |
-| [zbus_macros](https://github.com/z-galaxy/zbus/) | 5.19.0 | MIT | [T226](#t226) |
-| [zbus_names](https://github.com/z-galaxy/zbus/) | 4.3.5 | MIT | [T226](#t226) |
-| [zcheapstr](https://github.com/z-galaxy/zcheapstr/) | 1.1.0 | MIT | [T227](#t227) |
-| [zerofrom](https://github.com/unicode-org/icu4x) | 0.1.8 | Unicode-3.0 | [T89](#t89) |
-| [zerofrom-derive](https://github.com/unicode-org/icu4x) | 0.1.8 | Unicode-3.0 | [T89](#t89) |
-| [zeroize](https://github.com/RustCrypto/utils) | 1.9.1 | Apache-2.0 OR MIT | [T11](#t11), [T228](#t228) |
-| [zerotrie](https://github.com/unicode-org/icu4x) | 0.2.5 | Unicode-3.0 | [T89](#t89) |
-| [zerovec](https://github.com/unicode-org/icu4x) | 0.11.8 | Unicode-3.0 | [T89](#t89) |
-| [zerovec-derive](https://github.com/unicode-org/icu4x) | 0.11.6 | Unicode-3.0 | [T89](#t89) |
-| [zlib-rs](https://github.com/trifectatechfoundation/zlib-rs) | 0.6.8 | Zlib | [T229](#t229) |
+| [xattr](https://github.com/Stebalien/xattr) | 1.6.1 | MIT OR Apache-2.0 | [T11](#t11), [T194](#t194) |
+| [yoke](https://github.com/unicode-org/icu4x) | 0.8.3 | Unicode-3.0 | [T90](#t90) |
+| [yoke-derive](https://github.com/unicode-org/icu4x) | 0.8.4 | Unicode-3.0 | [T90](#t90) |
+| [zbus](https://github.com/z-galaxy/zbus/) | 5.19.0 | MIT | [T233](#t233) |
+| [zbus_macros](https://github.com/z-galaxy/zbus/) | 5.19.0 | MIT | [T233](#t233) |
+| [zbus_names](https://github.com/z-galaxy/zbus/) | 4.3.5 | MIT | [T233](#t233) |
+| [zcheapstr](https://github.com/z-galaxy/zcheapstr/) | 1.1.0 | MIT | [T234](#t234) |
+| [zerofrom](https://github.com/unicode-org/icu4x) | 0.1.8 | Unicode-3.0 | [T90](#t90) |
+| [zerofrom-derive](https://github.com/unicode-org/icu4x) | 0.1.8 | Unicode-3.0 | [T90](#t90) |
+| [zeroize](https://github.com/RustCrypto/utils) | 1.9.1 | Apache-2.0 OR MIT | [T11](#t11), [T235](#t235) |
+| [zeroize_derive](https://github.com/RustCrypto/utils) | 1.5.0 | Apache-2.0 OR MIT | [T11](#t11), [T29](#t29) |
+| [zerotrie](https://github.com/unicode-org/icu4x) | 0.2.5 | Unicode-3.0 | [T90](#t90) |
+| [zerovec](https://github.com/unicode-org/icu4x) | 0.11.8 | Unicode-3.0 | [T90](#t90) |
+| [zerovec-derive](https://github.com/unicode-org/icu4x) | 0.11.6 | Unicode-3.0 | [T90](#t90) |
+| [zip](https://github.com/zip-rs/zip2) | 9.6.0 | MIT | [T236](#t236) |
+| [zlib-rs](https://github.com/trifectatechfoundation/zlib-rs) | 0.6.8 | Zlib | [T237](#t237) |
 | [zmij](https://github.com/dtolnay/zmij) | 1.0.23 | MIT | [T3](#t3) |
-| [zvariant](https://github.com/z-galaxy/zbus/) | 5.15.1 | MIT | [T226](#t226) |
-| [zvariant_derive](https://github.com/z-galaxy/zbus/) | 5.15.1 | MIT | [T226](#t226) |
+| [zvariant](https://github.com/z-galaxy/zbus/) | 5.15.1 | MIT | [T233](#t233) |
+| [zvariant_derive](https://github.com/z-galaxy/zbus/) | 5.15.1 | MIT | [T233](#t233) |
 | [zvariant_utils](https://github.com/z-galaxy/zbus/) | 4.2.0 | MIT | [T3](#t3) |
 
 ## C libraries compiled into crates
@@ -4648,6 +4664,151 @@ limitations under the License.
 ### T31
 
 ```text
+Creative Commons Legal Code
+
+CC0 1.0 Universal
+
+    CREATIVE COMMONS CORPORATION IS NOT A LAW FIRM AND DOES NOT PROVIDE
+    LEGAL SERVICES. DISTRIBUTION OF THIS DOCUMENT DOES NOT CREATE AN
+    ATTORNEY-CLIENT RELATIONSHIP. CREATIVE COMMONS PROVIDES THIS
+    INFORMATION ON AN "AS-IS" BASIS. CREATIVE COMMONS MAKES NO WARRANTIES
+    REGARDING THE USE OF THIS DOCUMENT OR THE INFORMATION OR WORKS
+    PROVIDED HEREUNDER, AND DISCLAIMS LIABILITY FOR DAMAGES RESULTING FROM
+    THE USE OF THIS DOCUMENT OR THE INFORMATION OR WORKS PROVIDED
+    HEREUNDER.
+
+Statement of Purpose
+
+The laws of most jurisdictions throughout the world automatically confer
+exclusive Copyright and Related Rights (defined below) upon the creator
+and subsequent owner(s) (each and all, an "owner") of an original work of
+authorship and/or a database (each, a "Work").
+
+Certain owners wish to permanently relinquish those rights to a Work for
+the purpose of contributing to a commons of creative, cultural and
+scientific works ("Commons") that the public can reliably and without fear
+of later claims of infringement build upon, modify, incorporate in other
+works, reuse and redistribute as freely as possible in any form whatsoever
+and for any purposes, including without limitation commercial purposes.
+These owners may contribute to the Commons to promote the ideal of a free
+culture and the further production of creative, cultural and scientific
+works, or to gain reputation or greater distribution for their Work in
+part through the use and efforts of others.
+
+For these and/or other purposes and motivations, and without any
+expectation of additional consideration or compensation, the person
+associating CC0 with a Work (the "Affirmer"), to the extent that he or she
+is an owner of Copyright and Related Rights in the Work, voluntarily
+elects to apply CC0 to the Work and publicly distribute the Work under its
+terms, with knowledge of his or her Copyright and Related Rights in the
+Work and the meaning and intended legal effect of CC0 on those rights.
+
+1. Copyright and Related Rights. A Work made available under CC0 may be
+protected by copyright and related or neighboring rights ("Copyright and
+Related Rights"). Copyright and Related Rights include, but are not
+limited to, the following:
+
+  i. the right to reproduce, adapt, distribute, perform, display,
+     communicate, and translate a Work;
+ ii. moral rights retained by the original author(s) and/or performer(s);
+iii. publicity and privacy rights pertaining to a person's image or
+     likeness depicted in a Work;
+ iv. rights protecting against unfair competition in regards to a Work,
+     subject to the limitations in paragraph 4(a), below;
+  v. rights protecting the extraction, dissemination, use and reuse of data
+     in a Work;
+ vi. database rights (such as those arising under Directive 96/9/EC of the
+     European Parliament and of the Council of 11 March 1996 on the legal
+     protection of databases, and under any national implementation
+     thereof, including any amended or successor version of such
+     directive); and
+vii. other similar, equivalent or corresponding rights throughout the
+     world based on applicable law or treaty, and any national
+     implementations thereof.
+
+2. Waiver. To the greatest extent permitted by, but not in contravention
+of, applicable law, Affirmer hereby overtly, fully, permanently,
+irrevocably and unconditionally waives, abandons, and surrenders all of
+Affirmer's Copyright and Related Rights and associated claims and causes
+of action, whether now known or unknown (including existing as well as
+future claims and causes of action), in the Work (i) in all territories
+worldwide, (ii) for the maximum duration provided by applicable law or
+treaty (including future time extensions), (iii) in any current or future
+medium and for any number of copies, and (iv) for any purpose whatsoever,
+including without limitation commercial, advertising or promotional
+purposes (the "Waiver"). Affirmer makes the Waiver for the benefit of each
+member of the public at large and to the detriment of Affirmer's heirs and
+successors, fully intending that such Waiver shall not be subject to
+revocation, rescission, cancellation, termination, or any other legal or
+equitable action to disrupt the quiet enjoyment of the Work by the public
+as contemplated by Affirmer's express Statement of Purpose.
+
+3. Public License Fallback. Should any part of the Waiver for any reason
+be judged legally invalid or ineffective under applicable law, then the
+Waiver shall be preserved to the maximum extent permitted taking into
+account Affirmer's express Statement of Purpose. In addition, to the
+extent the Waiver is so judged Affirmer hereby grants to each affected
+person a royalty-free, non transferable, non sublicensable, non exclusive,
+irrevocable and unconditional license to exercise Affirmer's Copyright and
+Related Rights in the Work (i) in all territories worldwide, (ii) for the
+maximum duration provided by applicable law or treaty (including future
+time extensions), (iii) in any current or future medium and for any number
+of copies, and (iv) for any purpose whatsoever, including without
+limitation commercial, advertising or promotional purposes (the
+"License"). The License shall be deemed effective as of the date CC0 was
+applied by Affirmer to the Work. Should any part of the License for any
+reason be judged legally invalid or ineffective under applicable law, such
+partial invalidity or ineffectiveness shall not invalidate the remainder
+of the License, and in such case Affirmer hereby affirms that he or she
+will not (i) exercise any of his or her remaining Copyright and Related
+Rights in the Work or (ii) assert any associated claims and causes of
+action with respect to the Work, in either case contrary to Affirmer's
+express Statement of Purpose.
+
+4. Limitations and Disclaimers.
+
+ a. No trademark or patent rights held by Affirmer are waived, abandoned,
+    surrendered, licensed or otherwise affected by this document.
+ b. Affirmer offers the Work as-is and makes no representations or
+    warranties of any kind concerning the Work, express, implied,
+    statutory or otherwise, including without limitation warranties of
+    title, merchantability, fitness for a particular purpose, non
+    infringement, or the absence of latent or other defects, accuracy, or
+    the present or absence of errors, whether or not discoverable, all to
+    the greatest extent permissible under applicable law.
+ c. Affirmer disclaims responsibility for clearing rights of other persons
+    that may apply to the Work or any use thereof, including without
+    limitation any person's Copyright and Related Rights in the Work.
+    Further, Affirmer disclaims responsibility for obtaining any necessary
+    consents, permissions or other rights required for any use of the
+    Work.
+ d. Affirmer understands and acknowledges that Creative Commons is not a
+    party to this document and has no duty or obligation with respect to
+    this CC0 or use of the Work.
+```
+
+### T32
+
+```text
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+```
+
+### T33
+
+```text
 Apache License
                         Version 2.0, January 2004
                      http://www.apache.org/licenses/
@@ -4852,7 +5013,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-### T32
+### T34
 
 ```text
 Copyright (c) 2017 Sergio Benitez
@@ -4883,7 +5044,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T33
+### T35
 
 ```text
 Copyright (c) 2020-2025 The RustCrypto Project Developers
@@ -4913,7 +5074,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T34
+### T36
 
 ```text
 Copyright (c) 2020-2026 The RustCrypto Project Developers
@@ -4943,7 +5104,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T35
+### T37
 
 ```text
 Apache License
@@ -5149,7 +5310,7 @@ Apache License
    limitations under the License.
 ```
 
-### T36
+### T38
 
 ```text
 MIT License
@@ -5175,7 +5336,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### T37
+### T39
 
 ```text
 The MIT License (MIT)
@@ -5207,7 +5368,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T38
+### T40
 
 ```text
 ===============================================================================
@@ -5805,7 +5966,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-### T39
+### T41
 
 ```text
 Copyright (c) 2021 RustCrypto Developers
@@ -5835,7 +5996,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T40
+### T42
 
 ```text
 Mozilla Public License Version 2.0
@@ -6213,7 +6374,7 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
   defined by the Mozilla Public License, v. 2.0.
 ```
 
-### T41
+### T43
 
 ```text
 MIT License
@@ -6239,7 +6400,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### T42
+### T44
 
 ```text
 Apache License
@@ -6445,7 +6606,7 @@ Apache License
    limitations under the License.
 ```
 
-### T43
+### T45
 
 ```text
 Copyright (c) 2014-2018 David Henningsson <diwic@ubuntu.com> and other contributors
@@ -6469,7 +6630,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### T44
+### T46
 
 ```text
 Copyright (c) Ferrous Systems
@@ -6499,7 +6660,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T45
+### T47
 
 ```text
 Apache License
@@ -6705,7 +6866,7 @@ Apache License
    limitations under the License.
 ```
 
-### T46
+### T48
 
 ```text
 Copyright (c) 2024 Jacob Pratt et al.
@@ -6729,7 +6890,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### T47
+### T49
 
 ```text
 The MIT License (MIT)
@@ -6755,7 +6916,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### T48
+### T50
 
 ```text
 Copyright (c) 2017 Artyom Pavlov
@@ -6785,7 +6946,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T49
+### T51
 
 ```text
 Apache License
@@ -6964,7 +7125,7 @@ TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
    of your accepting any such warranty or additional liability.
 ```
 
-### T50
+### T52
 
 ```text
 Copyright (c) 2018-2019 dirs-rs contributors
@@ -6988,7 +7149,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### T51
+### T53
 
 ```text
 MIT License
@@ -7020,7 +7181,7 @@ derived from the "nipper" project (https://github.com/importcjj/nipper),
 developed by Chen Jiaju, licensed under the MIT License and the Apache License 2.0 (dual licensed).
 ```
 
-### T52
+### T54
 
 ```text
 rust-lang/libm as a whole is available for use under the MIT license:
@@ -7076,133 +7237,7 @@ have been licensed under extremely permissive terms.
 ------------------------------------------------------------------------------
 ```
 
-### T53
-
-```text
-Creative Commons Legal Code
-
-CC0 1.0 Universal
-
-    CREATIVE COMMONS CORPORATION IS NOT A LAW FIRM AND DOES NOT PROVIDE
-    LEGAL SERVICES. DISTRIBUTION OF THIS DOCUMENT DOES NOT CREATE AN
-    ATTORNEY-CLIENT RELATIONSHIP. CREATIVE COMMONS PROVIDES THIS
-    INFORMATION ON AN "AS-IS" BASIS. CREATIVE COMMONS MAKES NO WARRANTIES
-    REGARDING THE USE OF THIS DOCUMENT OR THE INFORMATION OR WORKS
-    PROVIDED HEREUNDER, AND DISCLAIMS LIABILITY FOR DAMAGES RESULTING FROM
-    THE USE OF THIS DOCUMENT OR THE INFORMATION OR WORKS PROVIDED
-    HEREUNDER.
-
-Statement of Purpose
-
-The laws of most jurisdictions throughout the world automatically confer
-exclusive Copyright and Related Rights (defined below) upon the creator
-and subsequent owner(s) (each and all, an "owner") of an original work of
-authorship and/or a database (each, a "Work").
-
-Certain owners wish to permanently relinquish those rights to a Work for
-the purpose of contributing to a commons of creative, cultural and
-scientific works ("Commons") that the public can reliably and without fear
-of later claims of infringement build upon, modify, incorporate in other
-works, reuse and redistribute as freely as possible in any form whatsoever
-and for any purposes, including without limitation commercial purposes.
-These owners may contribute to the Commons to promote the ideal of a free
-culture and the further production of creative, cultural and scientific
-works, or to gain reputation or greater distribution for their Work in
-part through the use and efforts of others.
-
-For these and/or other purposes and motivations, and without any
-expectation of additional consideration or compensation, the person
-associating CC0 with a Work (the "Affirmer"), to the extent that he or she
-is an owner of Copyright and Related Rights in the Work, voluntarily
-elects to apply CC0 to the Work and publicly distribute the Work under its
-terms, with knowledge of his or her Copyright and Related Rights in the
-Work and the meaning and intended legal effect of CC0 on those rights.
-
-1. Copyright and Related Rights. A Work made available under CC0 may be
-protected by copyright and related or neighboring rights ("Copyright and
-Related Rights"). Copyright and Related Rights include, but are not
-limited to, the following:
-
-  i. the right to reproduce, adapt, distribute, perform, display,
-     communicate, and translate a Work;
- ii. moral rights retained by the original author(s) and/or performer(s);
-iii. publicity and privacy rights pertaining to a person's image or
-     likeness depicted in a Work;
- iv. rights protecting against unfair competition in regards to a Work,
-     subject to the limitations in paragraph 4(a), below;
-  v. rights protecting the extraction, dissemination, use and reuse of data
-     in a Work;
- vi. database rights (such as those arising under Directive 96/9/EC of the
-     European Parliament and of the Council of 11 March 1996 on the legal
-     protection of databases, and under any national implementation
-     thereof, including any amended or successor version of such
-     directive); and
-vii. other similar, equivalent or corresponding rights throughout the
-     world based on applicable law or treaty, and any national
-     implementations thereof.
-
-2. Waiver. To the greatest extent permitted by, but not in contravention
-of, applicable law, Affirmer hereby overtly, fully, permanently,
-irrevocably and unconditionally waives, abandons, and surrenders all of
-Affirmer's Copyright and Related Rights and associated claims and causes
-of action, whether now known or unknown (including existing as well as
-future claims and causes of action), in the Work (i) in all territories
-worldwide, (ii) for the maximum duration provided by applicable law or
-treaty (including future time extensions), (iii) in any current or future
-medium and for any number of copies, and (iv) for any purpose whatsoever,
-including without limitation commercial, advertising or promotional
-purposes (the "Waiver"). Affirmer makes the Waiver for the benefit of each
-member of the public at large and to the detriment of Affirmer's heirs and
-successors, fully intending that such Waiver shall not be subject to
-revocation, rescission, cancellation, termination, or any other legal or
-equitable action to disrupt the quiet enjoyment of the Work by the public
-as contemplated by Affirmer's express Statement of Purpose.
-
-3. Public License Fallback. Should any part of the Waiver for any reason
-be judged legally invalid or ineffective under applicable law, then the
-Waiver shall be preserved to the maximum extent permitted taking into
-account Affirmer's express Statement of Purpose. In addition, to the
-extent the Waiver is so judged Affirmer hereby grants to each affected
-person a royalty-free, non transferable, non sublicensable, non exclusive,
-irrevocable and unconditional license to exercise Affirmer's Copyright and
-Related Rights in the Work (i) in all territories worldwide, (ii) for the
-maximum duration provided by applicable law or treaty (including future
-time extensions), (iii) in any current or future medium and for any number
-of copies, and (iv) for any purpose whatsoever, including without
-limitation commercial, advertising or promotional purposes (the
-"License"). The License shall be deemed effective as of the date CC0 was
-applied by Affirmer to the Work. Should any part of the License for any
-reason be judged legally invalid or ineffective under applicable law, such
-partial invalidity or ineffectiveness shall not invalidate the remainder
-of the License, and in such case Affirmer hereby affirms that he or she
-will not (i) exercise any of his or her remaining Copyright and Related
-Rights in the Work or (ii) assert any associated claims and causes of
-action with respect to the Work, in either case contrary to Affirmer's
-express Statement of Purpose.
-
-4. Limitations and Disclaimers.
-
- a. No trademark or patent rights held by Affirmer are waived, abandoned,
-    surrendered, licensed or otherwise affected by this document.
- b. Affirmer offers the Work as-is and makes no representations or
-    warranties of any kind concerning the Work, express, implied,
-    statutory or otherwise, including without limitation warranties of
-    title, merchantability, fitness for a particular purpose, non
-    infringement, or the absence of latent or other defects, accuracy, or
-    the present or absence of errors, whether or not discoverable, all to
-    the greatest extent permissible under applicable law.
- c. Affirmer disclaims responsibility for clearing rights of other persons
-    that may apply to the Work or any use thereof, including without
-    limitation any person's Copyright and Related Rights in the Work.
-    Further, Affirmer disclaims responsibility for obtaining any necessary
-    consents, permissions or other rights required for any use of the
-    Work.
- d. Affirmer understands and acknowledges that Creative Commons is not a
-    party to this document and has no duty or obligation with respect to
-    this CC0 or use of the Work.
-```
-
-### T54
+### T55
 
 ```text
 The MIT License (MIT)
@@ -7228,7 +7263,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### T55
+### T56
 
 ```text
 Apache License
@@ -7301,7 +7336,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-### T56
+### T57
 
 ```text
 Copyright (c) 2017-2023 Maik Klein, Maja Kądziołka
@@ -7331,7 +7366,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T57
+### T58
 
 ```text
 Apache License
@@ -7404,7 +7439,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-### T58
+### T59
 
 ```text
 Copyright (c) 2017 Maik Klein
@@ -7434,7 +7469,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T59
+### T60
 
 ```text
 Copyright (c) 2016--2023
@@ -7464,40 +7499,10 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T60
-
-```text
-Copyright (c) 2014 Chris Wong
-
-Permission is hereby granted, free of charge, to any
-person obtaining a copy of this software and associated
-documentation files (the "Software"), to deal in the
-Software without restriction, including without
-limitation the rights to use, copy, modify, merge,
-publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software
-is furnished to do so, subject to the following
-conditions:
-
-The above copyright notice and this permission notice
-shall be included in all copies or substantial portions
-of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
-ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
-TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
-PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
-SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-DEALINGS IN THE SOFTWARE.
-```
-
 ### T61
 
 ```text
-MIT License
+Copyright (c) 2014 Chris Wong
 
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
@@ -7529,6 +7534,36 @@ DEALINGS IN THE SOFTWARE.
 ```text
 MIT License
 
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+```
+
+### T63
+
+```text
+MIT License
+
 Copyright (c) 2016-2021 Diggory Blake, and other contributors.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -7550,7 +7585,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### T63
+### T64
 
 ```text
 Copyright (c) 2014-2026 Alex Crichton
@@ -7580,7 +7615,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T64
+### T65
 
 ```text
 Copyright (c) 2017 Contributors
@@ -7610,7 +7645,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T65
+### T66
 
 ```text
 Copyright (c) 2024 Orson Peters
@@ -7634,7 +7669,7 @@ the following restrictions:
 3. This notice may not be removed or altered from any source distribution.
 ```
 
-### T66
+### T67
 
 ```text
 Copyright (c) 2013-2016 The rust-url developers
@@ -7664,7 +7699,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T67
+### T68
 
 ```text
 Apache License
@@ -7871,7 +7906,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-### T68
+### T69
 
 ```text
 Copyright (c) 2016 Alex Crichton
@@ -7902,7 +7937,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T69
+### T70
 
 ```text
 The MIT License (MIT)
@@ -7928,7 +7963,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### T70
+### T71
 
 ```text
 Apache License
@@ -8134,7 +8169,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-### T71
+### T72
 
 ```text
 Copyright (c) 2018-2024 The rust-random Project Developers
@@ -8165,7 +8200,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T72
+### T73
 
 ```text
 Copyright (c) 2018-2025 The rust-random Project Developers
@@ -8196,7 +8231,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T73
+### T74
 
 ```text
 Copyright (c) 2018-2026 The rust-random Project Developers
@@ -8227,7 +8262,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T74
+### T75
 
 ```text
 Copyright (c) 2016 Amanieu d'Antras
@@ -8257,7 +8292,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T75
+### T76
 
 ```text
 Copyright (c) 2015 The Rust Project Developers
@@ -8287,7 +8322,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T76
+### T77
 
 ```text
 Copyright (c) 2013-2014 The Rust Project Developers.
@@ -8312,7 +8347,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### T77
+### T78
 
 ```text
 Copyright (c) 2014 The html5ever Project Developers
@@ -8342,7 +8377,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T78
+### T79
 
 ```text
 Apache License
@@ -8548,7 +8583,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-### T79
+### T80
 
 ```text
 Copyright (c) 2017 http-rs authors
@@ -8578,7 +8613,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T80
+### T81
 
 ```text
 Copyright (c) 2019-2026 Sean McArthur & Hyper Contributors
@@ -8608,7 +8643,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T81
+### T82
 
 ```text
 Copyright (c) 2015-2025 Sean McArthur
@@ -8632,7 +8667,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### T82
+### T83
 
 ```text
 Copyright (c) 2014-2026 Sean McArthur
@@ -8656,7 +8691,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### T83
+### T84
 
 ```text
 ISC License (ISC)
@@ -8676,7 +8711,7 @@ ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
 ```
 
-### T84
+### T85
 
 ```text
 Copyright (c) 2016 Joseph Birr-Pixton <jpixton@gmail.com>
@@ -8706,7 +8741,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T85
+### T86
 
 ```text
 Copyright (c) 2023-2025 Sean McArthur
@@ -8730,7 +8765,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### T86
+### T87
 
 ```text
 Apache License
@@ -8936,7 +8971,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-### T87
+### T88
 
 ```text
 Copyright (c) 2020 Andrew D. Straw
@@ -8966,7 +9001,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T88
+### T89
 
 ```text
 MIT License
@@ -8992,7 +9027,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### T89
+### T90
 
 ```text
 UNICODE LICENSE V3
@@ -9043,7 +9078,7 @@ Portions of ICU4X may have been adapted from ICU4C and/or ICU4J.
 ICU 1.8.1 to ICU 57.1 © 1995-2016 International Business Machines Corporation and others.
 ```
 
-### T90
+### T91
 
 ```text
 Copyright (c) 2013-2025 The rust-url developers
@@ -9073,7 +9108,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T91
+### T92
 
 ```text
 Copyright (c) The rust-url developers
@@ -9103,7 +9138,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T92
+### T93
 
 ```text
 Copyright (c) 2016--2017
@@ -9133,7 +9168,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T93
+### T94
 
 ```text
 MIT License
@@ -9159,7 +9194,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### T94
+### T95
 
 ```text
 Copyright (c) Hanno Braun and contributors
@@ -9177,7 +9212,7 @@ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
 ```
 
-### T95
+### T96
 
 ```text
 Apache License
@@ -9383,7 +9418,7 @@ Apache License
    limitations under the License.
 ```
 
-### T96
+### T97
 
 ```text
 Copyright 2017 Juniper Networks, Inc.
@@ -9395,7 +9430,7 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### T97
+### T98
 
 ```text
 MIT License
@@ -9421,7 +9456,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### T98
+### T99
 
 ```text
 The MIT License (MIT)
@@ -9448,7 +9483,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### T99
+### T100
 
 ```text
 The MIT License (MIT)
@@ -9474,7 +9509,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### T100
+### T101
 
 ```text
 MIT License
@@ -9500,7 +9535,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### T101
+### T102
 
 ```text
 Apache License
@@ -9706,7 +9741,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-### T102
+### T103
 
 ```text
 MIT License
@@ -9732,7 +9767,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### T103
+### T104
 
 ```text
 Copyright (c) 2017 Pyfisch
@@ -9756,7 +9791,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### T104
+### T105
 
 ```text
 MIT License
@@ -9783,7 +9818,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### T105
+### T106
 
 ```text
 Copyright (c) The Rust Project Developers
@@ -9813,7 +9848,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T106
+### T107
 
 ```text
 Copyright © 2015, Simonas Kazlauskas
@@ -9830,7 +9865,7 @@ NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE US
 THIS SOFTWARE.
 ```
 
-### T107
+### T108
 
 ```text
 Copyright (c) 2014 Alex Crichton
@@ -9861,7 +9896,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T108
+### T109
 
 ```text
 Short version for non-lawyers:
@@ -9895,7 +9930,7 @@ is licensed under:
 at your option.
 ```
 
-### T109
+### T110
 
 ```text
 Apache License
@@ -10118,7 +10153,7 @@ the License, but only in their entirety and only with respect to the Combined
 Software.
 ```
 
-### T110
+### T111
 
 ```text
 Copyright (c) 2016 The Rust Project Developers
@@ -10148,7 +10183,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T111
+### T112
 
 ```text
 Copyright (c) 2024 The lru-slab Developers
@@ -10160,7 +10195,7 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### T112
+### T113
 
 ```text
 Copyright (c) 2024 The lru-slab Developers
@@ -10184,7 +10219,7 @@ the following restrictions:
 3. This notice may not be removed or altered from any source distribution.
 ```
 
-### T113
+### T114
 
 ```text
 Copyright (c) 2017 Gilad Naaman
@@ -10208,7 +10243,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### T114
+### T115
 
 ```text
 Copyright (c) 2014 Sean McArthur
@@ -10232,7 +10267,71 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### T115
+### T116
+
+```text
+Copyright (c) 2019-2025 Frank Denis
+
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+--
+
+Code in the src/crypto folder is derived from the rust-crypto project:
+https://github.com/DaGenix/rust-crypto
+
+Original ISC license follows:
+
+Copyright (c) 2006-2009 Graydon Hoare
+Copyright (c) 2009-2013 Mozilla Foundation
+
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+```
+
+### T117
 
 ```text
 MIT License
@@ -10262,7 +10361,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### T116
+### T118
 
 ```text
 Copyright 2013-2014 RAD Game Tools and Valve Software
@@ -10281,7 +10380,7 @@ Permission is granted to anyone to use this software for any purpose, including 
 3. This notice may not be removed or altered from any source distribution.
 ```
 
-### T117
+### T119
 
 ```text
 Copyright (c) 2014 Carl Lerche and other MIO contributors
@@ -10305,7 +10404,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### T118
+### T120
 
 ```text
 MIT License
@@ -10331,7 +10430,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### T119
+### T121
 
 ```text
 SPDXVersion: SPDX-2.1
@@ -10355,7 +10454,7 @@ PackageDownloadLocation: git+ssh://github.com/tauri-apps/muda.git
 Creator: Person: Daniel Thompson-Yvetot
 ```
 
-### T120
+### T122
 
 ```text
 Copyright (c) 2015 Jonathan Reem
@@ -10385,7 +10484,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T121
+### T123
 
 ```text
 Creative Commons CC0 1.0 Universal
@@ -10431,7 +10530,7 @@ For these and/or other purposes and motivations, and without any expectation of 
      d. Affirmer understands and acknowledges that Creative Commons is not a party to this document and has no duty or obligation with respect to this CC0 or use of the Work.
 ```
 
-### T122
+### T124
 
 ```text
 Apache License
@@ -10637,7 +10736,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-### T123
+### T125
 
 ```text
 Copyright (c) 2023 Notify Contributors
@@ -10667,7 +10766,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T124
+### T126
 
 ```text
 Copyright (c) Jacob Pratt
@@ -10691,7 +10790,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### T125
+### T127
 
 ```text
 The MIT License (MIT)
@@ -10721,7 +10820,7 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### T126
+### T128
 
 ```text
 Mozilla Public License Version 2.0
@@ -11099,7 +11198,7 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
   defined by the Mozilla Public License, v. 2.0.
 ```
 
-### T127
+### T129
 
 ```text
 ===============================================================================
@@ -11113,7 +11212,7 @@ option. All files in the project carrying such notice may not be
 copied, modified, or distributed except according to those terms.
 ```
 
-### T128
+### T130
 
 ```text
 The MIT License (MIT)
@@ -11138,7 +11237,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### T129
+### T131
 
 ```text
 Copyright (c) 2015 Edward Barnard
@@ -11162,7 +11261,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### T130
+### T132
 
 ```text
 Copyright (c) 2015 nwin
@@ -11192,7 +11291,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T131
+### T133
 
 ```text
 Apache License
@@ -11398,7 +11497,7 @@ Apache License
    limitations under the License.
 ```
 
-### T132
+### T134
 
 ```text
 Copyright (c) 2023 Jacob Pratt et al.
@@ -11422,7 +11521,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### T133
+### T135
 
 ```text
 MIT License
@@ -11448,7 +11547,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### T134
+### T136
 
 ```text
 Apache License
@@ -11654,7 +11753,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-### T135
+### T137
 
 ```text
 MIT License
@@ -11680,7 +11779,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### T136
+### T138
 
 ```text
 The MIT License (MIT)
@@ -11708,7 +11807,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### T137
+### T139
 
 ```text
 Copyright (c) 2018 The quinn Developers
@@ -11720,7 +11819,7 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### T138
+### T140
 
 ```text
 Copyrights in the Rand project are retained by their contributors. No
@@ -11737,7 +11836,7 @@ The Rand project includes code from the Rust project
 published under these same licenses.
 ```
 
-### T139
+### T141
 
 ```text
 Apache License
@@ -11918,7 +12017,7 @@ TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
 END OF TERMS AND CONDITIONS
 ```
 
-### T140
+### T142
 
 ```text
 Copyright 2018 Developers of the Rand project
@@ -11949,7 +12048,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T141
+### T143
 
 ```text
 Copyrights in the Rand project are retained by their contributors. No
@@ -11963,7 +12062,7 @@ licensed under the Apache License, Version 2.0 <LICENSE-APACHE> or
 <LICENSE-MIT> or <http://opensource.org/licenses/MIT>, at your option.
 ```
 
-### T142
+### T144
 
 ```text
 Apache License
@@ -12155,7 +12254,7 @@ APPENDIX: How to apply the Apache License to your work.
    identification within third-party archives.
 ```
 
-### T143
+### T145
 
 ```text
 Copyright (c) 2018-2026 The Rand Project Developers
@@ -12185,7 +12284,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T144
+### T146
 
 ```text
 Copyright (c) 2014-2017 Melissa O'Neill and PCG Project contributors
@@ -12216,7 +12315,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T145
+### T147
 
 ```text
 MIT License
@@ -12242,7 +12341,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### T146
+### T148
 
 ```text
 Copyright (c) 2020 Osspial
@@ -12258,7 +12357,7 @@ Permission is granted to anyone to use this software for any purpose, including 
 3. This notice may not be removed or altered from any source distribution.
 ```
 
-### T147
+### T149
 
 ```text
 Apache License
@@ -12464,7 +12563,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-### T148
+### T150
 
 ```text
 Copyright (c) 2016-2025 Sean McArthur
@@ -12488,7 +12587,31 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### T149
+### T151
+
+```text
+Copyright (c) 2016-2026 Sean McArthur
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+```
+
+### T152
 
 ```text
 MIT License
@@ -12514,7 +12637,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### T150
+### T153
 
 ```text
 *ring* uses an "ISC" license, like BoringSSL used to use, for new code
@@ -12528,7 +12651,7 @@ See src/polyfill/once_cell/LICENSE-APACHE and src/polyfill/once_cell/LICENSE-MIT
 for the license to code that was sourced from the once_cell project.
 ```
 
-### T151
+### T154
 
 ```text
 Apache License
@@ -12804,7 +12927,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-### T152
+### T155
 
 ```text
 Copyright 2015-2025 Brian Smith.
@@ -12822,7 +12945,7 @@ OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
-### T153
+### T156
 
 ```text
 Short version for non-lawyers:
@@ -12856,7 +12979,21 @@ is licensed under:
 at your option.
 ```
 
-### T154
+### T157
+
+```text
+Rustls is distributed under the following three licenses:
+
+- Apache License version 2.0.
+- MIT license.
+- ISC license.
+
+These are included as LICENSE-APACHE, LICENSE-MIT and LICENSE-ISC
+respectively.  You may use this software under the terms of any
+of these licenses, at your option.
+```
+
+### T158
 
 ```text
 Apache License
@@ -13062,7 +13199,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-### T155
+### T159
 
 ```text
 Copyright (c) 2023 Dirkjan Ochtman <dirkjan@ochtman.nl>
@@ -13092,7 +13229,33 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T156
+### T160
+
+```text
+MIT License
+
+Copyright (c) 2022 1Password
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+### T161
 
 ```text
 Except as otherwise noted, this project is licensed under the following
@@ -13116,7 +13279,7 @@ The files under third-party/chromium are licensed as described in
 third-party/chromium/LICENSE.
 ```
 
-### T157
+### T162
 
 ```text
 Boost Software License - Version 1.0 - August 17th, 2003
@@ -13144,7 +13307,7 @@ ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T158
+### T163
 
 ```text
 The MIT License (MIT)
@@ -13170,7 +13333,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### T159
+### T164
 
 ```text
 MIT License
@@ -13196,7 +13359,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### T160
+### T165
 
 ```text
 Copyright (c) 2016-2019 Ulrik Sverdrup "bluss" and scopeguard developers
@@ -13226,7 +13389,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T161
+### T166
 
 ```text
 Copyright (c) Individual contributors
@@ -13250,7 +13413,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### T162
+### T167
 
 ```text
 Apache License
@@ -13456,7 +13619,7 @@ Apache License
    limitations under the License.
 ```
 
-### T163
+### T168
 
 ```text
 Copyright (c) 2016 Anthony Ramine
@@ -13486,142 +13649,10 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T164
-
-```text
-Copyright (c) 2015
-
-Permission is hereby granted, free of charge, to any
-person obtaining a copy of this software and associated
-documentation files (the "Software"), to deal in the
-Software without restriction, including without
-limitation the rights to use, copy, modify, merge,
-publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software
-is furnished to do so, subject to the following
-conditions:
-
-The above copyright notice and this permission notice
-shall be included in all copies or substantial portions
-of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
-ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
-TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
-PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
-SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-DEALINGS IN THE SOFTWARE.
-```
-
-### T165
-
-```text
-MIT License
-
-Copyright (c) 2021 Chip Reed
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
-
-### T166
-
-```text
-Copyright (c) 2006-2009 Graydon Hoare
-Copyright (c) 2009-2013 Mozilla Foundation
-Copyright (c) 2016 Artyom Pavlov
-
-Permission is hereby granted, free of charge, to any
-person obtaining a copy of this software and associated
-documentation files (the "Software"), to deal in the
-Software without restriction, including without
-limitation the rights to use, copy, modify, merge,
-publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software
-is furnished to do so, subject to the following
-conditions:
-
-The above copyright notice and this permission notice
-shall be included in all copies or substantial portions
-of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
-ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
-TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
-PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
-SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-DEALINGS IN THE SOFTWARE.
-```
-
-### T167
-
-```text
-Copyright 2015 Nicholas Allegra (comex).
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-```
-
-### T168
-
-```text
-The MIT License (MIT)
-
-Copyright (c) 2015 Nicholas Allegra (comex).
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
-```
-
 ### T169
 
 ```text
-Copyright (c) 2017 tokio-jsonrpc developers
+Copyright (c) 2015
 
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
@@ -13653,7 +13684,7 @@ DEALINGS IN THE SOFTWARE.
 ```text
 MIT License
 
-Copyright (c) [2021] [Marvin Countryman]
+Copyright (c) 2021 Chip Reed
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -13677,6 +13708,138 @@ SOFTWARE.
 ### T171
 
 ```text
+Copyright (c) 2006-2009 Graydon Hoare
+Copyright (c) 2009-2013 Mozilla Foundation
+Copyright (c) 2016 Artyom Pavlov
+
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+```
+
+### T172
+
+```text
+Copyright 2015 Nicholas Allegra (comex).
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+```
+
+### T173
+
+```text
+The MIT License (MIT)
+
+Copyright (c) 2015 Nicholas Allegra (comex).
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+```
+
+### T174
+
+```text
+Copyright (c) 2017 tokio-jsonrpc developers
+
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+```
+
+### T175
+
+```text
+MIT License
+
+Copyright (c) [2021] [Marvin Countryman]
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+### T176
+
+```text
 Copyright 2012-2016 The Rust Project Developers.
 Copyright 2016-2026 Frank Denis.
 
@@ -13686,7 +13849,7 @@ http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
 option.
 ```
 
-### T172
+### T177
 
 ```text
 Copyright (c) 2019 Carl Lerche
@@ -13716,7 +13879,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T173
+### T178
 
 ```text
 Copyright (c) 2018 The Servo Project Developers
@@ -13746,7 +13909,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T174
+### T179
 
 ```text
 Apache License
@@ -13952,7 +14115,7 @@ Apache License
    limitations under the License.
 ```
 
-### T175
+### T180
 
 ```text
 Copyright 2022 Kirill Chibisov
@@ -13976,7 +14139,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### T176
+### T181
 
 ```text
 Copyright (c) 2017 Robert Grosse
@@ -14006,13 +14169,13 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T177
+### T182
 
 ```text
 MIT OR Apache-2.0 OR Zlib
 ```
 
-### T178
+### T183
 
 ```text
 MIT License
@@ -14026,7 +14189,7 @@ The above copyright notice and this permission notice (including the next paragr
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### T179
+### T184
 
 ```text
 Copyright (c) 2021 Chris Denton.
@@ -14042,7 +14205,7 @@ Permission is granted to anyone to use this software for any purpose, including 
 3. This notice may not be removed or altered from any source distribution.
 ```
 
-### T180
+### T185
 
 ```text
 Copyright (c) 2012-2013 Mozilla Foundation
@@ -14072,7 +14235,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T181
+### T186
 
 ```text
 The MIT License (MIT)
@@ -14100,7 +14263,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### T182
+### T187
 
 ```text
 Copyright (c) 2016-2017 Isis Agora Lovecruft, Henry de Valence. All rights reserved.
@@ -14134,7 +14297,7 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-### T183
+### T188
 
 ```text
 Copyright 2016 Nika Layzell
@@ -14146,7 +14309,7 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### T184
+### T189
 
 ```text
 SPDXVersion: SPDX-2.1
@@ -14169,7 +14332,37 @@ PackageDownloadLocation: git+ssh://github.com/tauri-apps/tao.git
 Creator: Person: Daniel Thompson-Yvetot
 ```
 
-### T185
+### T190
+
+```text
+Copyright (c) The tar-rs Project Contributors
+
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+```
+
+### T191
 
 ```text
 MIT License
@@ -14195,7 +14388,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### T186
+### T192
 
 ```text
 SPDXVersion: SPDX-2.1
@@ -14220,7 +14413,7 @@ PackageDownloadLocation: git+ssh://github.com/tauri-apps/tauri.git
 Creator: Person: Daniel Thompson-Yvetot
 ```
 
-### T187
+### T193
 
 ```text
 The MIT License (MIT)
@@ -14253,7 +14446,37 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T188
+### T194
+
+```text
+Copyright (c) 2015 Steven Allen
+
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+```
+
+### T195
 
 ```text
 Copyright (c) 2015 Keegan McAllister
@@ -14283,7 +14506,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T189
+### T196
 
 ```text
 Copyright (c) Jacob Pratt et al.
@@ -14307,7 +14530,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### T190
+### T197
 
 ```text
 Copyright (c) 2019 Daniel "Lokathor" Gee.
@@ -14323,7 +14546,7 @@ Permission is granted to anyone to use this software for any purpose, including 
 3. This notice may not be removed or altered from any source distribution.
 ```
 
-### T191
+### T198
 
 ```text
 MIT License
@@ -14349,7 +14572,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### T192
+### T199
 
 ```text
 Apache License
@@ -14555,7 +14778,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-### T193
+### T200
 
 ```text
 Copyright (c) 2017 quininer kel
@@ -14585,7 +14808,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T194
+### T201
 
 ```text
 Copyright (c) 2019 Tower Contributors
@@ -14615,7 +14838,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T195
+### T202
 
 ```text
 Copyright (c) 2019-2021 Tower Contributors
@@ -14645,7 +14868,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T196
+### T203
 
 ```text
 Copyright (c) 2019 Tokio Contributors
@@ -14675,7 +14898,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T197
+### T204
 
 ```text
 SPDXVersion: SPDX-2.1
@@ -14699,7 +14922,7 @@ PackageDownloadLocation: git+ssh://github.com/tauri-apps/tray-icon.git
 Creator: Person: Daniel Thompson-Yvetot
 ```
 
-### T198
+### T205
 
 ```text
 Copyright (c) 2018-2023 Sean McArthur
@@ -14724,13 +14947,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### T199
+### T206
 
 ```text
 MIT OR Apache-2.0
 ```
 
-### T200
+### T207
 
 ```text
 Apache License
@@ -14936,7 +15159,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-### T201
+### T208
 
 ```text
 The MIT License (MIT)
@@ -14962,7 +15185,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### T202
+### T209
 
 ```text
 UNICODE LICENSE V3
@@ -15006,7 +15229,7 @@ dealings in these Data Files or Software without prior written
 authorization of the copyright holder.
 ```
 
-### T203
+### T210
 
 ```text
 Licensed under the Apache License, Version 2.0
@@ -15018,7 +15241,7 @@ notice may not be copied, modified, or distributed except
 according to those terms.
 ```
 
-### T204
+### T211
 
 ```text
 // Copyright 2015-2016 Brian Smith.
@@ -15036,7 +15259,7 @@ according to those terms.
 // OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
-### T205
+### T212
 
 ```text
 MIT License
@@ -15062,7 +15285,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### T206
+### T213
 
 ```text
 Copyright Mozilla Foundation
@@ -15109,7 +15332,7 @@ licensed under the Apache License, Version 2.0 <LICENSE-APACHE> or
 <LICENSE-MIT> or <http://opensource.org/licenses/MIT>, at your option.
 ```
 
-### T207
+### T214
 
 ```text
 Copyright Mozilla Foundation
@@ -15139,7 +15362,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T208
+### T215
 
 ```text
 Copyright (c) 2014 The Rust Project Developers
@@ -15170,7 +15393,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T209
+### T216
 
 ```text
 Copyright (c) 2017 Jim McGrath
@@ -15200,7 +15423,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T210
+### T217
 
 ```text
 Copyright (c) 2017 Tim Visée
@@ -15224,7 +15447,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### T211
+### T218
 
 ```text
 The MIT License (MIT)
@@ -15248,7 +15471,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### T212
+### T219
 
 ```text
 The MIT License (MIT)
@@ -15274,7 +15497,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### T213
+### T220
 
 ```text
 Copyright (c) 2018-2019 Sean McArthur
@@ -15298,7 +15521,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### T214
+### T221
 
 ```text
 Apache License
@@ -15504,7 +15727,7 @@ Apache License
    limitations under the License.
 ```
 
-### T215
+### T222
 
 ```text
 MIT License
@@ -15530,7 +15753,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### T216
+### T223
 
 ```text
 Copyright (c) 2016 Boucher, Antoni <bouanto@zoho.com>
@@ -15555,7 +15778,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### T217
+### T224
 
 ```text
 Copyright (c) 2016 Boucher, Antoni <bouanto@zoho.com>
@@ -15578,7 +15801,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### T218
+### T225
 
 ```text
 # Community Data License Agreement - Permissive - Version 2.0
@@ -15644,7 +15867,7 @@ of Data, including for example machine learning models and models'
 insights.
 ```
 
-### T219
+### T226
 
 ```text
 MIT License
@@ -15670,7 +15893,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### T220
+### T227
 
 ```text
 SPDXVersion: SPDX-2.1
@@ -15694,7 +15917,7 @@ PackageDownloadLocation: git+ssh://github.com/tauri-apps/window-vibrancy.git
 Creator: Person: Daniel Thompson-Yvetot
 ```
 
-### T221
+### T228
 
 ```text
 Apache License
@@ -15900,7 +16123,7 @@ Apache License
    limitations under the License.
 ```
 
-### T222
+### T229
 
 ```text
 MIT License
@@ -15926,7 +16149,7 @@ MIT License
     SOFTWARE
 ```
 
-### T223
+### T230
 
 ```text
 Copyright (c) 2015 Igor Shaula
@@ -15950,7 +16173,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### T224
+### T231
 
 ```text
 MIT License
@@ -15976,7 +16199,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### T225
+### T232
 
 ```text
 SPDXVersion: SPDX-2.1
@@ -16001,7 +16224,7 @@ PackageDownloadLocation: git+ssh://github.com/tauri-apps/wry.git
 Creator: Person: Daniel Thompson-Yvetot
 ```
 
-### T226
+### T233
 
 ```text
 Copyright (c) 2024 Zeeshan Ali Khan & zbus contributors
@@ -16031,7 +16254,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T227
+### T234
 
 ```text
 Copyright (c) 2026 Zeeshan Ali Khan & zcheapstr contributors
@@ -16061,7 +16284,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T228
+### T235
 
 ```text
 Copyright (c) 2018-2026 The RustCrypto Project Developers
@@ -16091,7 +16314,33 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### T229
+### T236
+
+```text
+The MIT License (MIT)
+
+Copyright (c) 2014 Mathijs van de Nes
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+### T237
 
 ```text
 (C) 2024 Trifecta Tech Foundation 
